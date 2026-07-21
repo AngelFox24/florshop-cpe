@@ -53,3 +53,53 @@ import Testing
     #expect(boleta.lines.count == 1)
     #expect(boleta.taxTotal.subtotals.first?.category.scheme == .igv)
 }
+
+@Test func transformerGeneratesUBLInvoiceXML() {
+    let currency: CurrencyCode = .pen
+    let taxCategory = TaxCategory(percent: 18, exemptionReasonCode: .gravadoOperacionOnerosa, scheme: .igv)
+    let taxTotal = TaxTotal(
+        amount: MonetaryAmount(value: 18, currency: currency),
+        subtotals: [TaxSubtotal(
+            taxableAmount: MonetaryAmount(value: 100, currency: currency),
+            taxAmount: MonetaryAmount(value: 18, currency: currency),
+            category: taxCategory
+        )]
+    )
+    let boleta = Boleta(
+        identifier: DocumentIdentifier(series: "B001", number: "1"),
+        issueDate: IssueDate(year: 2020, month: 8, day: 19),
+        issueTime: IssueTime(hour: 3, minute: 16, second: 38),
+        currency: currency,
+        amountInWords: InvoiceNote(text: "SON CIENTO DIECIOCHO CON 00/100 SOLES", localeID: "1000"),
+        supplier: Supplier(
+            taxIdentifier: PartyIdentifier(value: "20123456789", documentType: .ruc),
+            commercialName: "GREENTER",
+            legalName: "GREENTER S.A.C."
+        ),
+        customer: Customer(identifier: PartyIdentifier(value: "20203030", documentType: .dni), legalName: "PERSON 1"),
+        taxTotal: taxTotal,
+        monetaryTotal: MonetaryTotal(
+            lineExtensionAmount: MonetaryAmount(value: 100, currency: currency),
+            taxInclusiveAmount: MonetaryAmount(value: 118, currency: currency),
+            payableAmount: MonetaryAmount(value: 118, currency: currency)
+        ),
+        lines: [InvoiceLine(
+            id: "1",
+            quantity: Quantity(value: 2, unitCode: .unit),
+            lineExtensionAmount: MonetaryAmount(value: 100, currency: currency),
+            alternativePrices: [AlternativePrice(amount: MonetaryAmount(value: 59, currency: currency), type: .unitPriceIncludingTaxes)],
+            taxTotal: taxTotal,
+            item: Item(description: "PROD & SERVICIO", sellerItemIdentifier: "C023"),
+            price: MonetaryAmount(value: 50, currency: currency)
+        )]
+    )
+
+    let xml = UBLInvoiceXMLTransformer().transform(boleta)
+
+    #expect(xml.contains("<Invoice xmlns=\"urn:oasis:names:specification:ubl:schema:xsd:Invoice-2\""))
+    #expect(xml.contains("<cbc:ID>B001-1</cbc:ID>"))
+    #expect(xml.contains("<cbc:InvoiceTypeCode listID=\"0101\">03</cbc:InvoiceTypeCode>"))
+    #expect(xml.contains("<cbc:TaxAmount currencyID=\"PEN\">18</cbc:TaxAmount>"))
+    #expect(xml.contains("<cbc:Description>PROD &amp; SERVICIO</cbc:Description>"))
+    #expect(xml.hasSuffix("</Invoice>"))
+}
