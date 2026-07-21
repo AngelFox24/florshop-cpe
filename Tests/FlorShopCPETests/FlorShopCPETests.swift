@@ -70,7 +70,6 @@ import Testing
         issueDate: IssueDate(year: 2020, month: 8, day: 19),
         issueTime: IssueTime(hour: 3, minute: 16, second: 38),
         currency: currency,
-        amountInWords: InvoiceNote(text: "SON CIENTO DIECIOCHO CON 00/100 SOLES", localeID: "1000"),
         supplier: Supplier(
             taxIdentifier: PartyIdentifier(value: "20123456789", documentType: .ruc),
             commercialName: "GREENTER",
@@ -94,12 +93,22 @@ import Testing
         )]
     )
 
-    let xml = UBLInvoiceXMLTransformer().transform(boleta)
-
+    let xml = try! UBLInvoiceXMLTransformer().transform(boleta)
+    print(xml)
     #expect(xml.contains("<Invoice xmlns=\"urn:oasis:names:specification:ubl:schema:xsd:Invoice-2\""))
     #expect(xml.contains("<cbc:ID>B001-1</cbc:ID>"))
     #expect(xml.contains("<cbc:InvoiceTypeCode listID=\"0101\">03</cbc:InvoiceTypeCode>"))
+    #expect(xml.contains("<cbc:Note languageLocaleID=\"1000\">SON CIENTO DIECIOCHO CON 00/100 SOLES</cbc:Note>"))
     #expect(xml.contains("<cbc:TaxAmount currencyID=\"PEN\">18</cbc:TaxAmount>"))
     #expect(xml.contains("<cbc:Description>PROD &amp; SERVICIO</cbc:Description>"))
     #expect(xml.hasSuffix("</Invoice>"))
+}
+
+@Test func amountInWordsFormatterGeneratesSpanishSUNATLegend() throws {
+    let formatter = SpanishAmountInWordsFormatter()
+
+    #expect(try formatter.format(Decimal(string: "0.00")!, currency: .pen) == "SON CERO CON 00/100 SOLES")
+    #expect(try formatter.format(Decimal(string: "1.01")!, currency: .pen) == "SON UN CON 01/100 SOLES")
+    #expect(try formatter.format(Decimal(string: "118.00")!, currency: .pen) == "SON CIENTO DIECIOCHO CON 00/100 SOLES")
+    #expect(try formatter.format(Decimal(string: "1000000.50")!, currency: .usd) == "SON UN MILLÓN CON 50/100 DÓLARES AMERICANOS")
 }

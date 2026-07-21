@@ -2,9 +2,13 @@ import Foundation
 
 /// Genera el XML UBL 2.1 de una boleta sin firmarlo ni enviarlo a SUNAT.
 public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
-    public init() {}
+    private let amountInWordsFormatter: any AmountInWordsFormatting
 
-    public func transform(_ boleta: Boleta) -> String {
+    public init(amountInWordsFormatter: any AmountInWordsFormatting = SpanishAmountInWordsFormatter()) {
+        self.amountInWordsFormatter = amountInWordsFormatter
+    }
+
+    public func transform(_ boleta: Boleta) throws -> String {
         var writer = XMLWriter()
         writer.declaration()
         writer.open("Invoice", attributes: [
@@ -28,13 +32,11 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
             text: boleta.identifier.type.rawValue,
             attributes: ["listID": "0101"]
         )
-        if let note = boleta.amountInWords {
-            var attributes: [String: String] = [:]
-            if let localeID = note.localeID {
-                attributes["languageLocaleID"] = localeID
-            }
-            writer.element("cbc:Note", text: note.text, attributes: attributes)
-        }
+        let note = try amountInWordsFormatter.format(
+            boleta.monetaryTotal.payableAmount.value,
+            currency: boleta.monetaryTotal.payableAmount.currency
+        )
+        writer.element("cbc:Note", text: note, attributes: ["languageLocaleID": "1000"])
         writer.element("cbc:DocumentCurrencyCode", text: boleta.currency.rawValue)
 
         if let signature = boleta.signature {

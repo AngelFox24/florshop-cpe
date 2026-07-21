@@ -9,7 +9,6 @@ public struct Boleta: Codable, Equatable, Sendable {
     public let issueDate: IssueDate
     public let issueTime: IssueTime?
     public let currency: CurrencyCode
-    public let amountInWords: InvoiceNote?
     public let supplier: Supplier
     public let customer: Customer
     public let taxTotal: TaxTotal
@@ -24,7 +23,6 @@ public struct Boleta: Codable, Equatable, Sendable {
         issueDate: IssueDate,
         issueTime: IssueTime? = nil,
         currency: CurrencyCode,
-        amountInWords: InvoiceNote? = nil,
         supplier: Supplier,
         customer: Customer,
         taxTotal: TaxTotal,
@@ -38,7 +36,6 @@ public struct Boleta: Codable, Equatable, Sendable {
         self.issueDate = issueDate
         self.issueTime = issueTime
         self.currency = currency
-        self.amountInWords = amountInWords
         self.supplier = supplier
         self.customer = customer
         self.taxTotal = taxTotal
@@ -99,14 +96,4 @@ public enum CurrencyCode: String, Codable, Sendable {
     case pen = "PEN"
     case usd = "USD"
     case eur = "EUR"
-}
-
-public struct InvoiceNote: Codable, Equatable, Sendable {
-    public let text: String
-    public let localeID: String?
-
-    public init(text: String, localeID: String? = nil) {
-        self.text = text
-        self.localeID = localeID
-    }
 }
