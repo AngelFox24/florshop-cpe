@@ -214,7 +214,7 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
     }
 
     private func write(_ name: String, amount: MonetaryAmount, to writer: inout XMLWriter) {
-        writer.element(name, text: format(amount.value), attributes: ["currencyID": amount.currency.rawValue])
+        writer.element(name, text: formatMoney(amount.value), attributes: ["currencyID": amount.currency.rawValue])
     }
 
     private func format(_ date: IssueDate) -> String {
@@ -232,6 +232,16 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
         formatter.usesGroupingSeparator = false
         formatter.minimumFractionDigits = 0
         formatter.maximumFractionDigits = 6
+        return formatter.string(from: value as NSDecimalNumber) ?? NSDecimalNumber(decimal: value).stringValue
+    }
+
+    private func formatMoney(_ value: Decimal) -> String {
+        let formatter = NumberFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.numberStyle = .decimal
+        formatter.usesGroupingSeparator = false
+        formatter.minimumFractionDigits = 2
+        formatter.maximumFractionDigits = 2
         return formatter.string(from: value as NSDecimalNumber) ?? NSDecimalNumber(decimal: value).stringValue
     }
 }

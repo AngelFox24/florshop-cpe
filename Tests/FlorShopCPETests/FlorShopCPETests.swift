@@ -73,7 +73,17 @@ import Testing
         supplier: Supplier(
             taxIdentifier: PartyIdentifier(value: "20123456789", documentType: .ruc),
             commercialName: "GREENTER",
-            legalName: "GREENTER S.A.C."
+            legalName: "GREENTER S.A.C.",
+            address: Address(
+                ubigeoCode: "150101",
+                addressTypeCode: "0000",
+                urbanization: "CASUARINAS",
+                city: "LIMA",
+                department: "LIMA",
+                district: "LIMA",
+                line: "AV NEW DEÁL 123"
+            ),
+            contact: Contact(telephone: "01-234455", email: "admin@greenter.com")
         ),
         customer: Customer(identifier: PartyIdentifier(value: "20203030", documentType: .dni), legalName: "PERSON 1"),
         taxTotal: taxTotal,
@@ -99,7 +109,13 @@ import Testing
     #expect(xml.contains("<cbc:ID>B001-1</cbc:ID>"))
     #expect(xml.contains("<cbc:InvoiceTypeCode listID=\"0101\">03</cbc:InvoiceTypeCode>"))
     #expect(xml.contains("<cbc:Note languageLocaleID=\"1000\">SON CIENTO DIECIOCHO CON 00/100 SOLES</cbc:Note>"))
-    #expect(xml.contains("<cbc:TaxAmount currencyID=\"PEN\">18</cbc:TaxAmount>"))
+    #expect(xml.contains("<cbc:TaxAmount currencyID=\"PEN\">18.00</cbc:TaxAmount>"))
+    #expect(xml.contains("<cac:RegistrationAddress>"))
+    #expect(xml.contains("<cbc:AddressTypeCode>0000</cbc:AddressTypeCode>"))
+    #expect(xml.contains("<cbc:Line>AV NEW DEÁL 123</cbc:Line>"))
+    #expect(xml.contains("<cbc:Telephone>01-234455</cbc:Telephone>"))
+    #expect(xml.contains("<cbc:ElectronicMail>admin@greenter.com</cbc:ElectronicMail>"))
+    #expect(xml.contains("<cbc:PayableAmount currencyID=\"PEN\">118.00</cbc:PayableAmount>"))
     #expect(xml.contains("<cbc:Description>PROD &amp; SERVICIO</cbc:Description>"))
     #expect(xml.hasSuffix("</Invoice>"))
 }
