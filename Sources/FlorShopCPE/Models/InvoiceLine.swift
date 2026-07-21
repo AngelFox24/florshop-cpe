@@ -5,7 +5,7 @@ public struct InvoiceLine: Codable, Equatable, Sendable {
     public let quantity: Quantity
     public let lineExtensionAmount: MonetaryAmount
     public let alternativePrices: [AlternativePrice]
-    public let taxTotal: TaxTotal
+    public let taxTotal: LineTaxTotal
     public let item: Item
     public let price: MonetaryAmount
 
@@ -14,7 +14,7 @@ public struct InvoiceLine: Codable, Equatable, Sendable {
         quantity: Quantity,
         lineExtensionAmount: MonetaryAmount,
         alternativePrices: [AlternativePrice],
-        taxTotal: TaxTotal,
+        taxTotal: LineTaxTotal,
         item: Item,
         price: MonetaryAmount
     ) {

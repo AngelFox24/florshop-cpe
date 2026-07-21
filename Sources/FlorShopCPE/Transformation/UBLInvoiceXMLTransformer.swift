@@ -154,6 +154,21 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
             write("cbc:TaxableAmount", amount: subtotal.taxableAmount, to: &writer)
             write("cbc:TaxAmount", amount: subtotal.taxAmount, to: &writer)
             writer.open("cac:TaxCategory")
+            write(subtotal.scheme, to: &writer)
+            writer.close("cac:TaxCategory")
+            writer.close("cac:TaxSubtotal")
+        }
+        writer.close("cac:TaxTotal")
+    }
+
+    private func write(_ taxTotal: LineTaxTotal, to writer: inout XMLWriter) {
+        writer.open("cac:TaxTotal")
+        write("cbc:TaxAmount", amount: taxTotal.amount, to: &writer)
+        taxTotal.subtotals.forEach { subtotal in
+            writer.open("cac:TaxSubtotal")
+            write("cbc:TaxableAmount", amount: subtotal.taxableAmount, to: &writer)
+            write("cbc:TaxAmount", amount: subtotal.taxAmount, to: &writer)
+            writer.open("cac:TaxCategory")
             if let percent = subtotal.category.percent { writer.element("cbc:Percent", text: format(percent)) }
             if let code = subtotal.category.exemptionReasonCode { writer.element("cbc:TaxExemptionReasonCode", text: code.rawValue) }
             write(subtotal.category.scheme, to: &writer)

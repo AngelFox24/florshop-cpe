@@ -13,6 +13,30 @@ public struct TaxTotal: Codable, Equatable, Sendable {
 public struct TaxSubtotal: Codable, Equatable, Sendable {
     public let taxableAmount: MonetaryAmount
     public let taxAmount: MonetaryAmount
+    public let scheme: TaxScheme
+
+    public init(taxableAmount: MonetaryAmount, taxAmount: MonetaryAmount, scheme: TaxScheme) {
+        self.taxableAmount = taxableAmount
+        self.taxAmount = taxAmount
+        self.scheme = scheme
+    }
+}
+
+/// Impuestos aplicables a una línea de comprobante.
+/// Incluye la afectación y tasa que no se requieren en el resumen global.
+public struct LineTaxTotal: Codable, Equatable, Sendable {
+    public let amount: MonetaryAmount
+    public let subtotals: [LineTaxSubtotal]
+
+    public init(amount: MonetaryAmount, subtotals: [LineTaxSubtotal]) {
+        self.amount = amount
+        self.subtotals = subtotals
+    }
+}
+
+public struct LineTaxSubtotal: Codable, Equatable, Sendable {
+    public let taxableAmount: MonetaryAmount
+    public let taxAmount: MonetaryAmount
     public let category: TaxCategory
 
     public init(taxableAmount: MonetaryAmount, taxAmount: MonetaryAmount, category: TaxCategory) {

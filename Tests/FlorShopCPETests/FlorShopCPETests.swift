@@ -22,6 +22,14 @@ import Testing
         subtotals: [TaxSubtotal(
             taxableAmount: MonetaryAmount(value: 100, currency: .pen),
             taxAmount: MonetaryAmount(value: 18, currency: .pen),
+            scheme: .igv
+        )]
+    )
+    let lineTaxTotal = LineTaxTotal(
+        amount: MonetaryAmount(value: 18, currency: .pen),
+        subtotals: [LineTaxSubtotal(
+            taxableAmount: MonetaryAmount(value: 100, currency: .pen),
+            taxAmount: MonetaryAmount(value: 18, currency: .pen),
             category: taxCategory
         )]
     )
@@ -30,7 +38,7 @@ import Testing
         quantity: Quantity(value: 2, unitCode: .unit),
         lineExtensionAmount: MonetaryAmount(value: 100, currency: .pen),
         alternativePrices: [AlternativePrice(amount: amount, type: .unitPriceIncludingTaxes)],
-        taxTotal: taxTotal,
+        taxTotal: lineTaxTotal,
         item: Item(description: "PROD 1", sellerItemIdentifier: "C023"),
         price: MonetaryAmount(value: 50, currency: .pen)
     )
@@ -51,7 +59,7 @@ import Testing
 
     #expect(boleta.identifier.value == "B001-1")
     #expect(boleta.lines.count == 1)
-    #expect(boleta.taxTotal.subtotals.first?.category.scheme == .igv)
+    #expect(boleta.taxTotal.subtotals.first?.scheme == .igv)
 }
 
 @Test func transformerGeneratesUBLInvoiceXML() {
@@ -60,6 +68,14 @@ import Testing
     let taxTotal = TaxTotal(
         amount: MonetaryAmount(value: 18, currency: currency),
         subtotals: [TaxSubtotal(
+            taxableAmount: MonetaryAmount(value: 100, currency: currency),
+            taxAmount: MonetaryAmount(value: 18, currency: currency),
+            scheme: .igv
+        )]
+    )
+    let lineTaxTotal = LineTaxTotal(
+        amount: MonetaryAmount(value: 18, currency: currency),
+        subtotals: [LineTaxSubtotal(
             taxableAmount: MonetaryAmount(value: 100, currency: currency),
             taxAmount: MonetaryAmount(value: 18, currency: currency),
             category: taxCategory
@@ -97,7 +113,7 @@ import Testing
             quantity: Quantity(value: 2, unitCode: .unit),
             lineExtensionAmount: MonetaryAmount(value: 100, currency: currency),
             alternativePrices: [AlternativePrice(amount: MonetaryAmount(value: 59, currency: currency), type: .unitPriceIncludingTaxes)],
-            taxTotal: taxTotal,
+            taxTotal: lineTaxTotal,
             item: Item(description: "PROD & SERVICIO", sellerItemIdentifier: "C023"),
             price: MonetaryAmount(value: 50, currency: currency)
         )]
@@ -110,6 +126,7 @@ import Testing
     #expect(xml.contains("<cbc:InvoiceTypeCode listID=\"0101\">03</cbc:InvoiceTypeCode>"))
     #expect(xml.contains("<cbc:Note languageLocaleID=\"1000\">SON CIENTO DIECIOCHO CON 00/100 SOLES</cbc:Note>"))
     #expect(xml.contains("<cbc:TaxAmount currencyID=\"PEN\">18.00</cbc:TaxAmount>"))
+    #expect(xml.contains("<cac:TaxCategory>\n            <cac:TaxScheme>"))
     #expect(xml.contains("<cac:RegistrationAddress>"))
     #expect(xml.contains("<cbc:AddressTypeCode>0000</cbc:AddressTypeCode>"))
     #expect(xml.contains("<cbc:Line>AV NEW DEÁL 123</cbc:Line>"))
