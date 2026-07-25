@@ -1,0 +1,6 @@
+module CXMLSec [system] {
+    header "include/shim.h"
+    link "xmlsec1"
+    link "xmlsec1-openssl"
+    export *
+}

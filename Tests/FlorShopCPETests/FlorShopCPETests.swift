@@ -120,7 +120,6 @@ import Testing
     )
 
     let xml = try! UBLInvoiceXMLTransformer().transform(boleta)
-    print(xml)
     #expect(xml.contains("<Invoice xmlns=\"urn:oasis:names:specification:ubl:schema:xsd:Invoice-2\""))
     #expect(xml.contains("<cbc:ID>B001-1</cbc:ID>"))
     #expect(xml.contains("<cbc:InvoiceTypeCode listID=\"0101\">03</cbc:InvoiceTypeCode>"))
@@ -144,4 +143,126 @@ import Testing
     #expect(try formatter.format(Decimal(string: "1.01")!, currency: .pen) == "SON UN CON 01/100 SOLES")
     #expect(try formatter.format(Decimal(string: "118.00")!, currency: .pen) == "SON CIENTO DIECIOCHO CON 00/100 SOLES")
     #expect(try formatter.format(Decimal(string: "1000000.50")!, currency: .usd) == "SON UN MILLÓN CON 50/100 DÓLARES AMERICANOS")
+}
+
+@Test func signerRejectsAnInvalidSignatureReferenceBeforeUsingTheCertificate() {
+    let signer = XMLSecBoletaSigner()
+    let configuration = SigningConfiguration(
+        signature: SignatureInformation(
+            identifier: "20123456789",
+            signatoryIdentifier: "20123456789",
+            signatoryName: "GREENTER S.A.C.",
+            uri: "GREENTER-SIGN"
+        ),
+        credentials: .pkcs12(path: URL(fileURLWithPath: "/not-used.pfx"), passwordProvider: { "" })
+    )
+
+    #expect(throws: BoletaSigningError.invalidSignatureURI) {
+        try signer.sign(makeBoleta(), configuration: configuration)
+    }
+}
+
+/// Prueba de integración opcional. Para activarla, define ambas variables de entorno:
+/// `FLORSHOP_CPE_TEST_PFX_PATH` y `FLORSHOP_CPE_TEST_PFX_PASSWORD`.
+@Test func signerCreatesXMLDSIGWithConfiguredPKCS12Certificate() throws {
+    let environment = ProcessInfo.processInfo.environment
+    guard let certificatePath = environment["FLORSHOP_CPE_TEST_PFX_PATH"],
+          let certificatePassword = environment["FLORSHOP_CPE_TEST_PFX_PASSWORD"] else {
+        return
+    }
+
+    let configuration = SigningConfiguration(
+        signature: SignatureInformation(
+            identifier: "20123456789",
+            signatoryIdentifier: "20123456789",
+            signatoryName: "GREENTER S.A.C.",
+            uri: "#GREENTER-SIGN"
+        ),
+        credentials: .pkcs12(
+            path: URL(fileURLWithPath: certificatePath),
+            passwordProvider: { certificatePassword }
+        )
+    )
+
+    let signedBoleta = try XMLSecBoletaSigner().sign(makeBoleta(), configuration: configuration)
+    let signedXML = try #require(signedBoleta.xmlString)
+
+    #expect(signedXML.contains("<cac:Signature>"))
+    #expect(signedXML.contains("<ds:Signature"))
+    #expect(signedXML.contains("Id=\"GREENTER-SIGN\""))
+    #expect(signedXML.contains("<ds:SignatureValue>"))
+    #expect(signedXML.contains("<ds:X509Certificate>"))
+}
+
+/// Prueba de integración opcional. Requiere las mismas variables de entorno que
+/// `signerCreatesXMLDSIGWithConfiguredPKCS12Certificate`.
+@Test func verifierAcceptsTheGeneratedXMLDSIG() throws {
+    guard let configuration = integrationSigningConfiguration() else {
+        return
+    }
+
+    let signedBoleta = try XMLSecBoletaSigner().sign(makeBoleta(), configuration: configuration)
+
+    #expect(try XMLSecSignatureVerifier().verify(signedBoleta.xml))
+}
+
+/// Prueba de integración opcional. Requiere las mismas variables de entorno que
+/// `signerCreatesXMLDSIGWithConfiguredPKCS12Certificate`.
+@Test func verifierRejectsXMLModifiedAfterSigning() throws {
+    guard let configuration = integrationSigningConfiguration() else {
+        return
+    }
+
+    let signedBoleta = try XMLSecBoletaSigner().sign(makeBoleta(), configuration: configuration)
+    let signedXML = try #require(signedBoleta.xmlString)
+    let alteredXML = signedXML.replacingOccurrences(of: "PRODUCTO", with: "PRODUCTA")
+
+    #expect(try !XMLSecSignatureVerifier().verify(Data(alteredXML.utf8)))
+}
+
+private func integrationSigningConfiguration() -> SigningConfiguration? {
+    let environment = ProcessInfo.processInfo.environment
+    guard let certificatePath = environment["FLORSHOP_CPE_TEST_PFX_PATH"],
+          let certificatePassword = environment["FLORSHOP_CPE_TEST_PFX_PASSWORD"] else {
+        return nil
+    }
+
+    return SigningConfiguration(
+        signature: SignatureInformation(
+            identifier: "20123456789",
+            signatoryIdentifier: "20123456789",
+            signatoryName: "GREENTER S.A.C.",
+            uri: "#GREENTER-SIGN"
+        ),
+        credentials: .pkcs12(
+            path: URL(fileURLWithPath: certificatePath),
+            passwordProvider: { certificatePassword }
+        )
+    )
+}
+
+private func makeBoleta() -> Boleta {
+    let currency: CurrencyCode = .pen
+    let scheme = TaxScheme.igv
+    let lineTaxTotal = LineTaxTotal(
+        amount: MonetaryAmount(value: 18, currency: currency),
+        subtotals: [LineTaxSubtotal(
+            taxableAmount: MonetaryAmount(value: 100, currency: currency),
+            taxAmount: MonetaryAmount(value: 18, currency: currency),
+            category: TaxCategory(percent: 18, exemptionReasonCode: .gravadoOperacionOnerosa, scheme: scheme)
+        )]
+    )
+    return Boleta(
+        identifier: DocumentIdentifier(series: "B001", number: "1"),
+        issueDate: IssueDate(year: 2020, month: 8, day: 19),
+        currency: currency,
+        supplier: Supplier(taxIdentifier: PartyIdentifier(value: "20123456789", documentType: .ruc), legalName: "GREENTER S.A.C."),
+        customer: Customer(identifier: PartyIdentifier(value: "20203030", documentType: .dni), legalName: "PERSON 1"),
+        taxTotal: TaxTotal(
+            amount: MonetaryAmount(value: 18, currency: currency),
+            subtotals: [TaxSubtotal(taxableAmount: MonetaryAmount(value: 100, currency: currency), taxAmount: MonetaryAmount(value: 18, currency: currency), scheme: scheme)]
+        ),
+        monetaryTotal: MonetaryTotal(lineExtensionAmount: MonetaryAmount(value: 100, currency: currency), taxInclusiveAmount: MonetaryAmount(value: 118, currency: currency), payableAmount: MonetaryAmount(value: 118, currency: currency)),
+        lines: [InvoiceLine(id: "1", quantity: Quantity(value: 2, unitCode: .unit), lineExtensionAmount: MonetaryAmount(value: 100, currency: currency), alternativePrices: [], taxTotal: lineTaxTotal, item: Item(description: "PRODUCTO"), price: MonetaryAmount(value: 50, currency: currency))]
+    )
 }
