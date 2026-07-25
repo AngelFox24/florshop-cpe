@@ -9,7 +9,7 @@ public enum SunatCredentials: Sendable {
     /// Credenciales públicas del ambiente BETA. Solo requiere el RUC emisor.
     case beta(emitterRUC: String)
 
-    /// Credenciales SOL para una futura implementación de producción.
+    /// Credenciales SOL para producción.
     /// El usuario y la contraseña se proporcionan por cada invocación, por lo
     /// que una misma API puede atender a varios emisores.
     case sol(username: String, password: String)
@@ -20,25 +20,64 @@ public enum SunatBillSubmissionError: Error, Equatable {
     case invalidSOLCredentials
     case unableToReadZIP
     case invalidHTTPResponse
-    case unexpectedHTTPStatus(Int)
+    case unexpectedHTTPStatus(statusCode: Int, details: String?)
+    case soapFault(code: String?, message: String)
+    case invalidSunatResponse
+    case invalidCDR
     case transportFailed(String)
 }
 
-/// Acuse técnico del envío. El CDR y la respuesta SOAP se procesarán en la
-/// siguiente iteración.
-public struct SunatBillSubmissionReceipt: Sendable {
-    public let statusCode: Int
+public enum SunatBillSubmissionStatus: Sendable, Equatable {
+    case accepted
+    case acceptedWithObservations
+    case rejected
+}
 
-    public init(statusCode: Int) {
-        self.statusCode = statusCode
+public struct SunatObservation: Sendable, Equatable {
+    public let code: String?
+    public let description: String?
+
+    public init(code: String?, description: String?) {
+        self.code = code
+        self.description = description
+    }
+}
+
+/// Resultado de `sendBill` interpretado a partir del CDR entregado por SUNAT.
+public struct SunatBillSubmissionResult: Sendable {
+    public let status: SunatBillSubmissionStatus
+    public let responseCode: String
+    public let descriptions: [String]
+    public let observations: [SunatObservation]
+    public let cdrArchive: Data
+    public let cdrXML: Data
+
+    public init(
+        status: SunatBillSubmissionStatus,
+        responseCode: String,
+        descriptions: [String],
+        observations: [SunatObservation],
+        cdrArchive: Data,
+        cdrXML: Data
+    ) {
+        self.status = status
+        self.responseCode = responseCode
+        self.descriptions = descriptions
+        self.observations = observations
+        self.cdrArchive = cdrArchive
+        self.cdrXML = cdrXML
     }
 }
 
 public struct SunatHTTPResponse: Sendable {
     public let statusCode: Int
+    public let body: Data
+    public let contentType: String?
 
-    public init(statusCode: Int) {
+    public init(statusCode: Int, body: Data = Data(), contentType: String? = nil) {
         self.statusCode = statusCode
+        self.body = body
+        self.contentType = contentType
     }
 }
 
@@ -51,11 +90,15 @@ public struct URLSessionSunatHTTPTransport: SunatHTTPTransport {
     public init() {}
 
     public func send(_ request: URLRequest) async throws -> SunatHTTPResponse {
-        let (_, response) = try await URLSession.shared.data(for: request)
+        let (body, response) = try await URLSession.shared.data(for: request)
         guard let response = response as? HTTPURLResponse else {
             throw SunatBillSubmissionError.invalidHTTPResponse
         }
-        return SunatHTTPResponse(statusCode: response.statusCode)
+        return SunatHTTPResponse(
+            statusCode: response.statusCode,
+            body: body,
+            contentType: response.value(forHTTPHeaderField: "Content-Type")
+        )
     }
 }
 
@@ -79,12 +122,10 @@ public struct SunatBillClient {
     /// Envía un ZIP previamente generado. El endpoint y las credenciales SOAP
     /// se determinan a partir de `credentials`.
     ///
-    /// Esta primera versión no interpreta el cuerpo de la respuesta ni el CDR
-    /// devuelto por SUNAT.
     public func submit(
         zipAt zipURL: URL,
         credentials: SunatCredentials
-    ) async throws -> SunatBillSubmissionReceipt {
+    ) async throws -> SunatBillSubmissionResult {
         let configuration = try configuration(for: credentials)
 
         let package = try packageValidator.validate(zipAt: zipURL)
@@ -106,9 +147,21 @@ public struct SunatBillClient {
         do {
             let response = try await transport.send(request)
             guard (200 ... 299).contains(response.statusCode) else {
-                throw SunatBillSubmissionError.unexpectedHTTPStatus(response.statusCode)
+                do {
+                    _ = try SunatBillResponseParser.parse(response)
+                } catch let error as SunatBillSubmissionError {
+                    if case .soapFault = error {
+                        throw error
+                    }
+                } catch {
+                    // A non-SOAP response is reported below with its HTTP code.
+                }
+                throw SunatBillSubmissionError.unexpectedHTTPStatus(
+                    statusCode: response.statusCode,
+                    details: responseDiagnostic(from: response.body)
+                )
             }
-            return SunatBillSubmissionReceipt(statusCode: response.statusCode)
+            return try SunatBillResponseParser.parse(response)
         } catch let error as SunatBillSubmissionError {
             throw error
         } catch {
@@ -138,6 +191,14 @@ public struct SunatBillClient {
             )
         }
     }
+
+    private func responseDiagnostic(from body: Data) -> String? {
+        let maximumDiagnosticLength = 4_000
+        guard let text = String(data: body, encoding: .utf8) else { return nil }
+        let diagnostic = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !diagnostic.isEmpty else { return nil }
+        return String(diagnostic.prefix(maximumDiagnosticLength))
+    }
 }
 
 private struct SubmissionConfiguration {
@@ -154,9 +215,6 @@ private enum SunatSOAPRequestBuilder {
         username: String,
         password: String
     ) -> URLRequest {
-        let boundary = "FlorShopCPE-\(UUID().uuidString)"
-        let rootContentID = "soap-envelope@florshop-cpe"
-        let archiveContentID = "\(package.fileName)@florshop-cpe"
         let soapEnvelope = """
         <?xml version="1.0" encoding="UTF-8"?>
         <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ser="http://service.sunat.gob.pe" xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd">
@@ -171,34 +229,17 @@ private enum SunatSOAPRequestBuilder {
           <soapenv:Body>
             <ser:sendBill>
               <fileName>\(escaped(package.fileName))</fileName>
-              <contentFile>cid:\(archiveContentID)</contentFile>
+              <contentFile>\(archiveData.base64EncodedString())</contentFile>
             </ser:sendBill>
           </soapenv:Body>
         </soapenv:Envelope>
         """
 
-        var body = Data()
-        body.append("--\(boundary)\r\n".utf8Data)
-        body.append("Content-Type: text/xml; charset=UTF-8\r\n".utf8Data)
-        body.append("Content-Transfer-Encoding: 8bit\r\n".utf8Data)
-        body.append("Content-ID: <\(rootContentID)>\r\n\r\n".utf8Data)
-        body.append(soapEnvelope.utf8Data)
-        body.append("\r\n--\(boundary)\r\n".utf8Data)
-        body.append("Content-Type: application/zip\r\n".utf8Data)
-        body.append("Content-Transfer-Encoding: binary\r\n".utf8Data)
-        body.append("Content-ID: <\(archiveContentID)>\r\n".utf8Data)
-        body.append("Content-Disposition: attachment; filename=\"\(package.fileName)\"\r\n\r\n".utf8Data)
-        body.append(archiveData)
-        body.append("\r\n--\(boundary)--\r\n".utf8Data)
-
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
-        request.setValue(
-            "multipart/related; type=\"text/xml\"; start=\"<\(rootContentID)>\"; boundary=\"\(boundary)\"",
-            forHTTPHeaderField: "Content-Type"
-        )
-        request.setValue("text/xml", forHTTPHeaderField: "SOAPAction")
-        request.httpBody = body
+        request.setValue("text/xml; charset=UTF-8", forHTTPHeaderField: "Content-Type")
+        request.setValue("sendBill", forHTTPHeaderField: "SOAPAction")
+        request.httpBody = soapEnvelope.utf8Data
         return request
     }
 

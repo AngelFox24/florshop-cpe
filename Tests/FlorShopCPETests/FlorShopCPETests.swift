@@ -262,7 +262,7 @@ import ZIPFoundation
     #expect(package.xmlEntryName == "20123456789-03-B001-1.xml")
 }
 
-@Test func sunatBetaClientSendsZIPAsSOAPAttachment() async throws {
+@Test func sunatBillClientSendsZIPAsSOAPBinaryContentAndReadsAcceptedCDR() async throws {
     let fileManager = FileManager.default
     let directoryURL = try makeTemporaryDirectory(fileManager: fileManager)
     defer { try? fileManager.removeItem(at: directoryURL) }
@@ -270,21 +270,140 @@ import ZIPFoundation
     let xmlURL = directoryURL.appendingPathComponent("10708255195-03-B001-1.xml")
     try Data("<Invoice />".utf8).write(to: xmlURL)
     let zipURL = try XMLDocumentPackager().package(xmlAt: xmlURL).archiveURL
-    let transport = CapturingSunatHTTPTransport(statusCode: 200)
+    let transport = CapturingSunatHTTPTransport(response: try makeCDRResponse(
+        directoryURL: directoryURL,
+        responseCode: "0"
+    ))
 
-    let receipt = try await SunatBillClient(transport: transport).submit(
+    let result = try await SunatBillClient(transport: transport).submit(
         zipAt: zipURL,
         credentials: .beta(emitterRUC: "10708255195")
     )
     let request = try #require(await transport.request)
     let body = try #require(request.httpBody)
 
-    #expect(receipt.statusCode == 200)
+    #expect(result.status == .accepted)
+    #expect(result.responseCode == "0")
     #expect(request.url == SunatBillClient.betaEndpoint)
-    #expect(request.value(forHTTPHeaderField: "Content-Type")?.contains("multipart/related") == true)
+    #expect(request.value(forHTTPHeaderField: "Content-Type") == "text/xml; charset=UTF-8")
+    #expect(request.value(forHTTPHeaderField: "SOAPAction") == "sendBill")
     #expect(body.contains(Data("<wsse:Username>10708255195MODDATOS</wsse:Username>".utf8)))
     #expect(body.contains(Data("<fileName>10708255195-03-B001-1.zip</fileName>".utf8)))
-    #expect(body.contains(Data("Content-Type: application/zip".utf8)))
+    #expect(body.contains(Data("<contentFile>".utf8)))
+}
+
+@Test func sunatResponseParserClassifiesObservationsAndRejections() throws {
+    let fileManager = FileManager.default
+    let directoryURL = try makeTemporaryDirectory(fileManager: fileManager)
+    defer { try? fileManager.removeItem(at: directoryURL) }
+
+    let observed = try SunatBillResponseParser.parse(makeCDRResponse(
+        directoryURL: directoryURL,
+        responseCode: "0",
+        observation: SunatObservation(code: "4000", description: "Observación de prueba")
+    ))
+    let rejected = try SunatBillResponseParser.parse(makeCDRResponse(
+        directoryURL: directoryURL,
+        responseCode: "2000"
+    ))
+
+    #expect(observed.status == .acceptedWithObservations)
+    #expect(observed.observations == [SunatObservation(code: "4000", description: "Observación de prueba")])
+    #expect(rejected.status == .rejected)
+    #expect(rejected.responseCode == "2000")
+}
+
+@Test func sunatResponseParserSurfacesSOAPFault() throws {
+    let fault = """
+    <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+      <soapenv:Body><soapenv:Fault><faultcode>soapenv:Client</faultcode><faultstring>ZIP inválido</faultstring></soapenv:Fault></soapenv:Body>
+    </soapenv:Envelope>
+    """
+    let response = SunatHTTPResponse(
+        statusCode: 500,
+        body: Data(fault.utf8),
+        contentType: "text/xml; charset=UTF-8"
+    )
+
+    do {
+        _ = try SunatBillResponseParser.parse(response)
+        Issue.record("Se esperaba un SOAP Fault")
+    } catch let error as SunatBillSubmissionError {
+        #expect(error == .soapFault(code: "soapenv:Client", message: "ZIP inválido"))
+    }
+}
+
+@Test func sunatBillClientSurfacesSOAPFaultEvenWhenHTTPFails() async throws {
+    let fileManager = FileManager.default
+    let directoryURL = try makeTemporaryDirectory(fileManager: fileManager)
+    defer { try? fileManager.removeItem(at: directoryURL) }
+
+    let xmlURL = directoryURL.appendingPathComponent("20123456789-03-B001-1.xml")
+    try Data("<Invoice />".utf8).write(to: xmlURL)
+    let zipURL = try XMLDocumentPackager().package(xmlAt: xmlURL).archiveURL
+    let fault = """
+    <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+      <soapenv:Body><soapenv:Fault><faultcode>soapenv:Client</faultcode><faultstring>ZIP inválido</faultstring></soapenv:Fault></soapenv:Body>
+    </soapenv:Envelope>
+    """
+    let transport = CapturingSunatHTTPTransport(response: SunatHTTPResponse(
+        statusCode: 500,
+        body: Data(fault.utf8),
+        contentType: "text/xml; charset=UTF-8"
+    ))
+
+    do {
+        _ = try await SunatBillClient(transport: transport).submit(
+            zipAt: zipURL,
+            credentials: .beta(emitterRUC: "20123456789")
+        )
+        Issue.record("Se esperaba un SOAP Fault")
+    } catch let error as SunatBillSubmissionError {
+        #expect(error == .soapFault(code: "soapenv:Client", message: "ZIP inválido"))
+    }
+}
+
+/// Prueba de integración manual contra SUNAT BETA.
+///
+/// No realiza ninguna llamada de red salvo que se configure explícitamente:
+/// - `FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION=true`
+@Test func sunatBetaIntegrationSubmitsZIPWhenExplicitlyEnabled() async throws {
+    let environment = ProcessInfo.processInfo.environment
+    guard environment["FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION"] == "true" else {
+        return
+    }
+
+    let fileManager = FileManager.default
+    let directoryURL = try makeTemporaryDirectory(fileManager: fileManager)
+    defer { try? fileManager.removeItem(at: directoryURL) }
+
+    let boleta = makeBoleta()
+    guard let signingConfiguration = integrationSigningConfiguration() else {
+        throw IntegrationConfigurationError.missingSigningCredentials
+    }
+    let signedBoleta = try XMLSecBoletaSigner().sign(boleta, configuration: signingConfiguration)
+    let emitterRUC = boleta.supplier.taxIdentifier.value
+    let xmlURL = directoryURL.appendingPathComponent("\(emitterRUC)-03-\(boleta.identifier.value).xml")
+    try signedBoleta.xml.write(to: xmlURL)
+    let zipURL = try XMLDocumentPackager().package(xmlAt: xmlURL).archiveURL
+
+    let result = try await SunatBillClient().submit(
+        zipAt: zipURL,
+        credentials: .beta(emitterRUC: emitterRUC)
+    )
+
+    switch result.status {
+    case .accepted:
+        #expect(result.responseCode == "0")
+    case .acceptedWithObservations:
+        #expect(result.responseCode == "0")
+        #expect(!result.observations.isEmpty)
+    case .rejected:
+        #expect(result.responseCode != "0")
+        #expect(!result.descriptions.isEmpty)
+    }
+    #expect(!result.cdrArchive.isEmpty)
+    #expect(!result.cdrXML.isEmpty)
 }
 
 private func makeTemporaryDirectory(fileManager: FileManager) throws -> URL {
@@ -294,17 +413,53 @@ private func makeTemporaryDirectory(fileManager: FileManager) throws -> URL {
     return directoryURL
 }
 
+private enum IntegrationConfigurationError: Error {
+    case missingSigningCredentials
+}
+
+private func makeCDRResponse(
+    directoryURL: URL,
+    responseCode: String,
+    observation: SunatObservation? = nil
+) throws -> SunatHTTPResponse {
+    let observationXML = observation.map {
+        "<cac:Status><cbc:StatusReasonCode>\($0.code ?? "")</cbc:StatusReasonCode><cbc:StatusReason>\($0.description ?? "")</cbc:StatusReason></cac:Status>"
+    } ?? ""
+    let cdrXML = """
+    <?xml version="1.0" encoding="UTF-8"?>
+    <ApplicationResponse xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2" xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2">
+      <cac:DocumentResponse><cac:Response><cbc:ResponseCode>\(responseCode)</cbc:ResponseCode><cbc:Description>Respuesta SUNAT</cbc:Description>\(observationXML)</cac:Response></cac:DocumentResponse>
+    </ApplicationResponse>
+    """
+    let cdrXMLURL = directoryURL.appendingPathComponent("R-20123456789-03-B001-\(UUID().uuidString).xml")
+    try Data(cdrXML.utf8).write(to: cdrXMLURL)
+    let cdrArchiveURL = try XMLDocumentPackager().package(xmlAt: cdrXMLURL).archiveURL
+    let cdrArchive = try Data(contentsOf: cdrArchiveURL)
+    let body = """
+    <?xml version="1.0" encoding="UTF-8"?>
+    <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ser="http://service.sunat.gob.pe">
+      <soapenv:Body><ser:sendBillResponse><applicationResponse>\(cdrArchive.base64EncodedString())</applicationResponse></ser:sendBillResponse></soapenv:Body>
+    </soapenv:Envelope>
+    """
+
+    return SunatHTTPResponse(
+        statusCode: 200,
+        body: Data(body.utf8),
+        contentType: "text/xml; charset=UTF-8"
+    )
+}
+
 private actor CapturingSunatHTTPTransport: SunatHTTPTransport {
     private(set) var request: URLRequest?
-    private let statusCode: Int
+    private let response: SunatHTTPResponse
 
-    init(statusCode: Int) {
-        self.statusCode = statusCode
+    init(response: SunatHTTPResponse) {
+        self.response = response
     }
 
     func send(_ request: URLRequest) async throws -> SunatHTTPResponse {
         self.request = request
-        return SunatHTTPResponse(statusCode: statusCode)
+        return response
     }
 }
 
