@@ -262,6 +262,18 @@ import ZIPFoundation
     #expect(package.xmlEntryName == "20123456789-03-B001-1.xml")
 }
 
+@Test func transformerGeneratesUBLInvoiceXMLWithMultipleProducts() throws {
+    let xml = try UBLInvoiceXMLTransformer().transform(makeBoletaWithMoreProducts())
+
+    #expect(xml.components(separatedBy: "<cac:InvoiceLine>").count - 1 == 2)
+    #expect(xml.contains("<cbc:ID>1</cbc:ID>"))
+    #expect(xml.contains("<cbc:ID>2</cbc:ID>"))
+    #expect(xml.contains("<cbc:Description>PRODUCTO 1</cbc:Description>"))
+    #expect(xml.contains("<cbc:Description>PRODUCTO 2</cbc:Description>"))
+    #expect(xml.contains("<cbc:TaxAmount currencyID=\"PEN\">27.00</cbc:TaxAmount>"))
+    #expect(xml.contains("<cbc:PayableAmount currencyID=\"PEN\">177.00</cbc:PayableAmount>"))
+}
+
 @Test func sunatBillClientSendsZIPAsSOAPBinaryContentAndReadsAcceptedCDR() async throws {
     let fileManager = FileManager.default
     let directoryURL = try makeTemporaryDirectory(fileManager: fileManager)
@@ -413,6 +425,40 @@ import ZIPFoundation
     #expect(!result.cdrXML.isEmpty)
 }
 
+/// Prueba de integración manual BETA para una boleta con más de un producto.
+/// Solo realiza la llamada si `FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION=true`.
+@Test func sunatBetaIntegrationAcceptsSignedMultiProductBoletaWhenExplicitlyEnabled() async throws {
+    let environment = ProcessInfo.processInfo.environment
+    guard environment["FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION"] == "true" else {
+        return
+    }
+
+    let fileManager = FileManager.default
+    let directoryURL = try makeTemporaryDirectory(fileManager: fileManager)
+    defer { try? fileManager.removeItem(at: directoryURL) }
+
+    let boleta = makeBoletaWithMoreProducts()
+    guard let signingConfiguration = integrationSigningConfiguration() else {
+        throw IntegrationConfigurationError.missingSigningCredentials
+    }
+    let signedBoleta = try XMLSecBoletaSigner().sign(boleta, configuration: signingConfiguration)
+    let emitterRUC = boleta.supplier.taxIdentifier.value
+    let xmlURL = directoryURL.appendingPathComponent("\(emitterRUC)-03-\(boleta.identifier.value).xml")
+    try signedBoleta.xml.write(to: xmlURL)
+    let zipURL = try XMLDocumentPackager().package(xmlAt: xmlURL).archiveURL
+
+    let result = try await SunatBillClient().submit(
+        zipAt: zipURL,
+        credentials: .beta(emitterRUC: emitterRUC)
+    )
+
+    #expect(result.status == .accepted)
+    #expect(result.responseCode == "0")
+    #expect(result.observations.isEmpty)
+    #expect(!result.cdrArchive.isEmpty)
+    #expect(!result.cdrXML.isEmpty)
+}
+
 private func makeTemporaryDirectory(fileManager: FileManager) throws -> URL {
     let directoryURL = fileManager.temporaryDirectory
         .appendingPathComponent("FlorShopCPE-Tests-\(UUID().uuidString)", isDirectory: true)
@@ -536,5 +582,71 @@ private func makeBoleta() -> Boleta {
             item: Item(description: "PRODUCTO"),
             price: MonetaryAmount(value: 50, currency: currency)
         )]
+    )
+}
+
+private func makeBoletaWithMoreProducts() -> Boleta {
+    let currency: CurrencyCode = .pen
+    let scheme = TaxScheme.igv
+    let firstLineTaxTotal = LineTaxTotal(
+        amount: MonetaryAmount(value: 18, currency: currency),
+        subtotals: [LineTaxSubtotal(
+            taxableAmount: MonetaryAmount(value: 100, currency: currency),
+            taxAmount: MonetaryAmount(value: 18, currency: currency),
+            category: TaxCategory(percent: 18, exemptionReasonCode: .gravadoOperacionOnerosa, scheme: scheme)
+        )]
+    )
+    let secondLineTaxTotal = LineTaxTotal(
+        amount: MonetaryAmount(value: 9, currency: currency),
+        subtotals: [LineTaxSubtotal(
+            taxableAmount: MonetaryAmount(value: 50, currency: currency),
+            taxAmount: MonetaryAmount(value: 9, currency: currency),
+            category: TaxCategory(percent: 18, exemptionReasonCode: .gravadoOperacionOnerosa, scheme: scheme)
+        )]
+    )
+    let priceIncludingTaxes = AlternativePrice(
+        amount: MonetaryAmount(value: 59, currency: currency),
+        type: .unitPriceIncludingTaxes
+    )
+
+    return Boleta(
+        identifier: DocumentIdentifier(series: "B001", number: "2"),
+        issueDate: IssueDate(year: 2020, month: 8, day: 19),
+        currency: currency,
+        supplier: Supplier(taxIdentifier: PartyIdentifier(value: "20123456789", documentType: .ruc), legalName: "GREENTER S.A.C."),
+        customer: Customer(identifier: PartyIdentifier(value: "20203030", documentType: .dni), legalName: "PERSON 1"),
+        taxTotal: TaxTotal(
+            amount: MonetaryAmount(value: 27, currency: currency),
+            subtotals: [TaxSubtotal(
+                taxableAmount: MonetaryAmount(value: 150, currency: currency),
+                taxAmount: MonetaryAmount(value: 27, currency: currency),
+                scheme: scheme
+            )]
+        ),
+        monetaryTotal: MonetaryTotal(
+            lineExtensionAmount: MonetaryAmount(value: 150, currency: currency),
+            taxInclusiveAmount: MonetaryAmount(value: 177, currency: currency),
+            payableAmount: MonetaryAmount(value: 177, currency: currency)
+        ),
+        lines: [
+            InvoiceLine(
+                id: "1",
+                quantity: Quantity(value: 2, unitCode: .unit),
+                lineExtensionAmount: MonetaryAmount(value: 100, currency: currency),
+                alternativePrices: [priceIncludingTaxes],
+                taxTotal: firstLineTaxTotal,
+                item: Item(description: "PRODUCTO 1"),
+                price: MonetaryAmount(value: 50, currency: currency)
+            ),
+            InvoiceLine(
+                id: "2",
+                quantity: Quantity(value: 1, unitCode: .unit),
+                lineExtensionAmount: MonetaryAmount(value: 50, currency: currency),
+                alternativePrices: [priceIncludingTaxes],
+                taxTotal: secondLineTaxTotal,
+                item: Item(description: "PRODUCTO 2"),
+                price: MonetaryAmount(value: 50, currency: currency)
+            )
+        ]
     )
 }
