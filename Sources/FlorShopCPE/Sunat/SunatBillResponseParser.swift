@@ -32,21 +32,26 @@ enum SunatBillResponseParser {
         do {
             archive = try Archive(data: archiveData, accessMode: .read)
         } catch {
-            throw SunatBillSubmissionError.invalidCDR
+            throw SunatBillSubmissionError.invalidCDR(details: "El contenido devuelto no es un ZIP CDR legible: \(error.localizedDescription)")
         }
 
         let entries = Array(archive)
-        guard entries.count == 1, let entry = entries.first,
-              entry.type == .file,
-              URL(fileURLWithPath: entry.path).pathExtension.caseInsensitiveCompare("xml") == .orderedSame else {
-            throw SunatBillSubmissionError.invalidCDR
+        let xmlEntries = entries.filter {
+            $0.type == .file &&
+                URL(fileURLWithPath: $0.path).pathExtension.caseInsensitiveCompare("xml") == .orderedSame
+        }
+        guard xmlEntries.count == 1, let entry = xmlEntries.first else {
+            let entryNames = entries.map(\.path).joined(separator: ", ")
+            throw SunatBillSubmissionError.invalidCDR(
+                details: "El ZIP CDR debe contener exactamente un XML; se encontraron \(xmlEntries.count). Entradas: \(entryNames)"
+            )
         }
 
         var xml = Data()
         do {
             _ = try archive.extract(entry) { xml.append($0) }
         } catch {
-            throw SunatBillSubmissionError.invalidCDR
+            throw SunatBillSubmissionError.invalidCDR(details: "No se pudo extraer el XML del CDR: \(error.localizedDescription)")
         }
 
         let cdr = try CDRDocumentParser.parse(xml)
@@ -206,8 +211,12 @@ private final class CDRDocumentParser: NSObject, XMLParserDelegate {
         let parser = XMLParser(data: xml)
         parser.delegate = delegate
         parser.shouldResolveExternalEntities = false
-        guard parser.parse(), let responseCode = delegate.responseCode else {
-            throw SunatBillSubmissionError.invalidCDR
+        guard parser.parse() else {
+            let detail = parser.parserError?.localizedDescription ?? "error XML desconocido"
+            throw SunatBillSubmissionError.invalidCDR(details: "El XML del CDR no se pudo leer: \(detail)")
+        }
+        guard let responseCode = delegate.responseCode else {
+            throw SunatBillSubmissionError.invalidCDR(details: "El XML del CDR no contiene cbc:ResponseCode.")
         }
         return CDRDocument(
             responseCode: responseCode,

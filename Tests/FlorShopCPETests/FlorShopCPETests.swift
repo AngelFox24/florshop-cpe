@@ -313,6 +313,20 @@ import ZIPFoundation
     #expect(rejected.responseCode == "2000")
 }
 
+@Test func sunatResponseParserIgnoresNonXMLFilesInsideCDRArchive() throws {
+    let fileManager = FileManager.default
+    let directoryURL = try makeTemporaryDirectory(fileManager: fileManager)
+    defer { try? fileManager.removeItem(at: directoryURL) }
+
+    let response = try makeCDRResponse(
+        directoryURL: directoryURL,
+        responseCode: "0",
+        additionalEntry: "metadata.txt"
+    )
+
+    #expect(try SunatBillResponseParser.parse(response).status == .accepted)
+}
+
 @Test func sunatResponseParserSurfacesSOAPFault() throws {
     let fault = """
     <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
@@ -367,7 +381,7 @@ import ZIPFoundation
 ///
 /// No realiza ninguna llamada de red salvo que se configure explícitamente:
 /// - `FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION=true`
-@Test func sunatBetaIntegrationSubmitsZIPWhenExplicitlyEnabled() async throws {
+@Test func sunatBetaIntegrationAcceptsSignedBoletaWhenExplicitlyEnabled() async throws {
     let environment = ProcessInfo.processInfo.environment
     guard environment["FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION"] == "true" else {
         return
@@ -392,16 +406,9 @@ import ZIPFoundation
         credentials: .beta(emitterRUC: emitterRUC)
     )
 
-    switch result.status {
-    case .accepted:
-        #expect(result.responseCode == "0")
-    case .acceptedWithObservations:
-        #expect(result.responseCode == "0")
-        #expect(!result.observations.isEmpty)
-    case .rejected:
-        #expect(result.responseCode != "0")
-        #expect(!result.descriptions.isEmpty)
-    }
+    #expect(result.status == .accepted)
+    #expect(result.responseCode == "0")
+    #expect(result.observations.isEmpty)
     #expect(!result.cdrArchive.isEmpty)
     #expect(!result.cdrXML.isEmpty)
 }
@@ -420,7 +427,8 @@ private enum IntegrationConfigurationError: Error {
 private func makeCDRResponse(
     directoryURL: URL,
     responseCode: String,
-    observation: SunatObservation? = nil
+    observation: SunatObservation? = nil,
+    additionalEntry: String? = nil
 ) throws -> SunatHTTPResponse {
     let observationXML = observation.map {
         "<cac:Status><cbc:StatusReasonCode>\($0.code ?? "")</cbc:StatusReasonCode><cbc:StatusReason>\($0.description ?? "")</cbc:StatusReason></cac:Status>"
@@ -434,6 +442,16 @@ private func makeCDRResponse(
     let cdrXMLURL = directoryURL.appendingPathComponent("R-20123456789-03-B001-\(UUID().uuidString).xml")
     try Data(cdrXML.utf8).write(to: cdrXMLURL)
     let cdrArchiveURL = try XMLDocumentPackager().package(xmlAt: cdrXMLURL).archiveURL
+    if let additionalEntry {
+        let archive = try Archive(url: cdrArchiveURL, accessMode: .update)
+        try archive.addEntry(
+            with: additionalEntry,
+            type: .file,
+            uncompressedSize: Int64(0),
+            compressionMethod: .none,
+            provider: { (_: Int64, _: Int) in Data() }
+        )
+    }
     let cdrArchive = try Data(contentsOf: cdrArchiveURL)
     let body = """
     <?xml version="1.0" encoding="UTF-8"?>
@@ -506,6 +524,17 @@ private func makeBoleta() -> Boleta {
             subtotals: [TaxSubtotal(taxableAmount: MonetaryAmount(value: 100, currency: currency), taxAmount: MonetaryAmount(value: 18, currency: currency), scheme: scheme)]
         ),
         monetaryTotal: MonetaryTotal(lineExtensionAmount: MonetaryAmount(value: 100, currency: currency), taxInclusiveAmount: MonetaryAmount(value: 118, currency: currency), payableAmount: MonetaryAmount(value: 118, currency: currency)),
-        lines: [InvoiceLine(id: "1", quantity: Quantity(value: 2, unitCode: .unit), lineExtensionAmount: MonetaryAmount(value: 100, currency: currency), alternativePrices: [], taxTotal: lineTaxTotal, item: Item(description: "PRODUCTO"), price: MonetaryAmount(value: 50, currency: currency))]
+        lines: [InvoiceLine(
+            id: "1",
+            quantity: Quantity(value: 2, unitCode: .unit),
+            lineExtensionAmount: MonetaryAmount(value: 100, currency: currency),
+            alternativePrices: [AlternativePrice(
+                amount: MonetaryAmount(value: 59, currency: currency),
+                type: .unitPriceIncludingTaxes
+            )],
+            taxTotal: lineTaxTotal,
+            item: Item(description: "PRODUCTO"),
+            price: MonetaryAmount(value: 50, currency: currency)
+        )]
     )
 }

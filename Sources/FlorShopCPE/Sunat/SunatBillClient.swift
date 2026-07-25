@@ -23,7 +23,7 @@ public enum SunatBillSubmissionError: Error, Equatable {
     case unexpectedHTTPStatus(statusCode: Int, details: String?)
     case soapFault(code: String?, message: String)
     case invalidSunatResponse
-    case invalidCDR
+    case invalidCDR(details: String)
     case transportFailed(String)
 }
 
