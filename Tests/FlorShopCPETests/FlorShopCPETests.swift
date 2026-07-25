@@ -44,7 +44,7 @@ import ZIPFoundation
         price: MonetaryAmount(value: 50, currency: .pen)
     )
     let boleta = Boleta(
-        identifier: DocumentIdentifier(series: "B001", number: "1"),
+        identifier: DocumentIdentifier(series: "B001", number: "1", type: .boleta),
         issueDate: IssueDate(year: 2020, month: 8, day: 19),
         currency: .pen,
         supplier: supplier,
@@ -83,7 +83,7 @@ import ZIPFoundation
         )]
     )
     let boleta = Boleta(
-        identifier: DocumentIdentifier(series: "B001", number: "1"),
+        identifier: DocumentIdentifier(series: "B001", number: "1", type: .boleta),
         issueDate: IssueDate(year: 2020, month: 8, day: 19),
         issueTime: IssueTime(hour: 3, minute: 16, second: 38),
         currency: currency,
@@ -123,7 +123,11 @@ import ZIPFoundation
     let xml = try! UBLInvoiceXMLTransformer().transform(boleta)
     #expect(xml.contains("<Invoice xmlns=\"urn:oasis:names:specification:ubl:schema:xsd:Invoice-2\""))
     #expect(xml.contains("<cbc:ID>B001-1</cbc:ID>"))
-    #expect(xml.contains("<cbc:InvoiceTypeCode listID=\"0101\">03</cbc:InvoiceTypeCode>"))
+    #expect(xml.contains("<cbc:ProfileID"))
+    #expect(xml.contains(">0101</cbc:ProfileID>"))
+    #expect(xml.contains("<cbc:InvoiceTypeCode"))
+    #expect(xml.contains("listID=\"0101\""))
+    #expect(xml.contains(">03</cbc:InvoiceTypeCode>"))
     #expect(xml.contains("<cbc:Note languageLocaleID=\"1000\">SON CIENTO DIECIOCHO CON 00/100 SOLES</cbc:Note>"))
     #expect(xml.contains("<cbc:TaxAmount currencyID=\"PEN\">18.00</cbc:TaxAmount>"))
     #expect(xml.contains("<cac:TaxCategory>\n            <cac:TaxScheme>"))
@@ -147,7 +151,7 @@ import ZIPFoundation
 }
 
 @Test func signerRejectsAnInvalidSignatureReferenceBeforeUsingTheCertificate() {
-    let signer = XMLSecBoletaSigner()
+    let signer = XMLSecCPESigner()
     let configuration = SigningConfiguration(
         signature: SignatureInformation(
             identifier: "20123456789",
@@ -158,7 +162,7 @@ import ZIPFoundation
         credentials: .pkcs12(path: URL(fileURLWithPath: "/not-used.pfx"), passwordProvider: { "" })
     )
     
-    #expect(throws: BoletaSigningError.invalidSignatureURI) {
+    #expect(throws: CPESigningError.invalidSignatureURI) {
         try signer.sign(makeBoleta(), configuration: configuration)
     }
 }
@@ -185,7 +189,7 @@ import ZIPFoundation
         )
     )
     
-    let signedBoleta = try XMLSecBoletaSigner().sign(makeBoleta(), configuration: configuration)
+    let signedBoleta = try XMLSecCPESigner().sign(makeBoleta(), configuration: configuration)
     let signedXML = try #require(signedBoleta.xmlString)
     
     #expect(signedXML.contains("<cac:Signature>"))
@@ -202,7 +206,7 @@ import ZIPFoundation
         return
     }
     
-    let signedBoleta = try XMLSecBoletaSigner().sign(makeBoleta(), configuration: configuration)
+    let signedBoleta = try XMLSecCPESigner().sign(makeBoleta(), configuration: configuration)
     
     #expect(try XMLSecSignatureVerifier().verify(signedBoleta.xml))
 }
@@ -214,7 +218,7 @@ import ZIPFoundation
         return
     }
     
-    let signedBoleta = try XMLSecBoletaSigner().sign(makeBoleta(), configuration: configuration)
+    let signedBoleta = try XMLSecCPESigner().sign(makeBoleta(), configuration: configuration)
     let signedXML = try #require(signedBoleta.xmlString)
     let alteredXML = signedXML.replacingOccurrences(of: "PRODUCTO", with: "PRODUCTA")
     
@@ -257,7 +261,7 @@ import ZIPFoundation
     )
     let boleta = makeBoleta()
     let document = try CPEDocumentWriter().write(
-        SignedCPE(xml: Data("<Invoice />".utf8), identity: CPEIdentity(boleta: boleta)),
+        SignedCPE(xml: Data("<Invoice />".utf8), identity: CPEIdentity(document: boleta)),
         output: output
     )
     
@@ -305,7 +309,7 @@ import ZIPFoundation
     let output = outputConfiguration(in: directoryURL)
     let boleta = makeBoleta(emitterRUC: "10708255195")
     let document = try CPEDocumentWriter().write(
-        SignedCPE(xml: Data("<Invoice />".utf8), identity: CPEIdentity(boleta: boleta)),
+        SignedCPE(xml: Data("<Invoice />".utf8), identity: CPEIdentity(document: boleta)),
         output: output
     )
     let transport = CapturingSunatHTTPTransport(response: try makeCDRResponse(
@@ -396,7 +400,7 @@ import ZIPFoundation
     
     let boleta = makeBoleta()
     let document = try CPEDocumentWriter().write(
-        SignedCPE(xml: Data("<Invoice />".utf8), identity: CPEIdentity(boleta: boleta)),
+        SignedCPE(xml: Data("<Invoice />".utf8), identity: CPEIdentity(document: boleta)),
         output: outputConfiguration(in: directoryURL)
     )
     let fault = """
@@ -445,7 +449,7 @@ struct SunatBetaIntegrationTests {
         guard let signingConfiguration = integrationSigningConfiguration() else {
             throw IntegrationConfigurationError.missingSigningCredentials
         }
-        let signedCPE = try XMLSecBoletaSigner().sign(boleta, configuration: signingConfiguration)
+        let signedCPE = try XMLSecCPESigner().sign(boleta, configuration: signingConfiguration)
         let emitterRUC = boleta.supplier.taxIdentifier.value
         let output = outputConfiguration(in: directoryURL)
         let document = try CPEDocumentWriter().write(
@@ -482,7 +486,7 @@ struct SunatBetaIntegrationTests {
         guard let signingConfiguration = integrationSigningConfiguration() else {
             throw IntegrationConfigurationError.missingSigningCredentials
         }
-        let signedCPE = try XMLSecBoletaSigner().sign(boleta, configuration: signingConfiguration)
+        let signedCPE = try XMLSecCPESigner().sign(boleta, configuration: signingConfiguration)
         let emitterRUC = boleta.supplier.taxIdentifier.value
         let output = outputConfiguration(in: directoryURL)
         let document = try CPEDocumentWriter().write(
@@ -639,7 +643,7 @@ private func makeBoleta(emitterRUC: String = "20123456789") -> Boleta {
         )]
     )
     return Boleta(
-        identifier: DocumentIdentifier(series: "B001", number: "1"),
+        identifier: DocumentIdentifier(series: "B001", number: "1", type: .boleta),
         issueDate: IssueDate(year: 2020, month: 8, day: 19),
         currency: currency,
         supplier: Supplier(taxIdentifier: PartyIdentifier(value: emitterRUC, documentType: .ruc), legalName: "GREENTER S.A.C."),
@@ -689,7 +693,7 @@ private func makeBoletaWithMoreProducts() -> Boleta {
     )
     
     return Boleta(
-        identifier: DocumentIdentifier(series: "B001", number: "2"),
+        identifier: DocumentIdentifier(series: "B001", number: "2", type: .boleta),
         issueDate: IssueDate(year: 2020, month: 8, day: 19),
         currency: currency,
         supplier: Supplier(taxIdentifier: PartyIdentifier(value: "20123456789", documentType: .ruc), legalName: "GREENTER S.A.C."),

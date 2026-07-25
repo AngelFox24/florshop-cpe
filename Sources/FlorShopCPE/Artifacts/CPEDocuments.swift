@@ -16,11 +16,11 @@ public struct CPEIdentity: Sendable, Equatable {
         self.documentIdentifier = documentIdentifier
     }
 
-    public init(boleta: Boleta) {
+    public init(document: any UBLInvoiceDocument) {
         self.init(
-            emitterRUC: boleta.supplier.taxIdentifier.value,
-            documentType: boleta.identifier.type,
-            documentIdentifier: boleta.identifier.value
+            emitterRUC: document.supplier.taxIdentifier.value,
+            documentType: document.identifier.type,
+            documentIdentifier: document.identifier.value
         )
     }
 

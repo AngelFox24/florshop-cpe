@@ -25,10 +25,12 @@ public struct Supplier: Codable, Equatable, Sendable {
 public struct Customer: Codable, Equatable, Sendable {
     public let identifier: PartyIdentifier
     public let legalName: String
+    public let address: Address?
 
-    public init(identifier: PartyIdentifier, legalName: String) {
+    public init(identifier: PartyIdentifier, legalName: String, address: Address? = nil) {
         self.identifier = identifier
         self.legalName = legalName
+        self.address = address
     }
 }
 

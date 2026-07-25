@@ -4,7 +4,7 @@ import Foundation
 ///
 /// No contiene lógica de serialización ni de comunicación con SUNAT. Es la
 /// entrada que utilizará un transformador UBL en una capa posterior.
-public struct Boleta: Codable, Equatable, Sendable {
+public struct Boleta: Codable, Equatable, Sendable, UBLInvoiceDocument {
     public let identifier: DocumentIdentifier
     public let issueDate: IssueDate
     public let issueTime: IssueTime?
@@ -17,6 +17,9 @@ public struct Boleta: Codable, Equatable, Sendable {
     public let signature: SignatureInformation?
     public let ublVersion: String
     public let customizationID: String
+    public let operationTypeCode: String
+
+    public var expectedDocumentType: ElectronicDocumentType { .boleta }
 
     public init(
         identifier: DocumentIdentifier,
@@ -30,7 +33,8 @@ public struct Boleta: Codable, Equatable, Sendable {
         lines: [InvoiceLine],
         signature: SignatureInformation? = nil,
         ublVersion: String = "2.1",
-        customizationID: String = "2.0"
+        customizationID: String = "2.0",
+        operationTypeCode: String = "0101"
     ) {
         self.identifier = identifier
         self.issueDate = issueDate
@@ -44,6 +48,7 @@ public struct Boleta: Codable, Equatable, Sendable {
         self.signature = signature
         self.ublVersion = ublVersion
         self.customizationID = customizationID
+        self.operationTypeCode = operationTypeCode
     }
 }
 
@@ -52,7 +57,7 @@ public struct DocumentIdentifier: Codable, Equatable, Sendable {
     public let number: String
     public let type: ElectronicDocumentType
 
-    public init(series: String, number: String, type: ElectronicDocumentType = .boleta) {
+    public init(series: String, number: String, type: ElectronicDocumentType) {
         self.series = series
         self.number = number
         self.type = type

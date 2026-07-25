@@ -4,17 +4,19 @@ import Foundation
 import XMLSecBridge
 #endif
 
-/// Firma una boleta UBL mediante XMLDSIG usando libxmlsec en Linux.
-public struct XMLSecBoletaSigner: BoletaSigning {
+/// Firma una factura o boleta UBL mediante XMLDSIG usando libxmlsec.
+public struct XMLSecCPESigner: CPESigning {
     private let transformer: any UBLInvoiceXMLTransforming
 
     public init(transformer: any UBLInvoiceXMLTransforming = UBLInvoiceXMLTransformer()) {
         self.transformer = transformer
     }
 
-    public func sign(_ boleta: Boleta, configuration: SigningConfiguration) throws -> SignedCPE {
-        let boletaToSign = boleta.replacing(signature: configuration.signature)
-        let unsignedXML = try transformer.transform(boletaToSign)
+    public func sign(
+        _ document: any UBLInvoiceDocument,
+        configuration: SigningConfiguration
+    ) throws -> SignedCPE {
+        let unsignedXML = try transformer.transform(document, signature: configuration.signature)
         let signatureID = try signatureID(from: configuration.signature.uri)
 
         switch configuration.credentials {
@@ -24,14 +26,14 @@ public struct XMLSecBoletaSigner: BoletaSigning {
                 path: path,
                 password: passwordProvider(),
                 signatureID: signatureID,
-                identity: CPEIdentity(boleta: boleta)
+                identity: CPEIdentity(document: document)
             )
         }
     }
 
     private func signatureID(from uri: String) throws -> String {
         guard uri.hasPrefix("#"), uri.count > 1 else {
-            throw BoletaSigningError.invalidSignatureURI
+            throw CPESigningError.invalidSignatureURI
         }
         return String(uri.dropFirst())
     }
@@ -74,33 +76,14 @@ public struct XMLSecBoletaSigner: BoletaSigning {
 
         guard result == 0, let signedXML else {
             let message = errorMessage.map { String(cString: $0) } ?? "Error desconocido de libxmlsec."
-            throw BoletaSigningError.signingFailed(message)
+            throw CPESigningError.signingFailed(message)
         }
         return SignedCPE(
             xml: Data(bytes: signedXML, count: signedXMLSize),
             identity: identity
         )
         #else
-        throw BoletaSigningError.unsupportedPlatform
+        throw CPESigningError.unsupportedPlatform
         #endif
-    }
-}
-
-private extension Boleta {
-    func replacing(signature: SignatureInformation) -> Boleta {
-        Boleta(
-            identifier: identifier,
-            issueDate: issueDate,
-            issueTime: issueTime,
-            currency: currency,
-            supplier: supplier,
-            customer: customer,
-            taxTotal: taxTotal,
-            monetaryTotal: monetaryTotal,
-            lines: lines,
-            signature: signature,
-            ublVersion: ublVersion,
-            customizationID: customizationID
-        )
     }
 }

@@ -1,7 +1,10 @@
 import Foundation
 
-public protocol BoletaSigning {
-    func sign(_ boleta: Boleta, configuration: SigningConfiguration) throws -> SignedCPE
+public protocol CPESigning {
+    func sign(
+        _ document: any UBLInvoiceDocument,
+        configuration: SigningConfiguration
+    ) throws -> SignedCPE
 }
 
 /// Comprobante electrónico firmado, aún sin escribir en disco.
@@ -39,7 +42,7 @@ public enum SigningCredentials: Sendable {
     )
 }
 
-public enum BoletaSigningError: Error, Equatable, Sendable {
+public enum CPESigningError: Error, Equatable, Sendable {
     case unsupportedPlatform
     case invalidSignatureURI
     case signingFailed(String)

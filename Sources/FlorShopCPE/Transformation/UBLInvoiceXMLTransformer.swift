@@ -1,14 +1,35 @@
 import Foundation
 
-/// Genera el XML UBL 2.1 de una boleta sin firmarlo ni enviarlo a SUNAT.
+/// Genera el XML UBL 2.1 de una factura o boleta sin enviarlo a SUNAT.
 public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
     private let amountInWordsFormatter: any AmountInWordsFormatting
+    private let validator: UBLInvoiceDocumentValidator
 
-    public init(amountInWordsFormatter: any AmountInWordsFormatting = SpanishAmountInWordsFormatter()) {
+    public init(
+        amountInWordsFormatter: any AmountInWordsFormatting = SpanishAmountInWordsFormatter(),
+        validator: UBLInvoiceDocumentValidator = UBLInvoiceDocumentValidator()
+    ) {
         self.amountInWordsFormatter = amountInWordsFormatter
+        self.validator = validator
     }
 
-    public func transform(_ boleta: Boleta) throws -> String {
+    public func transform(_ document: any UBLInvoiceDocument) throws -> String {
+        try transform(document, signature: document.signature)
+    }
+
+    public func transform(
+        _ document: any UBLInvoiceDocument,
+        signature: SignatureInformation
+    ) throws -> String {
+        try transform(document, signature: Optional(signature))
+    }
+
+    private func transform(
+        _ document: any UBLInvoiceDocument,
+        signature: SignatureInformation?
+    ) throws -> String {
+        try validator.validate(document)
+
         var writer = XMLWriter()
         writer.declaration()
         writer.open("Invoice", attributes: [
@@ -20,36 +41,114 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
         ])
 
         writeExtensions(to: &writer)
-        writer.element("cbc:UBLVersionID", text: boleta.ublVersion)
-        writer.element("cbc:CustomizationID", text: boleta.customizationID)
-        writer.element("cbc:ID", text: boleta.identifier.value)
-        writer.element("cbc:IssueDate", text: format(boleta.issueDate))
-        if let issueTime = boleta.issueTime {
+        writer.element("cbc:UBLVersionID", text: document.ublVersion)
+        writer.element("cbc:CustomizationID", text: document.customizationID)
+        writer.element(
+            "cbc:ProfileID",
+            text: document.operationTypeCode,
+            attributes: [
+                "schemeName": "SUNAT:Identificador de Tipo de Operación",
+                "schemeAgencyName": "PE:SUNAT",
+                "schemeURI": "urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo17"
+            ]
+        )
+        writer.element("cbc:ID", text: document.identifier.value)
+        writer.element("cbc:IssueDate", text: format(document.issueDate))
+        if let issueTime = document.issueTime {
             writer.element("cbc:IssueTime", text: format(issueTime))
         }
         writer.element(
             "cbc:InvoiceTypeCode",
-            text: boleta.identifier.type.rawValue,
-            attributes: ["listID": "0101"]
+            text: document.identifier.type.rawValue,
+            attributes: [
+                "listAgencyName": "PE:SUNAT",
+                "listID": document.operationTypeCode,
+                "listName": "Tipo de Documento",
+                "listSchemeURI": "urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo51",
+                "listURI": "urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo01",
+                "name": "Tipo de Operacion"
+            ]
         )
         let note = try amountInWordsFormatter.format(
-            boleta.monetaryTotal.payableAmount.value,
-            currency: boleta.monetaryTotal.payableAmount.currency
+            document.monetaryTotal.payableAmount.value,
+            currency: document.monetaryTotal.payableAmount.currency
         )
         writer.element("cbc:Note", text: note, attributes: ["languageLocaleID": "1000"])
-        writer.element("cbc:DocumentCurrencyCode", text: boleta.currency.rawValue)
+        writer.element("cbc:DocumentCurrencyCode", text: document.currency.rawValue)
 
-        if let signature = boleta.signature {
+        if let factura = document as? Factura {
+            writeReferences(factura, to: &writer)
+        }
+        if let signature {
             write(signature, to: &writer)
         }
-        write(boleta.supplier, to: &writer)
-        write(boleta.customer, to: &writer)
-        write(boleta.taxTotal, to: &writer)
-        write(boleta.monetaryTotal, to: &writer)
-        boleta.lines.forEach { write($0, to: &writer) }
+        write(document.supplier, to: &writer)
+        write(document.customer, to: &writer)
+        if let factura = document as? Factura {
+            writeCommercialTerms(factura, to: &writer)
+        }
+        write(document.taxTotal, to: &writer)
+        write(document.monetaryTotal, to: &writer)
+        document.lines.forEach { write($0, to: &writer) }
 
         writer.close("Invoice")
         return writer.result
+    }
+
+    private func writeReferences(_ factura: Factura, to writer: inout XMLWriter) {
+        if let orderReference = factura.orderReference {
+            writer.open("cac:OrderReference")
+            writer.element("cbc:ID", text: orderReference)
+            writer.close("cac:OrderReference")
+        }
+        factura.despatchDocumentReferences.forEach { reference in
+            writer.open("cac:DespatchDocumentReference")
+            writer.element("cbc:ID", text: reference.identifier)
+            writer.element("cbc:DocumentTypeCode", text: reference.documentTypeCode)
+            if let description = reference.documentTypeDescription {
+                writer.element("cbc:DocumentType", text: description)
+            }
+            writer.close("cac:DespatchDocumentReference")
+        }
+    }
+
+    private func writeCommercialTerms(_ factura: Factura, to writer: inout XMLWriter) {
+        if let buyerAddress = factura.buyerAddress {
+            writer.open("cac:BuyerCustomerParty")
+            writer.open("cac:Party")
+            writer.open("cac:PartyLegalEntity")
+            write(buyerAddress, to: &writer)
+            writer.close("cac:PartyLegalEntity")
+            writer.close("cac:Party")
+            writer.close("cac:BuyerCustomerParty")
+        }
+        factura.paymentTerms.forEach { term in
+            writer.open("cac:PaymentTerms")
+            writer.element("cbc:ID", text: term.identifier)
+            writer.element("cbc:PaymentMeansID", text: term.paymentMeansID)
+            if let amount = term.amount {
+                write("cbc:Amount", amount: amount, to: &writer)
+            }
+            if let dueDate = term.dueDate {
+                writer.element("cbc:PaymentDueDate", text: format(dueDate))
+            }
+            writer.close("cac:PaymentTerms")
+        }
+        factura.allowanceCharges.forEach { allowance in
+            writer.open("cac:AllowanceCharge")
+            writer.element("cbc:ChargeIndicator", text: allowance.isCharge ? "true" : "false")
+            if let reasonCode = allowance.reasonCode {
+                writer.element("cbc:AllowanceChargeReasonCode", text: reasonCode)
+            }
+            if let multiplierFactor = allowance.multiplierFactor {
+                writer.element("cbc:MultiplierFactorNumeric", text: format(multiplierFactor))
+            }
+            write("cbc:Amount", amount: allowance.amount, to: &writer)
+            if let baseAmount = allowance.baseAmount {
+                write("cbc:BaseAmount", amount: baseAmount, to: &writer)
+            }
+            writer.close("cac:AllowanceCharge")
+        }
     }
 
     private func writeExtensions(to writer: inout XMLWriter) {
@@ -107,6 +206,9 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
         write(customer.identifier, to: &writer)
         writer.open("cac:PartyLegalEntity")
         writer.element("cbc:RegistrationName", text: customer.legalName)
+        if let address = customer.address {
+            write(address, to: &writer)
+        }
         writer.close("cac:PartyLegalEntity")
         writer.close("cac:Party")
         writer.close("cac:AccountingCustomerParty")
