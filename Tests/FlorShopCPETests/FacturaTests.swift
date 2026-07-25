@@ -112,6 +112,19 @@ import ZIPFoundation
     #expect(xml.contains("<cbc:PaymentMeansID>Contado</cbc:PaymentMeansID>"))
 }
 
+@Test func sunatBetaReferenceFacturaFixtureMatchesTheCommercialScenario() throws {
+    let factura = makeReferenceFacturaForSunatBeta()
+    let xml = try UBLInvoiceXMLTransformer().transform(factura)
+
+    #expect(xml.contains("<cac:OrderReference>"))
+    #expect(xml.contains("<cac:DespatchDocumentReference>"))
+    #expect(xml.contains("<cac:BuyerCustomerParty>"))
+    #expect(xml.contains("<cbc:PaymentMeansID>Credito</cbc:PaymentMeansID>"))
+    #expect(xml.contains("<cbc:PaymentMeansID>Cuota001</cbc:PaymentMeansID>"))
+    #expect(xml.contains("<cbc:Amount currencyID=\"PEN\">1288.88</cbc:Amount>"))
+    #expect(xml.contains("<cbc:AllowanceChargeReasonCode>62</cbc:AllowanceChargeReasonCode>"))
+}
+
 @Test func genericSignerValidatesFacturaBeforeReadingCertificate() {
     let configuration = SigningConfiguration(
         signature: SignatureInformation(
@@ -168,69 +181,43 @@ import ZIPFoundation
 @Suite(.serialized)
 struct SunatBetaFacturaIntegrationTests {
     @Test func sunatBetaIntegrationAcceptsSignedFacturaWhenExplicitlyEnabled() async throws {
-        let environment = ProcessInfo.processInfo.environment
-        guard environment["FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION_FACTURA"] == "true" else {
+        guard let credentials = try facturaBetaCredentialsWhenEnabled() else {
             return
         }
-        guard let certificatePath = environment["FLORSHOP_CPE_TEST_PFX_PATH"],
-              let certificatePassword = environment["FLORSHOP_CPE_TEST_PFX_PASSWORD"] else {
-            throw FacturaIntegrationConfigurationError.missingSigningCredentials
-        }
-
-        let fileManager = FileManager.default
-        let directory = fileManager.temporaryDirectory
-            .appendingPathComponent("FlorShopCPE-Factura-Beta-\(UUID().uuidString)", isDirectory: true)
-        try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? fileManager.removeItem(at: directory) }
 
         // Se usa la factura mínima para aislar la integración de los bloques
         // opcionales de factoring, retención y referencias comerciales.
         let factura = makeFacturaForSunatBeta()
-        let emitterRUC = factura.supplier.taxIdentifier.value
-        let configuration = SigningConfiguration(
-            signature: SignatureInformation(
-                identifier: factura.identifier.value,
-                signatoryIdentifier: emitterRUC,
-                signatoryName: factura.supplier.legalName,
-                uri: "#SignSUNAT"
-            ),
-            credentials: .pkcs12(
-                path: URL(fileURLWithPath: certificatePath),
-                passwordProvider: { certificatePassword }
-            )
-        )
-        let signedCPE = try XMLSecCPESigner().sign(
+        let result = try await signAndSubmitFacturaToSunatBeta(
             factura,
-            configuration: configuration
-        )
-        let document = try CPEDocumentWriter().write(
-            signedCPE,
-            output: CPEOutputConfiguration(
-                rootDirectory: directory.appendingPathComponent("cpe")
-            )
-        )
-
-        let signedXML = String(decoding: signedCPE.xml, as: UTF8.self)
-        print("""
-
-        ===== SUNAT BETA FACTURA: XML FIRMADO =====
-        Archivo XML: \(document.signedXMLURL.lastPathComponent)
-        Archivo ZIP: \(document.zipURL.lastPathComponent)
-        Tipo de operación esperado: \(factura.operationTypeCode)
-        Tipo de documento esperado: \(factura.identifier.type.rawValue)
-        \(signedXML)
-        ===== FIN SUNAT BETA FACTURA: XML FIRMADO =====
-
-        """)
-
-        let result = try await submitFacturaToSunatBeta(
-            document: document,
-            emitterRUC: emitterRUC
+            scenario: "CONTADO MÍNIMO",
+            credentials: credentials
         )
 
         #expect(result.status == .accepted)
         #expect(result.responseCode == "0")
         #expect(result.observations.isEmpty)
+        #expect(!result.cdrArchive.isEmpty)
+        #expect(!result.cdrXML.isEmpty)
+        #expect(result.cdrArtifacts != nil)
+    }
+
+    /// Caso cercano al XML de referencia: orden de compra, guía, dirección
+    /// para factoring, crédito, cuota y retención.
+    @Test func sunatBetaIntegrationAcceptsSignedReferenceFacturaWhenExplicitlyEnabled() async throws {
+        guard let credentials = try facturaBetaCredentialsWhenEnabled() else {
+            return
+        }
+
+        let factura = makeReferenceFacturaForSunatBeta()
+        let result = try await signAndSubmitFacturaToSunatBeta(
+            factura,
+            scenario: "CRÉDITO COMPLETO COMO XML DE REFERENCIA",
+            credentials: credentials
+        )
+
+        #expect(result.status == .accepted)
+        #expect(result.responseCode == "0")
         #expect(!result.cdrArchive.isEmpty)
         #expect(!result.cdrXML.isEmpty)
         #expect(result.cdrArtifacts != nil)
@@ -367,24 +354,13 @@ private func makeFactura(
 }
 
 private func makeFacturaForSunatBeta() -> Factura {
-    let now = Date()
-    var calendar = Calendar(identifier: .gregorian)
-    calendar.timeZone = TimeZone(identifier: "America/Lima")!
-    let components = calendar.dateComponents([.year, .month, .day], from: now)
-    let issueDate = IssueDate(
-        year: components.year!,
-        month: components.month!,
-        day: components.day!
-    )
-    let correlativo = max(1, Int(now.timeIntervalSince1970) % 100_000_000)
-
     return makeFactura(
         identifier: DocumentIdentifier(
             series: "F001",
-            number: String(correlativo),
+            number: facturaBetaCorrelative(offset: 0),
             type: .factura
         ),
-        issueDate: issueDate,
+        issueDate: limaIssueDate(),
         includeCommercialTerms: false,
         emitterRUC: "10708255195",
         paymentTerms: [
@@ -393,8 +369,138 @@ private func makeFacturaForSunatBeta() -> Factura {
     )
 }
 
+private func makeReferenceFacturaForSunatBeta() -> Factura {
+    let currency = CurrencyCode.pen
+    let netPendingAmount = MonetaryAmount(
+        value: Decimal(string: "1288.88")!,
+        currency: currency
+    )
+
+    return makeFactura(
+        identifier: DocumentIdentifier(
+            series: "F001",
+            number: facturaBetaCorrelative(offset: 1),
+            type: .factura
+        ),
+        issueDate: limaIssueDate(),
+        includeCommercialTerms: true,
+        emitterRUC: "10708255195",
+        paymentTerms: [
+            PaymentTerm(paymentMeansID: "Credito", amount: netPendingAmount),
+            PaymentTerm(
+                paymentMeansID: "Cuota001",
+                amount: netPendingAmount,
+                dueDate: limaIssueDate(daysFromToday: 16)
+            )
+        ]
+    )
+}
+
+private func limaIssueDate(daysFromToday: Int = 0) -> IssueDate {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(identifier: "America/Lima")!
+    let date = calendar.date(byAdding: .day, value: daysFromToday, to: Date())!
+    let components = calendar.dateComponents([.year, .month, .day], from: date)
+    return IssueDate(
+        year: components.year!,
+        month: components.month!,
+        day: components.day!
+    )
+}
+
+private func facturaBetaCorrelative(offset: Int) -> String {
+    let maximumCorrelative = 99_999_999
+    let timestamp = Int(Date().timeIntervalSince1970) % maximumCorrelative
+    return String(max(1, (timestamp + offset) % maximumCorrelative))
+}
+
 private enum FacturaIntegrationConfigurationError: Error {
     case missingSigningCredentials
+}
+
+private struct FacturaBetaCredentials: Sendable {
+    let certificatePath: String
+    let certificatePassword: String
+}
+
+private func facturaBetaCredentialsWhenEnabled() throws -> FacturaBetaCredentials? {
+    let environment = ProcessInfo.processInfo.environment
+    guard environment["FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION_FACTURA"] == "true" else {
+        return nil
+    }
+    guard let certificatePath = environment["FLORSHOP_CPE_TEST_PFX_PATH"],
+          let certificatePassword = environment["FLORSHOP_CPE_TEST_PFX_PASSWORD"] else {
+        throw FacturaIntegrationConfigurationError.missingSigningCredentials
+    }
+    return FacturaBetaCredentials(
+        certificatePath: certificatePath,
+        certificatePassword: certificatePassword
+    )
+}
+
+private func signAndSubmitFacturaToSunatBeta(
+    _ factura: Factura,
+    scenario: String,
+    credentials: FacturaBetaCredentials
+) async throws -> SunatBillSubmissionResult {
+    let fileManager = FileManager.default
+    let directory = fileManager.temporaryDirectory
+        .appendingPathComponent("FlorShopCPE-Factura-Beta-\(UUID().uuidString)", isDirectory: true)
+    try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? fileManager.removeItem(at: directory) }
+
+    let emitterRUC = factura.supplier.taxIdentifier.value
+    let configuration = SigningConfiguration(
+        signature: SignatureInformation(
+            identifier: factura.identifier.value,
+            signatoryIdentifier: emitterRUC,
+            signatoryName: factura.supplier.legalName,
+            uri: "#SignSUNAT"
+        ),
+        credentials: .pkcs12(
+            path: URL(fileURLWithPath: credentials.certificatePath),
+            passwordProvider: { credentials.certificatePassword }
+        )
+    )
+    let signedCPE = try XMLSecCPESigner().sign(
+        factura,
+        configuration: configuration
+    )
+    let document = try CPEDocumentWriter().write(
+        signedCPE,
+        output: CPEOutputConfiguration(
+            rootDirectory: directory.appendingPathComponent("cpe")
+        )
+    )
+
+    let signedXML = String(decoding: signedCPE.xml, as: UTF8.self)
+    print("""
+
+    ===== SUNAT BETA FACTURA \(scenario): XML FIRMADO =====
+    Archivo XML: \(document.signedXMLURL.lastPathComponent)
+    Archivo ZIP: \(document.zipURL.lastPathComponent)
+    Tipo de operación esperado: \(factura.operationTypeCode)
+    Tipo de documento esperado: \(factura.identifier.type.rawValue)
+    \(signedXML)
+    ===== FIN SUNAT BETA FACTURA \(scenario): XML FIRMADO =====
+
+    """)
+
+    let result = try await submitFacturaToSunatBeta(
+        document: document,
+        emitterRUC: emitterRUC
+    )
+    print("""
+
+    ===== SUNAT BETA FACTURA \(scenario): RESPUESTA =====
+    Estado: \(result.status)
+    Código: \(result.responseCode)
+    Descripciones: \(result.descriptions)
+    Observaciones: \(result.observations)
+    ===== FIN SUNAT BETA FACTURA \(scenario): RESPUESTA =====
+
+    """)
+    return result
 }
 
 /// SUNAT BETA puede responder 401 cuando MODDATOS recibe autenticaciones muy

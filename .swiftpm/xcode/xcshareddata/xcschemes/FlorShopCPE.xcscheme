@@ -71,7 +71,7 @@
          </EnvironmentVariable>
          <EnvironmentVariable
             key = "FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION_FACTURA"
-            value = "true"
+            value = "false"
             isEnabled = "YES">
          </EnvironmentVariable>
       </EnvironmentVariables>
