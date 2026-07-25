@@ -1,14 +1,20 @@
 import Foundation
 
 public protocol BoletaSigning {
-    func sign(_ boleta: Boleta, configuration: SigningConfiguration) throws -> SignedBoleta
+    func sign(_ boleta: Boleta, configuration: SigningConfiguration) throws -> SignedCPE
 }
 
-public struct SignedBoleta: Sendable {
+/// Comprobante electrónico firmado, aún sin escribir en disco.
+///
+/// Además del XML, conserva la identidad necesaria para crear sus archivos
+/// SUNAT sin volver a pedir el modelo de dominio original.
+public struct SignedCPE: Sendable {
     public let xml: Data
+    public let identity: CPEIdentity
 
-    public init(xml: Data) {
+    public init(xml: Data, identity: CPEIdentity) {
         self.xml = xml
+        self.identity = identity
     }
 
     public var xmlString: String? {

@@ -12,7 +12,7 @@ public struct XMLSecBoletaSigner: BoletaSigning {
         self.transformer = transformer
     }
 
-    public func sign(_ boleta: Boleta, configuration: SigningConfiguration) throws -> SignedBoleta {
+    public func sign(_ boleta: Boleta, configuration: SigningConfiguration) throws -> SignedCPE {
         let boletaToSign = boleta.replacing(signature: configuration.signature)
         let unsignedXML = try transformer.transform(boletaToSign)
         let signatureID = try signatureID(from: configuration.signature.uri)
@@ -23,7 +23,8 @@ public struct XMLSecBoletaSigner: BoletaSigning {
                 xml: Data(unsignedXML.utf8),
                 path: path,
                 password: passwordProvider(),
-                signatureID: signatureID
+                signatureID: signatureID,
+                identity: CPEIdentity(boleta: boleta)
             )
         }
     }
@@ -35,7 +36,13 @@ public struct XMLSecBoletaSigner: BoletaSigning {
         return String(uri.dropFirst())
     }
 
-    private func signPKCS12(xml: Data, path: URL, password: String, signatureID: String) throws -> SignedBoleta {
+    private func signPKCS12(
+        xml: Data,
+        path: URL,
+        password: String,
+        signatureID: String,
+        identity: CPEIdentity
+    ) throws -> SignedCPE {
         #if os(Linux) || os(macOS)
         var signedXML: UnsafeMutablePointer<UInt8>?
         var signedXMLSize = 0
@@ -69,7 +76,10 @@ public struct XMLSecBoletaSigner: BoletaSigning {
             let message = errorMessage.map { String(cString: $0) } ?? "Error desconocido de libxmlsec."
             throw BoletaSigningError.signingFailed(message)
         }
-        return SignedBoleta(xml: Data(bytes: signedXML, count: signedXMLSize))
+        return SignedCPE(
+            xml: Data(bytes: signedXML, count: signedXMLSize),
+            identity: identity
+        )
         #else
         throw BoletaSigningError.unsupportedPlatform
         #endif

@@ -51,6 +51,8 @@ public struct SunatBillSubmissionResult: Sendable {
     public let observations: [SunatObservation]
     public let cdrArchive: Data
     public let cdrXML: Data
+    /// Rutas donde `submit` guardó el CDR del comprobante.
+    public let cdrArtifacts: SunatCDRArtifacts?
 
     public init(
         status: SunatBillSubmissionStatus,
@@ -58,7 +60,8 @@ public struct SunatBillSubmissionResult: Sendable {
         descriptions: [String],
         observations: [SunatObservation],
         cdrArchive: Data,
-        cdrXML: Data
+        cdrXML: Data,
+        cdrArtifacts: SunatCDRArtifacts? = nil
     ) {
         self.status = status
         self.responseCode = responseCode
@@ -66,6 +69,7 @@ public struct SunatBillSubmissionResult: Sendable {
         self.observations = observations
         self.cdrArchive = cdrArchive
         self.cdrXML = cdrXML
+        self.cdrArtifacts = cdrArtifacts
     }
 }
 
@@ -110,25 +114,28 @@ public struct SunatBillClient {
 
     private let transport: any SunatHTTPTransport
     private let packageValidator: SunatBillPackageValidator
+    private let documentWriter: CPEDocumentWriter
 
     public init(
         transport: any SunatHTTPTransport = URLSessionSunatHTTPTransport(),
-        packageValidator: SunatBillPackageValidator = SunatBillPackageValidator()
+        packageValidator: SunatBillPackageValidator = SunatBillPackageValidator(),
+        documentWriter: CPEDocumentWriter = CPEDocumentWriter()
     ) {
         self.transport = transport
         self.packageValidator = packageValidator
+        self.documentWriter = documentWriter
     }
 
-    /// Envía un ZIP previamente generado. El endpoint y las credenciales SOAP
-    /// se determinan a partir de `credentials`.
+    /// Envía un comprobante previamente preparado. El ZIP y la carpeta CDR
+    /// permanecen encapsulados en `CPEDocument`.
     ///
     public func submit(
-        zipAt zipURL: URL,
+        document: CPEDocument,
         credentials: SunatCredentials
     ) async throws -> SunatBillSubmissionResult {
         let configuration = try configuration(for: credentials)
 
-        let package = try packageValidator.validate(zipAt: zipURL)
+        let package = try packageValidator.validate(zipAt: document.zipURL)
         let archiveData: Data
         do {
             archiveData = try Data(contentsOf: package.archiveURL)
@@ -161,8 +168,23 @@ public struct SunatBillClient {
                     details: responseDiagnostic(from: response.body)
                 )
             }
-            return try SunatBillResponseParser.parse(response)
+            let result = try SunatBillResponseParser.parse(response)
+            let cdrArtifacts = try documentWriter.storeCDR(
+                result,
+                for: document
+            )
+            return SunatBillSubmissionResult(
+                status: result.status,
+                responseCode: result.responseCode,
+                descriptions: result.descriptions,
+                observations: result.observations,
+                cdrArchive: result.cdrArchive,
+                cdrXML: result.cdrXML,
+                cdrArtifacts: cdrArtifacts
+            )
         } catch let error as SunatBillSubmissionError {
+            throw error
+        } catch let error as CPEDocumentWritingError {
             throw error
         } catch {
             throw SunatBillSubmissionError.transportFailed(error.localizedDescription)

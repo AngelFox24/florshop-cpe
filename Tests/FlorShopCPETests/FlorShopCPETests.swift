@@ -57,7 +57,7 @@ import ZIPFoundation
         ),
         lines: [line]
     )
-
+    
     #expect(boleta.identifier.value == "B001-1")
     #expect(boleta.lines.count == 1)
     #expect(boleta.taxTotal.subtotals.first?.scheme == .igv)
@@ -119,7 +119,7 @@ import ZIPFoundation
             price: MonetaryAmount(value: 50, currency: currency)
         )]
     )
-
+    
     let xml = try! UBLInvoiceXMLTransformer().transform(boleta)
     #expect(xml.contains("<Invoice xmlns=\"urn:oasis:names:specification:ubl:schema:xsd:Invoice-2\""))
     #expect(xml.contains("<cbc:ID>B001-1</cbc:ID>"))
@@ -139,7 +139,7 @@ import ZIPFoundation
 
 @Test func amountInWordsFormatterGeneratesSpanishSUNATLegend() throws {
     let formatter = SpanishAmountInWordsFormatter()
-
+    
     #expect(try formatter.format(Decimal(string: "0.00")!, currency: .pen) == "SON CERO CON 00/100 SOLES")
     #expect(try formatter.format(Decimal(string: "1.01")!, currency: .pen) == "SON UN CON 01/100 SOLES")
     #expect(try formatter.format(Decimal(string: "118.00")!, currency: .pen) == "SON CIENTO DIECIOCHO CON 00/100 SOLES")
@@ -157,7 +157,7 @@ import ZIPFoundation
         ),
         credentials: .pkcs12(path: URL(fileURLWithPath: "/not-used.pfx"), passwordProvider: { "" })
     )
-
+    
     #expect(throws: BoletaSigningError.invalidSignatureURI) {
         try signer.sign(makeBoleta(), configuration: configuration)
     }
@@ -171,7 +171,7 @@ import ZIPFoundation
           let certificatePassword = environment["FLORSHOP_CPE_TEST_PFX_PASSWORD"] else {
         return
     }
-
+    
     let configuration = SigningConfiguration(
         signature: SignatureInformation(
             identifier: "20123456789",
@@ -184,10 +184,10 @@ import ZIPFoundation
             passwordProvider: { certificatePassword }
         )
     )
-
+    
     let signedBoleta = try XMLSecBoletaSigner().sign(makeBoleta(), configuration: configuration)
     let signedXML = try #require(signedBoleta.xmlString)
-
+    
     #expect(signedXML.contains("<cac:Signature>"))
     #expect(signedXML.contains("<ds:Signature"))
     #expect(signedXML.contains("Id=\"GREENTER-SIGN\""))
@@ -201,9 +201,9 @@ import ZIPFoundation
     guard let configuration = integrationSigningConfiguration() else {
         return
     }
-
+    
     let signedBoleta = try XMLSecBoletaSigner().sign(makeBoleta(), configuration: configuration)
-
+    
     #expect(try XMLSecSignatureVerifier().verify(signedBoleta.xml))
 }
 
@@ -213,11 +213,11 @@ import ZIPFoundation
     guard let configuration = integrationSigningConfiguration() else {
         return
     }
-
+    
     let signedBoleta = try XMLSecBoletaSigner().sign(makeBoleta(), configuration: configuration)
     let signedXML = try #require(signedBoleta.xmlString)
     let alteredXML = signedXML.replacingOccurrences(of: "PRODUCTO", with: "PRODUCTA")
-
+    
     #expect(try !XMLSecSignatureVerifier().verify(Data(alteredXML.utf8)))
 }
 
@@ -227,44 +227,67 @@ import ZIPFoundation
         .appendingPathComponent("FlorShopCPE-Packaging-\(UUID().uuidString)", isDirectory: true)
     try fileManager.createDirectory(at: directoryURL, withIntermediateDirectories: true)
     defer { try? fileManager.removeItem(at: directoryURL) }
-
+    
     let xmlURL = directoryURL.appendingPathComponent("20123456789-03-B001-1.xml")
     let xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Invoice />"
     try Data(xml.utf8).write(to: xmlURL)
-
+    
     let packaged = try XMLDocumentPackager().package(xmlAt: xmlURL)
-
+    
     #expect(packaged.archiveURL.lastPathComponent == "20123456789-03-B001-1.zip")
     #expect(packaged.entryName == "20123456789-03-B001-1.xml")
     #expect(fileManager.fileExists(atPath: packaged.archiveURL.path))
-
+    
     let archive = try Archive(url: packaged.archiveURL, accessMode: .read)
     let entry = try #require(archive[packaged.entryName])
     var extractedData = Data()
     _ = try archive.extract(entry) { extractedData.append($0) }
-
+    
     #expect(String(data: extractedData, encoding: .utf8) == xml)
     #expect(Array(archive).count == 1)
+}
+
+@Test func documentWriterUsesTheSUNATNameAndConfiguredRootDirectory() throws {
+    let fileManager = FileManager.default
+    let directoryURL = try makeTemporaryDirectory(fileManager: fileManager)
+    defer { try? fileManager.removeItem(at: directoryURL) }
+    
+    let output = CPEOutputConfiguration(
+        rootDirectory: directoryURL.appendingPathComponent("cpe")
+    )
+    let boleta = makeBoleta()
+    let document = try CPEDocumentWriter().write(
+        SignedCPE(xml: Data("<Invoice />".utf8), identity: CPEIdentity(boleta: boleta)),
+        output: output
+    )
+    
+    #expect(document.signedXMLURL.lastPathComponent == "20123456789-03-B001-1.xml")
+    #expect(document.zipURL.lastPathComponent == "20123456789-03-B001-1.zip")
+    #expect(document.signedXMLURL.deletingLastPathComponent().lastPathComponent == "xml")
+    #expect(document.zipURL.deletingLastPathComponent().lastPathComponent == "zip")
+    #expect(document.cdrDirectory.lastPathComponent == "cdr")
+    #expect(fileManager.fileExists(atPath: document.signedXMLURL.path))
+    #expect(fileManager.fileExists(atPath: document.zipURL.path))
 }
 
 @Test func sunatBillPackageValidatorAcceptsTheExpectedZIPStructure() throws {
     let fileManager = FileManager.default
     let directoryURL = try makeTemporaryDirectory(fileManager: fileManager)
     defer { try? fileManager.removeItem(at: directoryURL) }
-
+    
     let xmlURL = directoryURL.appendingPathComponent("20123456789-03-B001-1.xml")
     try Data("<Invoice />".utf8).write(to: xmlURL)
     let packagedXML = try XMLDocumentPackager().package(xmlAt: xmlURL)
-
+    
     let package = try SunatBillPackageValidator().validate(zipAt: packagedXML.archiveURL)
-
+    
     #expect(package.fileName == "20123456789-03-B001-1.zip")
     #expect(package.xmlEntryName == "20123456789-03-B001-1.xml")
 }
 
 @Test func transformerGeneratesUBLInvoiceXMLWithMultipleProducts() throws {
     let xml = try UBLInvoiceXMLTransformer().transform(makeBoletaWithMoreProducts())
-
+    
     #expect(xml.components(separatedBy: "<cac:InvoiceLine>").count - 1 == 2)
     #expect(xml.contains("<cbc:ID>1</cbc:ID>"))
     #expect(xml.contains("<cbc:ID>2</cbc:ID>"))
@@ -278,22 +301,25 @@ import ZIPFoundation
     let fileManager = FileManager.default
     let directoryURL = try makeTemporaryDirectory(fileManager: fileManager)
     defer { try? fileManager.removeItem(at: directoryURL) }
-
-    let xmlURL = directoryURL.appendingPathComponent("10708255195-03-B001-1.xml")
-    try Data("<Invoice />".utf8).write(to: xmlURL)
-    let zipURL = try XMLDocumentPackager().package(xmlAt: xmlURL).archiveURL
+    
+    let output = outputConfiguration(in: directoryURL)
+    let boleta = makeBoleta(emitterRUC: "10708255195")
+    let document = try CPEDocumentWriter().write(
+        SignedCPE(xml: Data("<Invoice />".utf8), identity: CPEIdentity(boleta: boleta)),
+        output: output
+    )
     let transport = CapturingSunatHTTPTransport(response: try makeCDRResponse(
         directoryURL: directoryURL,
         responseCode: "0"
     ))
-
+    
     let result = try await SunatBillClient(transport: transport).submit(
-        zipAt: zipURL,
+        document: document,
         credentials: .beta(emitterRUC: "10708255195")
     )
     let request = try #require(await transport.request)
     let body = try #require(request.httpBody)
-
+    
     #expect(result.status == .accepted)
     #expect(result.responseCode == "0")
     #expect(request.url == SunatBillClient.betaEndpoint)
@@ -302,13 +328,17 @@ import ZIPFoundation
     #expect(body.contains(Data("<wsse:Username>10708255195MODDATOS</wsse:Username>".utf8)))
     #expect(body.contains(Data("<fileName>10708255195-03-B001-1.zip</fileName>".utf8)))
     #expect(body.contains(Data("<contentFile>".utf8)))
+    #expect(result.cdrArtifacts?.archiveURL.lastPathComponent == "R-10708255195-03-B001-1.zip")
+    #expect(result.cdrArtifacts?.xmlURL.lastPathComponent == "R-10708255195-03-B001-1.xml")
+    #expect(fileManager.fileExists(atPath: try #require(result.cdrArtifacts).archiveURL.path))
+    #expect(fileManager.fileExists(atPath: try #require(result.cdrArtifacts).xmlURL.path))
 }
 
 @Test func sunatResponseParserClassifiesObservationsAndRejections() throws {
     let fileManager = FileManager.default
     let directoryURL = try makeTemporaryDirectory(fileManager: fileManager)
     defer { try? fileManager.removeItem(at: directoryURL) }
-
+    
     let observed = try SunatBillResponseParser.parse(makeCDRResponse(
         directoryURL: directoryURL,
         responseCode: "0",
@@ -318,7 +348,7 @@ import ZIPFoundation
         directoryURL: directoryURL,
         responseCode: "2000"
     ))
-
+    
     #expect(observed.status == .acceptedWithObservations)
     #expect(observed.observations == [SunatObservation(code: "4000", description: "Observación de prueba")])
     #expect(rejected.status == .rejected)
@@ -329,13 +359,13 @@ import ZIPFoundation
     let fileManager = FileManager.default
     let directoryURL = try makeTemporaryDirectory(fileManager: fileManager)
     defer { try? fileManager.removeItem(at: directoryURL) }
-
+    
     let response = try makeCDRResponse(
         directoryURL: directoryURL,
         responseCode: "0",
         additionalEntry: "metadata.txt"
     )
-
+    
     #expect(try SunatBillResponseParser.parse(response).status == .accepted)
 }
 
@@ -350,7 +380,7 @@ import ZIPFoundation
         body: Data(fault.utf8),
         contentType: "text/xml; charset=UTF-8"
     )
-
+    
     do {
         _ = try SunatBillResponseParser.parse(response)
         Issue.record("Se esperaba un SOAP Fault")
@@ -363,10 +393,12 @@ import ZIPFoundation
     let fileManager = FileManager.default
     let directoryURL = try makeTemporaryDirectory(fileManager: fileManager)
     defer { try? fileManager.removeItem(at: directoryURL) }
-
-    let xmlURL = directoryURL.appendingPathComponent("20123456789-03-B001-1.xml")
-    try Data("<Invoice />".utf8).write(to: xmlURL)
-    let zipURL = try XMLDocumentPackager().package(xmlAt: xmlURL).archiveURL
+    
+    let boleta = makeBoleta()
+    let document = try CPEDocumentWriter().write(
+        SignedCPE(xml: Data("<Invoice />".utf8), identity: CPEIdentity(boleta: boleta)),
+        output: outputConfiguration(in: directoryURL)
+    )
     let fault = """
     <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
       <soapenv:Body><soapenv:Fault><faultcode>soapenv:Client</faultcode><faultstring>ZIP inválido</faultstring></soapenv:Fault></soapenv:Body>
@@ -377,10 +409,10 @@ import ZIPFoundation
         body: Data(fault.utf8),
         contentType: "text/xml; charset=UTF-8"
     ))
-
+    
     do {
         _ = try await SunatBillClient(transport: transport).submit(
-            zipAt: zipURL,
+            document: document,
             credentials: .beta(emitterRUC: "20123456789")
         )
         Issue.record("Se esperaba un SOAP Fault")
@@ -389,74 +421,88 @@ import ZIPFoundation
     }
 }
 
-/// Prueba de integración manual contra SUNAT BETA.
-///
-/// No realiza ninguna llamada de red salvo que se configure explícitamente:
-/// - `FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION=true`
-@Test func sunatBetaIntegrationAcceptsSignedBoletaWhenExplicitlyEnabled() async throws {
-    let environment = ProcessInfo.processInfo.environment
-    guard environment["FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION"] == "true" else {
-        return
+/// Las pruebas que impactan SUNAT BETA comparten las credenciales MODDATOS.
+/// SUNAT puede rechazar solicitudes concurrentes con HTTP 401, por lo que esta
+/// suite se ejecuta en serie aunque el resto de pruebas continúe en paralelo.
+@Suite(.serialized)
+struct SunatBetaIntegrationTests {
+    
+    /// Prueba de integración manual contra SUNAT BETA.
+    ///
+    /// No realiza ninguna llamada de red salvo que se configure explícitamente:
+    /// - `FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION=true`
+    @Test func sunatBetaIntegrationAcceptsSignedBoletaWhenExplicitlyEnabled() async throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION"] == "true" else {
+            return
+        }
+        
+        let fileManager = FileManager.default
+        let directoryURL = try makeTemporaryDirectory(fileManager: fileManager)
+        defer { try? fileManager.removeItem(at: directoryURL) }
+        
+        let boleta = makeBoleta()
+        guard let signingConfiguration = integrationSigningConfiguration() else {
+            throw IntegrationConfigurationError.missingSigningCredentials
+        }
+        let signedCPE = try XMLSecBoletaSigner().sign(boleta, configuration: signingConfiguration)
+        let emitterRUC = boleta.supplier.taxIdentifier.value
+        let output = outputConfiguration(in: directoryURL)
+        let document = try CPEDocumentWriter().write(
+            signedCPE,
+            output: output
+        )
+        
+        let result = try await submitToSunatBeta(
+            document: document,
+            emitterRUC: emitterRUC
+        )
+        
+        #expect(result.status == .accepted)
+        #expect(result.responseCode == "0")
+        #expect(result.observations.isEmpty)
+        #expect(!result.cdrArchive.isEmpty)
+        #expect(!result.cdrXML.isEmpty)
+        #expect(result.cdrArtifacts != nil)
     }
-
-    let fileManager = FileManager.default
-    let directoryURL = try makeTemporaryDirectory(fileManager: fileManager)
-    defer { try? fileManager.removeItem(at: directoryURL) }
-
-    let boleta = makeBoleta()
-    guard let signingConfiguration = integrationSigningConfiguration() else {
-        throw IntegrationConfigurationError.missingSigningCredentials
+    
+    /// Prueba de integración manual BETA para una boleta con más de un producto.
+    /// Solo realiza la llamada si `FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION=true`.
+    @Test func sunatBetaIntegrationAcceptsSignedMultiProductBoletaWhenExplicitlyEnabled() async throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION"] == "true" else {
+            return
+        }
+        
+        let fileManager = FileManager.default
+        let directoryURL = try makeTemporaryDirectory(fileManager: fileManager)
+        defer { try? fileManager.removeItem(at: directoryURL) }
+        
+        let boleta = makeBoletaWithMoreProducts()
+        guard let signingConfiguration = integrationSigningConfiguration() else {
+            throw IntegrationConfigurationError.missingSigningCredentials
+        }
+        let signedCPE = try XMLSecBoletaSigner().sign(boleta, configuration: signingConfiguration)
+        let emitterRUC = boleta.supplier.taxIdentifier.value
+        let output = outputConfiguration(in: directoryURL)
+        let document = try CPEDocumentWriter().write(
+            signedCPE,
+            output: output
+        )
+        
+        let result = try await submitToSunatBeta(
+            document: document,
+            emitterRUC: emitterRUC
+        )
+        
+        #expect(result.status == .accepted)
+        #expect(result.responseCode == "0")
+        #expect(result.observations.isEmpty)
+        #expect(!result.cdrArchive.isEmpty)
+        #expect(!result.cdrXML.isEmpty)
+        #expect(result.cdrArtifacts != nil)
     }
-    let signedBoleta = try XMLSecBoletaSigner().sign(boleta, configuration: signingConfiguration)
-    let emitterRUC = boleta.supplier.taxIdentifier.value
-    let xmlURL = directoryURL.appendingPathComponent("\(emitterRUC)-03-\(boleta.identifier.value).xml")
-    try signedBoleta.xml.write(to: xmlURL)
-    let zipURL = try XMLDocumentPackager().package(xmlAt: xmlURL).archiveURL
-
-    let result = try await SunatBillClient().submit(
-        zipAt: zipURL,
-        credentials: .beta(emitterRUC: emitterRUC)
-    )
-
-    #expect(result.status == .accepted)
-    #expect(result.responseCode == "0")
-    #expect(result.observations.isEmpty)
-    #expect(!result.cdrArchive.isEmpty)
-    #expect(!result.cdrXML.isEmpty)
-}
-
-/// Prueba de integración manual BETA para una boleta con más de un producto.
-/// Solo realiza la llamada si `FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION=true`.
-@Test func sunatBetaIntegrationAcceptsSignedMultiProductBoletaWhenExplicitlyEnabled() async throws {
-    let environment = ProcessInfo.processInfo.environment
-    guard environment["FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION"] == "true" else {
-        return
-    }
-
-    let fileManager = FileManager.default
-    let directoryURL = try makeTemporaryDirectory(fileManager: fileManager)
-    defer { try? fileManager.removeItem(at: directoryURL) }
-
-    let boleta = makeBoletaWithMoreProducts()
-    guard let signingConfiguration = integrationSigningConfiguration() else {
-        throw IntegrationConfigurationError.missingSigningCredentials
-    }
-    let signedBoleta = try XMLSecBoletaSigner().sign(boleta, configuration: signingConfiguration)
-    let emitterRUC = boleta.supplier.taxIdentifier.value
-    let xmlURL = directoryURL.appendingPathComponent("\(emitterRUC)-03-\(boleta.identifier.value).xml")
-    try signedBoleta.xml.write(to: xmlURL)
-    let zipURL = try XMLDocumentPackager().package(xmlAt: xmlURL).archiveURL
-
-    let result = try await SunatBillClient().submit(
-        zipAt: zipURL,
-        credentials: .beta(emitterRUC: emitterRUC)
-    )
-
-    #expect(result.status == .accepted)
-    #expect(result.responseCode == "0")
-    #expect(result.observations.isEmpty)
-    #expect(!result.cdrArchive.isEmpty)
-    #expect(!result.cdrXML.isEmpty)
+    
 }
 
 private func makeTemporaryDirectory(fileManager: FileManager) throws -> URL {
@@ -464,6 +510,39 @@ private func makeTemporaryDirectory(fileManager: FileManager) throws -> URL {
         .appendingPathComponent("FlorShopCPE-Tests-\(UUID().uuidString)", isDirectory: true)
     try fileManager.createDirectory(at: directoryURL, withIntermediateDirectories: true)
     return directoryURL
+}
+
+private func outputConfiguration(in directoryURL: URL) -> CPEOutputConfiguration {
+    CPEOutputConfiguration(
+        rootDirectory: directoryURL.appendingPathComponent("cpe")
+    )
+}
+
+/// BETA puede devolver 401 si se realizan dos autenticaciones MODDATOS con muy
+/// poca separación. Solo esta prueba de integración reintenta ese caso; la
+/// librería conserva la respuesta HTTP original para sus consumidores.
+private func submitToSunatBeta(
+    document: CPEDocument,
+    emitterRUC: String
+) async throws -> SunatBillSubmissionResult {
+    let maximumAttempts = 3
+    
+    for attempt in 1 ... maximumAttempts {
+        do {
+            return try await SunatBillClient().submit(
+                document: document,
+                credentials: .beta(emitterRUC: emitterRUC)
+            )
+        } catch let error as SunatBillSubmissionError {
+            guard case .unexpectedHTTPStatus(statusCode: 401, details: _) = error,
+                  attempt < maximumAttempts else {
+                throw error
+            }
+            try await Task.sleep(for: .seconds(2))
+        }
+    }
+    
+    preconditionFailure("El bucle de reintentos debe devolver o lanzar un error.")
 }
 
 private enum IntegrationConfigurationError: Error {
@@ -505,7 +584,7 @@ private func makeCDRResponse(
       <soapenv:Body><ser:sendBillResponse><applicationResponse>\(cdrArchive.base64EncodedString())</applicationResponse></ser:sendBillResponse></soapenv:Body>
     </soapenv:Envelope>
     """
-
+    
     return SunatHTTPResponse(
         statusCode: 200,
         body: Data(body.utf8),
@@ -516,11 +595,11 @@ private func makeCDRResponse(
 private actor CapturingSunatHTTPTransport: SunatHTTPTransport {
     private(set) var request: URLRequest?
     private let response: SunatHTTPResponse
-
+    
     init(response: SunatHTTPResponse) {
         self.response = response
     }
-
+    
     func send(_ request: URLRequest) async throws -> SunatHTTPResponse {
         self.request = request
         return response
@@ -533,7 +612,7 @@ private func integrationSigningConfiguration() -> SigningConfiguration? {
           let certificatePassword = environment["FLORSHOP_CPE_TEST_PFX_PASSWORD"] else {
         return nil
     }
-
+    
     return SigningConfiguration(
         signature: SignatureInformation(
             identifier: "20123456789",
@@ -548,7 +627,7 @@ private func integrationSigningConfiguration() -> SigningConfiguration? {
     )
 }
 
-private func makeBoleta() -> Boleta {
+private func makeBoleta(emitterRUC: String = "20123456789") -> Boleta {
     let currency: CurrencyCode = .pen
     let scheme = TaxScheme.igv
     let lineTaxTotal = LineTaxTotal(
@@ -563,7 +642,7 @@ private func makeBoleta() -> Boleta {
         identifier: DocumentIdentifier(series: "B001", number: "1"),
         issueDate: IssueDate(year: 2020, month: 8, day: 19),
         currency: currency,
-        supplier: Supplier(taxIdentifier: PartyIdentifier(value: "20123456789", documentType: .ruc), legalName: "GREENTER S.A.C."),
+        supplier: Supplier(taxIdentifier: PartyIdentifier(value: emitterRUC, documentType: .ruc), legalName: "GREENTER S.A.C."),
         customer: Customer(identifier: PartyIdentifier(value: "20203030", documentType: .dni), legalName: "PERSON 1"),
         taxTotal: TaxTotal(
             amount: MonetaryAmount(value: 18, currency: currency),
@@ -608,7 +687,7 @@ private func makeBoletaWithMoreProducts() -> Boleta {
         amount: MonetaryAmount(value: 59, currency: currency),
         type: .unitPriceIncludingTaxes
     )
-
+    
     return Boleta(
         identifier: DocumentIdentifier(series: "B001", number: "2"),
         issueDate: IssueDate(year: 2020, month: 8, day: 19),
