@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import ZIPFoundation
 @testable import FlorShopCPE
 
 @Test func boletaModelRetainsItsDomainData() {
@@ -218,6 +219,32 @@ import Testing
     let alteredXML = signedXML.replacingOccurrences(of: "PRODUCTO", with: "PRODUCTA")
 
     #expect(try !XMLSecSignatureVerifier().verify(Data(alteredXML.utf8)))
+}
+
+@Test func packagerCreatesZIPContainingOnlyTheSourceXML() throws {
+    let fileManager = FileManager.default
+    let directoryURL = fileManager.temporaryDirectory
+        .appendingPathComponent("FlorShopCPE-Packaging-\(UUID().uuidString)", isDirectory: true)
+    try fileManager.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+    defer { try? fileManager.removeItem(at: directoryURL) }
+
+    let xmlURL = directoryURL.appendingPathComponent("20123456789-03-B001-1.xml")
+    let xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Invoice />"
+    try Data(xml.utf8).write(to: xmlURL)
+
+    let packaged = try XMLDocumentPackager().package(xmlAt: xmlURL)
+
+    #expect(packaged.archiveURL.lastPathComponent == "20123456789-03-B001-1.zip")
+    #expect(packaged.entryName == "20123456789-03-B001-1.xml")
+    #expect(fileManager.fileExists(atPath: packaged.archiveURL.path))
+
+    let archive = try Archive(url: packaged.archiveURL, accessMode: .read)
+    let entry = try #require(archive[packaged.entryName])
+    var extractedData = Data()
+    _ = try archive.extract(entry) { extractedData.append($0) }
+
+    #expect(String(data: extractedData, encoding: .utf8) == xml)
+    #expect(Array(archive).count == 1)
 }
 
 private func integrationSigningConfiguration() -> SigningConfiguration? {
