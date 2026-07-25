@@ -247,6 +247,67 @@ import ZIPFoundation
     #expect(Array(archive).count == 1)
 }
 
+@Test func sunatBillPackageValidatorAcceptsTheExpectedZIPStructure() throws {
+    let fileManager = FileManager.default
+    let directoryURL = try makeTemporaryDirectory(fileManager: fileManager)
+    defer { try? fileManager.removeItem(at: directoryURL) }
+
+    let xmlURL = directoryURL.appendingPathComponent("20123456789-03-B001-1.xml")
+    try Data("<Invoice />".utf8).write(to: xmlURL)
+    let packagedXML = try XMLDocumentPackager().package(xmlAt: xmlURL)
+
+    let package = try SunatBillPackageValidator().validate(zipAt: packagedXML.archiveURL)
+
+    #expect(package.fileName == "20123456789-03-B001-1.zip")
+    #expect(package.xmlEntryName == "20123456789-03-B001-1.xml")
+}
+
+@Test func sunatBetaClientSendsZIPAsSOAPAttachment() async throws {
+    let fileManager = FileManager.default
+    let directoryURL = try makeTemporaryDirectory(fileManager: fileManager)
+    defer { try? fileManager.removeItem(at: directoryURL) }
+
+    let xmlURL = directoryURL.appendingPathComponent("10708255195-03-B001-1.xml")
+    try Data("<Invoice />".utf8).write(to: xmlURL)
+    let zipURL = try XMLDocumentPackager().package(xmlAt: xmlURL).archiveURL
+    let transport = CapturingSunatHTTPTransport(statusCode: 200)
+
+    let receipt = try await SunatBillClient(transport: transport).submit(
+        zipAt: zipURL,
+        credentials: .beta(emitterRUC: "10708255195")
+    )
+    let request = try #require(await transport.request)
+    let body = try #require(request.httpBody)
+
+    #expect(receipt.statusCode == 200)
+    #expect(request.url == SunatBillClient.betaEndpoint)
+    #expect(request.value(forHTTPHeaderField: "Content-Type")?.contains("multipart/related") == true)
+    #expect(body.contains(Data("<wsse:Username>10708255195MODDATOS</wsse:Username>".utf8)))
+    #expect(body.contains(Data("<fileName>10708255195-03-B001-1.zip</fileName>".utf8)))
+    #expect(body.contains(Data("Content-Type: application/zip".utf8)))
+}
+
+private func makeTemporaryDirectory(fileManager: FileManager) throws -> URL {
+    let directoryURL = fileManager.temporaryDirectory
+        .appendingPathComponent("FlorShopCPE-Tests-\(UUID().uuidString)", isDirectory: true)
+    try fileManager.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+    return directoryURL
+}
+
+private actor CapturingSunatHTTPTransport: SunatHTTPTransport {
+    private(set) var request: URLRequest?
+    private let statusCode: Int
+
+    init(statusCode: Int) {
+        self.statusCode = statusCode
+    }
+
+    func send(_ request: URLRequest) async throws -> SunatHTTPResponse {
+        self.request = request
+        return SunatHTTPResponse(statusCode: statusCode)
+    }
+}
+
 private func integrationSigningConfiguration() -> SigningConfiguration? {
     let environment = ProcessInfo.processInfo.environment
     guard let certificatePath = environment["FLORSHOP_CPE_TEST_PFX_PATH"],
