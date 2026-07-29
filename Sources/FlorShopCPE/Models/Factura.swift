@@ -14,6 +14,7 @@ public struct Factura: Codable, Equatable, Sendable, UBLInvoiceDocument {
     public let taxTotal: TaxTotal
     public let monetaryTotal: MonetaryTotal
     public let lines: [InvoiceLine]
+    public let additionalNotes: [DocumentNote]
     public let orderReference: String?
     public let despatchDocumentReferences: [DocumentReference]
     public let buyerAddress: Address?
@@ -36,6 +37,7 @@ public struct Factura: Codable, Equatable, Sendable, UBLInvoiceDocument {
         taxTotal: TaxTotal,
         monetaryTotal: MonetaryTotal,
         lines: [InvoiceLine],
+        additionalNotes: [DocumentNote] = [],
         orderReference: String? = nil,
         despatchDocumentReferences: [DocumentReference] = [],
         buyerAddress: Address? = nil,
@@ -55,6 +57,7 @@ public struct Factura: Codable, Equatable, Sendable, UBLInvoiceDocument {
         self.taxTotal = taxTotal
         self.monetaryTotal = monetaryTotal
         self.lines = lines
+        self.additionalNotes = additionalNotes
         self.orderReference = orderReference
         self.despatchDocumentReferences = despatchDocumentReferences
         self.buyerAddress = buyerAddress

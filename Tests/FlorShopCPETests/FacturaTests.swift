@@ -110,6 +110,8 @@ import ZIPFoundation
     #expect(factura.supplier.taxIdentifier.value == "10708255195")
     #expect(xml.contains("<cbc:ID>FormaPago</cbc:ID>"))
     #expect(xml.contains("<cbc:PaymentMeansID>Contado</cbc:PaymentMeansID>"))
+    #expect(xml.contains("<cbc:AddressTypeCode>0000</cbc:AddressTypeCode>"))
+    #expect(!xml.contains("<cbc:AddressTypeCode>0</cbc:AddressTypeCode>"))
 }
 
 @Test func sunatBetaReferenceFacturaFixtureMatchesTheCommercialScenario() throws {
@@ -121,8 +123,10 @@ import ZIPFoundation
     #expect(xml.contains("<cac:BuyerCustomerParty>"))
     #expect(xml.contains("<cbc:PaymentMeansID>Credito</cbc:PaymentMeansID>"))
     #expect(xml.contains("<cbc:PaymentMeansID>Cuota001</cbc:PaymentMeansID>"))
-    #expect(xml.contains("<cbc:Amount currencyID=\"PEN\">1288.88</cbc:Amount>"))
-    #expect(xml.contains("<cbc:AllowanceChargeReasonCode>62</cbc:AllowanceChargeReasonCode>"))
+    #expect(xml.contains("<cbc:Amount currencyID=\"PEN\">1328.74</cbc:Amount>"))
+    #expect(!xml.contains("<cbc:AllowanceChargeReasonCode>62</cbc:AllowanceChargeReasonCode>"))
+    #expect(xml.contains("<cbc:AddressTypeCode>0000</cbc:AddressTypeCode>"))
+    #expect(!xml.contains("<cbc:AddressTypeCode>0</cbc:AddressTypeCode>"))
 }
 
 @Test func genericSignerValidatesFacturaBeforeReadingCertificate() {
@@ -203,7 +207,8 @@ struct SunatBetaFacturaIntegrationTests {
     }
 
     /// Caso cercano al XML de referencia: orden de compra, guía, dirección
-    /// para factoring, crédito, cuota y retención.
+    /// para factoring, crédito y cuota. No incluye retención porque el RUC del
+    /// certificado de pruebas figura como agente de retención.
     @Test func sunatBetaIntegrationAcceptsSignedReferenceFacturaWhenExplicitlyEnabled() async throws {
         guard let credentials = try facturaBetaCredentialsWhenEnabled() else {
             return
@@ -235,7 +240,6 @@ private func makeFactura(
         legalName: "CENCOSUD RETAIL PERU S.A.",
         address: Address(
             ubigeoCode: "150103",
-            addressTypeCode: "0",
             city: "LIMA",
             department: "LIMA",
             district: "ATE",
@@ -245,7 +249,8 @@ private func makeFactura(
     issueDate: IssueDate = IssueDate(year: 2026, month: 7, day: 21),
     includeCommercialTerms: Bool = true,
     emitterRUC: String = "20566331030",
-    paymentTerms: [PaymentTerm]? = nil
+    paymentTerms: [PaymentTerm]? = nil,
+    allowanceCharges: [AllowanceCharge]? = nil
 ) -> Factura {
     let currency = CurrencyCode.pen
     let taxableAmount = MonetaryAmount(value: Decimal(string: "1126.05")!, currency: currency)
@@ -267,7 +272,7 @@ private func makeFactura(
             commercialName: "NKR PRODUCTS",
             legalName: "NKR PROFESSIONAL PRODUCTS S.A.C.",
             address: Address(
-                addressTypeCode: "0",
+                addressTypeCode: "0000",
                 city: "LIMA",
                 department: "LIMA",
                 district: "SAN BORJA",
@@ -341,7 +346,7 @@ private func makeFactura(
                 dueDate: IssueDate(year: 2026, month: 8, day: 10)
             )
         ] : []),
-        allowanceCharges: includeCommercialTerms ? [
+        allowanceCharges: allowanceCharges ?? (includeCommercialTerms ? [
             AllowanceCharge(
                 isCharge: false,
                 reasonCode: "62",
@@ -349,7 +354,7 @@ private func makeFactura(
                 amount: MonetaryAmount(value: Decimal(string: "39.86")!, currency: currency),
                 baseAmount: payableAmount
             )
-        ] : []
+        ] : [])
     )
 }
 
@@ -372,7 +377,7 @@ private func makeFacturaForSunatBeta() -> Factura {
 private func makeReferenceFacturaForSunatBeta() -> Factura {
     let currency = CurrencyCode.pen
     let netPendingAmount = MonetaryAmount(
-        value: Decimal(string: "1288.88")!,
+        value: Decimal(string: "1328.74")!,
         currency: currency
     )
 
@@ -392,7 +397,8 @@ private func makeReferenceFacturaForSunatBeta() -> Factura {
                 amount: netPendingAmount,
                 dueDate: limaIssueDate(daysFromToday: 16)
             )
-        ]
+        ],
+        allowanceCharges: []
     )
 }
 

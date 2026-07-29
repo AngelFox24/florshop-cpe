@@ -8,6 +8,7 @@ public enum UBLInvoiceDocumentValidationError: Error, Equatable, Sendable {
     case supplierMustHaveRUC
     case facturaCustomerMustHaveRUC
     case invalidRUC
+    case invalidSupplierAddressTypeCode
     case emptyLines
     case duplicatedLineIdentifier(String)
     case inconsistentCurrency
@@ -45,6 +46,10 @@ public struct UBLInvoiceDocumentValidator: Sendable {
         guard isRUC(document.supplier.taxIdentifier.value) else {
             throw UBLInvoiceDocumentValidationError.invalidRUC
         }
+        if let addressTypeCode = document.supplier.address?.addressTypeCode,
+           addressTypeCode.range(of: #"^\d{4}$"#, options: .regularExpression) == nil {
+            throw UBLInvoiceDocumentValidationError.invalidSupplierAddressTypeCode
+        }
         if document.expectedDocumentType == .factura {
             guard document.customer.identifier.documentType == .ruc else {
                 throw UBLInvoiceDocumentValidationError.facturaCustomerMustHaveRUC
@@ -78,6 +83,11 @@ public struct UBLInvoiceDocumentValidator: Sendable {
             document.monetaryTotal.taxInclusiveAmount.currency,
             document.monetaryTotal.payableAmount.currency
         ]
+        result.append(contentsOf: [
+            document.monetaryTotal.allowanceTotalAmount?.currency,
+            document.monetaryTotal.chargeTotalAmount?.currency,
+            document.monetaryTotal.prepaidAmount?.currency
+        ].compactMap { $0 })
         result.append(contentsOf: document.taxTotal.subtotals.flatMap {
             [$0.taxableAmount.currency, $0.taxAmount.currency]
         })

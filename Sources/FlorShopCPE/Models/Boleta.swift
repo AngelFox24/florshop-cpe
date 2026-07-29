@@ -14,6 +14,7 @@ public struct Boleta: Codable, Equatable, Sendable, UBLInvoiceDocument {
     public let taxTotal: TaxTotal
     public let monetaryTotal: MonetaryTotal
     public let lines: [InvoiceLine]
+    public let additionalNotes: [DocumentNote]
     public let signature: SignatureInformation?
     public let ublVersion: String
     public let customizationID: String
@@ -31,6 +32,7 @@ public struct Boleta: Codable, Equatable, Sendable, UBLInvoiceDocument {
         taxTotal: TaxTotal,
         monetaryTotal: MonetaryTotal,
         lines: [InvoiceLine],
+        additionalNotes: [DocumentNote] = [],
         signature: SignatureInformation? = nil,
         ublVersion: String = "2.1",
         customizationID: String = "2.0",
@@ -45,6 +47,7 @@ public struct Boleta: Codable, Equatable, Sendable, UBLInvoiceDocument {
         self.taxTotal = taxTotal
         self.monetaryTotal = monetaryTotal
         self.lines = lines
+        self.additionalNotes = additionalNotes
         self.signature = signature
         self.ublVersion = ublVersion
         self.customizationID = customizationID

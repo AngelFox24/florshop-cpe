@@ -66,6 +66,7 @@ public enum TaxExemptionReasonCode: String, Codable, Sendable {
     case gravadoOperacionOnerosa = "10"
     case exonerado = "20"
     case inafecto = "30"
+    case inafectoRetiroPorBonificacion = "31"
     case gratuito = "40"
 }
 
@@ -81,4 +82,6 @@ public struct TaxScheme: Codable, Equatable, Sendable {
     }
 
     public static let igv = TaxScheme(identifier: "1000", name: "IGV", typeCode: "VAT")
+    public static let inafecto = TaxScheme(identifier: "9998", name: "INAFECTO", typeCode: "FRE")
+    public static let gratuito = TaxScheme(identifier: "9996", name: "GRA", typeCode: "FRE")
 }

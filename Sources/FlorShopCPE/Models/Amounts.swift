@@ -32,15 +32,24 @@ public enum UnitCode: String, Codable, Sendable {
 public struct MonetaryTotal: Codable, Equatable, Sendable {
     public let lineExtensionAmount: MonetaryAmount
     public let taxInclusiveAmount: MonetaryAmount
+    public let allowanceTotalAmount: MonetaryAmount?
+    public let chargeTotalAmount: MonetaryAmount?
+    public let prepaidAmount: MonetaryAmount?
     public let payableAmount: MonetaryAmount
 
     public init(
         lineExtensionAmount: MonetaryAmount,
         taxInclusiveAmount: MonetaryAmount,
+        allowanceTotalAmount: MonetaryAmount? = nil,
+        chargeTotalAmount: MonetaryAmount? = nil,
+        prepaidAmount: MonetaryAmount? = nil,
         payableAmount: MonetaryAmount
     ) {
         self.lineExtensionAmount = lineExtensionAmount
         self.taxInclusiveAmount = taxInclusiveAmount
+        self.allowanceTotalAmount = allowanceTotalAmount
+        self.chargeTotalAmount = chargeTotalAmount
+        self.prepaidAmount = prepaidAmount
         self.payableAmount = payableAmount
     }
 }

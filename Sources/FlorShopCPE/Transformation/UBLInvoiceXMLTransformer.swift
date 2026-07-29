@@ -74,6 +74,13 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
             currency: document.monetaryTotal.payableAmount.currency
         )
         writer.element("cbc:Note", text: note, attributes: ["languageLocaleID": "1000"])
+        document.additionalNotes.forEach { note in
+            writer.element(
+                "cbc:Note",
+                text: note.value,
+                attributes: ["languageLocaleID": note.languageLocaleID]
+            )
+        }
         writer.element("cbc:DocumentCurrencyCode", text: document.currency.rawValue)
 
         if let factura = document as? Factura {
@@ -256,6 +263,7 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
             write("cbc:TaxableAmount", amount: subtotal.taxableAmount, to: &writer)
             write("cbc:TaxAmount", amount: subtotal.taxAmount, to: &writer)
             writer.open("cac:TaxCategory")
+            writeTaxCategoryIdentifier(for: subtotal.scheme, to: &writer)
             write(subtotal.scheme, to: &writer)
             writer.close("cac:TaxCategory")
             writer.close("cac:TaxSubtotal")
@@ -271,6 +279,7 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
             write("cbc:TaxableAmount", amount: subtotal.taxableAmount, to: &writer)
             write("cbc:TaxAmount", amount: subtotal.taxAmount, to: &writer)
             writer.open("cac:TaxCategory")
+            writeTaxCategoryIdentifier(for: subtotal.category.scheme, to: &writer)
             if let percent = subtotal.category.percent { writer.element("cbc:Percent", text: format(percent)) }
             if let code = subtotal.category.exemptionReasonCode { writer.element("cbc:TaxExemptionReasonCode", text: code.rawValue) }
             write(subtotal.category.scheme, to: &writer)
@@ -288,10 +297,49 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
         writer.close("cac:TaxScheme")
     }
 
+    private func writeTaxCategoryIdentifier(
+        for scheme: TaxScheme,
+        to writer: inout XMLWriter
+    ) {
+        let identifier: String
+        switch scheme.identifier {
+        case TaxScheme.igv.identifier:
+            identifier = "S"
+        case "9995":
+            identifier = "G"
+        case TaxScheme.gratuito.identifier:
+            identifier = "Z"
+        case "9997":
+            identifier = "E"
+        case TaxScheme.inafecto.identifier:
+            identifier = "O"
+        default:
+            identifier = "S"
+        }
+        writer.element(
+            "cbc:ID",
+            text: identifier,
+            attributes: [
+                "schemeAgencyName": "United Nations Economic Commission for Europe",
+                "schemeID": "UN/ECE 5305",
+                "schemeName": "Tax Category Identifier"
+            ]
+        )
+    }
+
     private func write(_ total: MonetaryTotal, to writer: inout XMLWriter) {
         writer.open("cac:LegalMonetaryTotal")
         write("cbc:LineExtensionAmount", amount: total.lineExtensionAmount, to: &writer)
         write("cbc:TaxInclusiveAmount", amount: total.taxInclusiveAmount, to: &writer)
+        if let amount = total.allowanceTotalAmount {
+            write("cbc:AllowanceTotalAmount", amount: amount, to: &writer)
+        }
+        if let amount = total.chargeTotalAmount {
+            write("cbc:ChargeTotalAmount", amount: amount, to: &writer)
+        }
+        if let amount = total.prepaidAmount {
+            write("cbc:PrepaidAmount", amount: amount, to: &writer)
+        }
         write("cbc:PayableAmount", amount: total.payableAmount, to: &writer)
         writer.close("cac:LegalMonetaryTotal")
     }
@@ -305,6 +353,12 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
             attributes: ["unitCode": line.quantity.unitCode.rawValue]
         )
         write("cbc:LineExtensionAmount", amount: line.lineExtensionAmount, to: &writer)
+        if let isFreeOfCharge = line.isFreeOfCharge {
+            writer.element(
+                "cbc:FreeOfChargeIndicator",
+                text: isFreeOfCharge ? "true" : "false"
+            )
+        }
         if !line.alternativePrices.isEmpty {
             writer.open("cac:PricingReference")
             line.alternativePrices.forEach { alternativePrice in
@@ -322,6 +376,19 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
             writer.open("cac:SellersItemIdentification")
             writer.element("cbc:ID", text: identifier)
             writer.close("cac:SellersItemIdentification")
+        }
+        if let classificationCode = line.item.commodityClassificationCode {
+            writer.open("cac:CommodityClassification")
+            writer.element(
+                "cbc:ItemClassificationCode",
+                text: classificationCode,
+                attributes: [
+                    "listAgencyName": "GS1 US",
+                    "listID": "UNSPSC",
+                    "listName": "Item Classification"
+                ]
+            )
+            writer.close("cac:CommodityClassification")
         }
         writer.close("cac:Item")
         writer.open("cac:Price")

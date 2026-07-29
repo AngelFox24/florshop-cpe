@@ -130,7 +130,9 @@ import ZIPFoundation
     #expect(xml.contains(">03</cbc:InvoiceTypeCode>"))
     #expect(xml.contains("<cbc:Note languageLocaleID=\"1000\">SON CIENTO DIECIOCHO CON 00/100 SOLES</cbc:Note>"))
     #expect(xml.contains("<cbc:TaxAmount currencyID=\"PEN\">18.00</cbc:TaxAmount>"))
-    #expect(xml.contains("<cac:TaxCategory>\n            <cac:TaxScheme>"))
+    #expect(xml.contains(
+        "<cbc:ID schemeAgencyName=\"United Nations Economic Commission for Europe\" schemeID=\"UN/ECE 5305\" schemeName=\"Tax Category Identifier\">S</cbc:ID>"
+    ))
     #expect(xml.contains("<cac:RegistrationAddress>"))
     #expect(xml.contains("<cbc:AddressTypeCode>0000</cbc:AddressTypeCode>"))
     #expect(xml.contains("<cbc:Line>AV NEW DEÁL 123</cbc:Line>"))
@@ -301,6 +303,54 @@ import ZIPFoundation
     #expect(xml.contains("<cbc:PayableAmount currencyID=\"PEN\">177.00</cbc:PayableAmount>"))
 }
 
+@Test func referenceBoletaUsesTheFreeTaxSchemeForItsReferencePrice() throws {
+    let xml = try UBLInvoiceXMLTransformer().transform(makeReferenceBoletaForSunatBeta())
+
+    #expect(xml.contains("<cbc:PriceTypeCode>02</cbc:PriceTypeCode>"))
+    #expect(xml.contains("<cbc:TaxExemptionReasonCode>31</cbc:TaxExemptionReasonCode>"))
+    #expect(xml.contains("<cbc:TaxableAmount currencyID=\"PEN\">4.80</cbc:TaxableAmount>"))
+    #expect(xml.contains(">Z</cbc:ID>"))
+    #expect(xml.components(separatedBy: "<cbc:ID>9996</cbc:ID>").count - 1 == 2)
+    #expect(xml.contains("<cbc:Name>GRA</cbc:Name>"))
+    #expect(xml.contains("<cbc:TaxTypeCode>FRE</cbc:TaxTypeCode>"))
+    #expect(xml.contains("<cbc:TaxAmount currencyID=\"PEN\">266.65</cbc:TaxAmount>"))
+    #expect(xml.contains("<cbc:LineExtensionAmount currencyID=\"PEN\">1481.35</cbc:LineExtensionAmount>"))
+    #expect(xml.contains("<cbc:LineExtensionAmount currencyID=\"PEN\">4.80</cbc:LineExtensionAmount>"))
+    #expect(xml.contains("<cbc:PayableAmount currencyID=\"PEN\">1748.00</cbc:PayableAmount>"))
+    #expect(xml.contains("<cbc:AddressTypeCode>0000</cbc:AddressTypeCode>"))
+    #expect(!xml.contains("<cbc:AddressTypeCode>0014</cbc:AddressTypeCode>"))
+    #expect(xml.contains("<cbc:Line>CAL. PABLO USANDIZAGA 670</cbc:Line>"))
+}
+
+@Test func sunatBetaBoletaFixturesUseCurrentDateAndCertificateRUC() {
+    let expectedIssueDate = currentLimaIssueDateForBoleta()
+    let fixtures = [
+        makeBoletaForSunatBeta(),
+        makeMultiProductBoletaForSunatBeta(),
+        makeReferenceBoletaForSunatBeta()
+    ]
+
+    for boleta in fixtures {
+        #expect(boleta.issueDate == expectedIssueDate)
+        #expect(boleta.supplier.taxIdentifier.value == "10708255195")
+        #expect(boleta.supplier.address?.addressTypeCode == "0000")
+    }
+    #expect(Set(fixtures.map(\.identifier.value)).count == fixtures.count)
+}
+
+@Test func boletaValidatorRejectsAnInvalidSupplierAddressTypeCode() {
+    let boleta = makeBoleta(
+        supplierAddress: Address(
+            addressTypeCode: "0",
+            line: "CAL. PABLO USANDIZAGA 670"
+        )
+    )
+
+    #expect(throws: UBLInvoiceDocumentValidationError.invalidSupplierAddressTypeCode) {
+        try UBLInvoiceDocumentValidator().validate(boleta)
+    }
+}
+
 @Test func sunatBillClientSendsZIPAsSOAPBinaryContentAndReadsAcceptedCDR() async throws {
     let fileManager = FileManager.default
     let directoryURL = try makeTemporaryDirectory(fileManager: fileManager)
@@ -445,8 +495,8 @@ struct SunatBetaIntegrationTests {
         let directoryURL = try makeTemporaryDirectory(fileManager: fileManager)
         defer { try? fileManager.removeItem(at: directoryURL) }
         
-        let boleta = makeBoleta()
-        guard let signingConfiguration = integrationSigningConfiguration() else {
+        let boleta = makeBoletaForSunatBeta()
+        guard let signingConfiguration = integrationSigningConfiguration(for: boleta) else {
             throw IntegrationConfigurationError.missingSigningCredentials
         }
         let signedCPE = try XMLSecCPESigner().sign(boleta, configuration: signingConfiguration)
@@ -455,6 +505,13 @@ struct SunatBetaIntegrationTests {
         let document = try CPEDocumentWriter().write(
             signedCPE,
             output: output
+        )
+
+        printSignedBoletaBetaXML(
+            scenario: "BOLETA MÍNIMA",
+            boleta: boleta,
+            signedCPE: signedCPE,
+            document: document
         )
         
         let result = try await submitToSunatBeta(
@@ -482,8 +539,8 @@ struct SunatBetaIntegrationTests {
         let directoryURL = try makeTemporaryDirectory(fileManager: fileManager)
         defer { try? fileManager.removeItem(at: directoryURL) }
         
-        let boleta = makeBoletaWithMoreProducts()
-        guard let signingConfiguration = integrationSigningConfiguration() else {
+        let boleta = makeMultiProductBoletaForSunatBeta()
+        guard let signingConfiguration = integrationSigningConfiguration(for: boleta) else {
             throw IntegrationConfigurationError.missingSigningCredentials
         }
         let signedCPE = try XMLSecCPESigner().sign(boleta, configuration: signingConfiguration)
@@ -493,12 +550,65 @@ struct SunatBetaIntegrationTests {
             signedCPE,
             output: output
         )
+
+        printSignedBoletaBetaXML(
+            scenario: "BOLETA MULTIPRODUCTO",
+            boleta: boleta,
+            signedCPE: signedCPE,
+            document: document
+        )
         
         let result = try await submitToSunatBeta(
             document: document,
             emitterRUC: emitterRUC
         )
         
+        #expect(result.status == .accepted)
+        #expect(result.responseCode == "0")
+        #expect(result.observations.isEmpty)
+        #expect(!result.cdrArchive.isEmpty)
+        #expect(!result.cdrXML.isEmpty)
+        #expect(result.cdrArtifacts != nil)
+    }
+
+    /// Caso de tres líneas basado en el XML de referencia BC01-3652:
+    /// dos productos gravados y una bonificación gratuita.
+    @Test func sunatBetaIntegrationAcceptsSignedReferenceBoletaWhenExplicitlyEnabled() async throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard environment["FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION"] == "true" else {
+            return
+        }
+
+        let fileManager = FileManager.default
+        let directoryURL = try makeTemporaryDirectory(fileManager: fileManager)
+        defer { try? fileManager.removeItem(at: directoryURL) }
+
+        let boleta = makeReferenceBoletaForSunatBeta()
+        guard let signingConfiguration = integrationSigningConfiguration(for: boleta) else {
+            throw IntegrationConfigurationError.missingSigningCredentials
+        }
+        let signedCPE = try XMLSecCPESigner().sign(
+            boleta,
+            configuration: signingConfiguration
+        )
+        let emitterRUC = boleta.supplier.taxIdentifier.value
+        let document = try CPEDocumentWriter().write(
+            signedCPE,
+            output: outputConfiguration(in: directoryURL)
+        )
+
+        printSignedBoletaBetaXML(
+            scenario: "BOLETA COMO XML DE REFERENCIA",
+            boleta: boleta,
+            signedCPE: signedCPE,
+            document: document
+        )
+
+        let result = try await submitToSunatBeta(
+            document: document,
+            emitterRUC: emitterRUC
+        )
+
         #expect(result.status == .accepted)
         #expect(result.responseCode == "0")
         #expect(result.observations.isEmpty)
@@ -610,6 +720,25 @@ private actor CapturingSunatHTTPTransport: SunatHTTPTransport {
     }
 }
 
+private func printSignedBoletaBetaXML(
+    scenario: String,
+    boleta: Boleta,
+    signedCPE: SignedCPE,
+    document: CPEDocument
+) {
+    print("""
+
+    ===== SUNAT BETA \(scenario): XML FIRMADO =====
+    Archivo XML: \(document.signedXMLURL.lastPathComponent)
+    Archivo ZIP: \(document.zipURL.lastPathComponent)
+    Tipo de operación esperado: \(boleta.operationTypeCode)
+    Tipo de documento esperado: \(boleta.identifier.type.rawValue)
+    \(String(decoding: signedCPE.xml, as: UTF8.self))
+    ===== FIN SUNAT BETA \(scenario): XML FIRMADO =====
+
+    """)
+}
+
 private func integrationSigningConfiguration() -> SigningConfiguration? {
     let environment = ProcessInfo.processInfo.environment
     guard let certificatePath = environment["FLORSHOP_CPE_TEST_PFX_PATH"],
@@ -631,7 +760,39 @@ private func integrationSigningConfiguration() -> SigningConfiguration? {
     )
 }
 
-private func makeBoleta(emitterRUC: String = "20123456789") -> Boleta {
+private func integrationSigningConfiguration(
+    for document: any UBLInvoiceDocument
+) -> SigningConfiguration? {
+    let environment = ProcessInfo.processInfo.environment
+    guard let certificatePath = environment["FLORSHOP_CPE_TEST_PFX_PATH"],
+          let certificatePassword = environment["FLORSHOP_CPE_TEST_PFX_PASSWORD"] else {
+        return nil
+    }
+
+    return SigningConfiguration(
+        signature: SignatureInformation(
+            identifier: document.identifier.value,
+            signatoryIdentifier: document.supplier.taxIdentifier.value,
+            signatoryName: document.supplier.legalName,
+            uri: "#SignSUNAT"
+        ),
+        credentials: .pkcs12(
+            path: URL(fileURLWithPath: certificatePath),
+            passwordProvider: { certificatePassword }
+        )
+    )
+}
+
+private func makeBoleta(
+    identifier: DocumentIdentifier = DocumentIdentifier(
+        series: "B001",
+        number: "1",
+        type: .boleta
+    ),
+    issueDate: IssueDate = IssueDate(year: 2020, month: 8, day: 19),
+    emitterRUC: String = "20123456789",
+    supplierAddress: Address? = nil
+) -> Boleta {
     let currency: CurrencyCode = .pen
     let scheme = TaxScheme.igv
     let lineTaxTotal = LineTaxTotal(
@@ -643,10 +804,14 @@ private func makeBoleta(emitterRUC: String = "20123456789") -> Boleta {
         )]
     )
     return Boleta(
-        identifier: DocumentIdentifier(series: "B001", number: "1", type: .boleta),
-        issueDate: IssueDate(year: 2020, month: 8, day: 19),
+        identifier: identifier,
+        issueDate: issueDate,
         currency: currency,
-        supplier: Supplier(taxIdentifier: PartyIdentifier(value: emitterRUC, documentType: .ruc), legalName: "GREENTER S.A.C."),
+        supplier: Supplier(
+            taxIdentifier: PartyIdentifier(value: emitterRUC, documentType: .ruc),
+            legalName: "GREENTER S.A.C.",
+            address: supplierAddress
+        ),
         customer: Customer(identifier: PartyIdentifier(value: "20203030", documentType: .dni), legalName: "PERSON 1"),
         taxTotal: TaxTotal(
             amount: MonetaryAmount(value: 18, currency: currency),
@@ -668,7 +833,201 @@ private func makeBoleta(emitterRUC: String = "20123456789") -> Boleta {
     )
 }
 
-private func makeBoletaWithMoreProducts() -> Boleta {
+private func makeBoletaForSunatBeta() -> Boleta {
+    makeBoleta(
+        identifier: DocumentIdentifier(
+            series: "B001",
+            number: referenceBoletaCorrelative(offset: 0),
+            type: .boleta
+        ),
+        issueDate: currentLimaIssueDateForBoleta(),
+        emitterRUC: "10708255195",
+        supplierAddress: sunatBetaSupplierAddress()
+    )
+}
+
+private func makeReferenceBoletaForSunatBeta() -> Boleta {
+    let currency = CurrencyCode.pen
+    let igvCategory = TaxCategory(
+        percent: 18,
+        exemptionReasonCode: .gravadoOperacionOnerosa,
+        scheme: .igv
+    )
+    let freeCategory = TaxCategory(
+        percent: 18,
+        exemptionReasonCode: .inafectoRetiroPorBonificacion,
+        scheme: .gratuito
+    )
+
+    func amount(_ value: String) -> MonetaryAmount {
+        MonetaryAmount(value: Decimal(string: value)!, currency: currency)
+    }
+
+    return Boleta(
+        identifier: DocumentIdentifier(
+            series: "BC01",
+            number: referenceBoletaCorrelative(),
+            type: .boleta
+        ),
+        issueDate: currentLimaIssueDateForBoleta(),
+        issueTime: IssueTime(hour: 18, minute: 1, second: 29),
+        currency: currency,
+        supplier: Supplier(
+            taxIdentifier: PartyIdentifier(value: "10708255195", documentType: .ruc),
+            commercialName: "Electrodomésticos Cruz de Motupe",
+            legalName: "Vega Poblete Carlos Enrique",
+            address: Address(
+                ubigeoCode: "150130",
+                addressTypeCode: "0000",
+                city: "LIMA",
+                department: "LIMA",
+                district: "SAN BORJA",
+                line: "CAL. PABLO USANDIZAGA 670"
+            )
+        ),
+        customer: Customer(
+            identifier: PartyIdentifier(value: "46237547", documentType: .dni),
+            legalName: "Pazos Atoche Luana Karina"
+        ),
+        taxTotal: TaxTotal(
+            amount: amount("266.65"),
+            subtotals: [
+                TaxSubtotal(
+                    taxableAmount: amount("1481.35"),
+                    taxAmount: amount("266.65"),
+                    scheme: .igv
+                ),
+                TaxSubtotal(
+                    taxableAmount: amount("4.80"),
+                    taxAmount: amount("0.00"),
+                    scheme: .gratuito
+                )
+            ]
+        ),
+        monetaryTotal: MonetaryTotal(
+            lineExtensionAmount: amount("1481.35"),
+            taxInclusiveAmount: amount("1748.00"),
+            allowanceTotalAmount: amount("0.00"),
+            payableAmount: amount("1748.00")
+        ),
+        lines: [
+            InvoiceLine(
+                id: "1",
+                quantity: Quantity(value: 1, unitCode: .unit),
+                lineExtensionAmount: amount("845.76"),
+                alternativePrices: [
+                    AlternativePrice(
+                        amount: amount("998.00"),
+                        type: .unitPriceIncludingTaxes
+                    )
+                ],
+                taxTotal: LineTaxTotal(
+                    amount: amount("152.24"),
+                    subtotals: [
+                        LineTaxSubtotal(
+                            taxableAmount: amount("845.76"),
+                            taxAmount: amount("152.24"),
+                            category: igvCategory
+                        )
+                    ]
+                ),
+                item: Item(
+                    description: "Refrigeradora marca “AXM” no frost de 200 ltrs.",
+                    sellerItemIdentifier: "REF564",
+                    commodityClassificationCode: "52141501"
+                ),
+                price: amount("845.76")
+            ),
+            InvoiceLine(
+                id: "2",
+                quantity: Quantity(value: 1, unitCode: .unit),
+                lineExtensionAmount: amount("635.59"),
+                alternativePrices: [
+                    AlternativePrice(
+                        amount: amount("750.00"),
+                        type: .unitPriceIncludingTaxes
+                    )
+                ],
+                taxTotal: LineTaxTotal(
+                    amount: amount("114.41"),
+                    subtotals: [
+                        LineTaxSubtotal(
+                            taxableAmount: amount("635.59"),
+                            taxAmount: amount("114.41"),
+                            category: igvCategory
+                        )
+                    ]
+                ),
+                item: Item(
+                    description: "Cocina a gas GLP, marca “AXM” de 5 hornillas",
+                    sellerItemIdentifier: "COC124",
+                    commodityClassificationCode: "95141606"
+                ),
+                price: amount("635.59")
+            ),
+            InvoiceLine(
+                id: "3",
+                quantity: Quantity(value: 1, unitCode: .unit),
+                lineExtensionAmount: amount("4.80"),
+                alternativePrices: [
+                    AlternativePrice(
+                        amount: amount("4.80"),
+                        type: .referenceValue
+                    )
+                ],
+                taxTotal: LineTaxTotal(
+                    amount: amount("0.00"),
+                    subtotals: [
+                        LineTaxSubtotal(
+                            taxableAmount: amount("4.80"),
+                            taxAmount: amount("0.00"),
+                            category: freeCategory
+                        )
+                    ]
+                ),
+                item: Item(
+                    description: "Sixpack de gaseosa “Guerené” de 400 ml",
+                    sellerItemIdentifier: "NOB012",
+                    commodityClassificationCode: "24121803"
+                ),
+                price: amount("0.00"),
+                isFreeOfCharge: true
+            )
+        ]
+    )
+}
+
+private func currentLimaIssueDateForBoleta() -> IssueDate {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(identifier: "America/Lima")!
+    let components = calendar.dateComponents([.year, .month, .day], from: Date())
+    return IssueDate(
+        year: components.year!,
+        month: components.month!,
+        day: components.day!
+    )
+}
+
+private func referenceBoletaCorrelative() -> String {
+    referenceBoletaCorrelative(offset: 0)
+}
+
+private func referenceBoletaCorrelative(offset: Int) -> String {
+    let maximumCorrelative = 99_999_999
+    let timestamp = Int(Date().timeIntervalSince1970) % maximumCorrelative
+    return String(max(1, (timestamp + offset) % maximumCorrelative))
+}
+
+private func makeBoletaWithMoreProducts(
+    identifier: DocumentIdentifier = DocumentIdentifier(
+        series: "B001",
+        number: "2",
+        type: .boleta
+    ),
+    issueDate: IssueDate = IssueDate(year: 2020, month: 8, day: 19),
+    emitterRUC: String = "20123456789",
+    supplierAddress: Address? = nil
+) -> Boleta {
     let currency: CurrencyCode = .pen
     let scheme = TaxScheme.igv
     let firstLineTaxTotal = LineTaxTotal(
@@ -693,10 +1052,14 @@ private func makeBoletaWithMoreProducts() -> Boleta {
     )
     
     return Boleta(
-        identifier: DocumentIdentifier(series: "B001", number: "2", type: .boleta),
-        issueDate: IssueDate(year: 2020, month: 8, day: 19),
+        identifier: identifier,
+        issueDate: issueDate,
         currency: currency,
-        supplier: Supplier(taxIdentifier: PartyIdentifier(value: "20123456789", documentType: .ruc), legalName: "GREENTER S.A.C."),
+        supplier: Supplier(
+            taxIdentifier: PartyIdentifier(value: emitterRUC, documentType: .ruc),
+            legalName: "GREENTER S.A.C.",
+            address: supplierAddress
+        ),
         customer: Customer(identifier: PartyIdentifier(value: "20203030", documentType: .dni), legalName: "PERSON 1"),
         taxTotal: TaxTotal(
             amount: MonetaryAmount(value: 27, currency: currency),
@@ -731,5 +1094,29 @@ private func makeBoletaWithMoreProducts() -> Boleta {
                 price: MonetaryAmount(value: 50, currency: currency)
             )
         ]
+    )
+}
+
+private func makeMultiProductBoletaForSunatBeta() -> Boleta {
+    makeBoletaWithMoreProducts(
+        identifier: DocumentIdentifier(
+            series: "B001",
+            number: referenceBoletaCorrelative(offset: 1),
+            type: .boleta
+        ),
+        issueDate: currentLimaIssueDateForBoleta(),
+        emitterRUC: "10708255195",
+        supplierAddress: sunatBetaSupplierAddress()
+    )
+}
+
+private func sunatBetaSupplierAddress() -> Address {
+    Address(
+        ubigeoCode: "150130",
+        addressTypeCode: "0000",
+        city: "LIMA",
+        department: "LIMA",
+        district: "SAN BORJA",
+        line: "CAL. PABLO USANDIZAGA 670"
     )
 }

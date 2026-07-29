@@ -8,6 +8,7 @@ public struct InvoiceLine: Codable, Equatable, Sendable {
     public let taxTotal: LineTaxTotal
     public let item: Item
     public let price: MonetaryAmount
+    public let isFreeOfCharge: Bool?
 
     public init(
         id: String,
@@ -16,7 +17,8 @@ public struct InvoiceLine: Codable, Equatable, Sendable {
         alternativePrices: [AlternativePrice],
         taxTotal: LineTaxTotal,
         item: Item,
-        price: MonetaryAmount
+        price: MonetaryAmount,
+        isFreeOfCharge: Bool? = nil
     ) {
         self.id = id
         self.quantity = quantity
@@ -25,6 +27,7 @@ public struct InvoiceLine: Codable, Equatable, Sendable {
         self.taxTotal = taxTotal
         self.item = item
         self.price = price
+        self.isFreeOfCharge = isFreeOfCharge
     }
 }
 
@@ -46,9 +49,15 @@ public enum PriceType: String, Codable, Sendable {
 public struct Item: Codable, Equatable, Sendable {
     public let description: String
     public let sellerItemIdentifier: String?
+    public let commodityClassificationCode: String?
 
-    public init(description: String, sellerItemIdentifier: String? = nil) {
+    public init(
+        description: String,
+        sellerItemIdentifier: String? = nil,
+        commodityClassificationCode: String? = nil
+    ) {
         self.description = description
         self.sellerItemIdentifier = sellerItemIdentifier
+        self.commodityClassificationCode = commodityClassificationCode
     }
 }
