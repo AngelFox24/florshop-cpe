@@ -33,6 +33,14 @@ public struct CPEIdentity: Sendable, Equatable {
         )
     }
 
+    public init(debitNote: NotaDebito) {
+        self.init(
+            emitterRUC: debitNote.supplier.taxIdentifier.value,
+            documentType: .notaDeDebito,
+            documentIdentifier: debitNote.identifier.value
+        )
+    }
+
     public init(summary: ResumenDiarioBoletas) {
         self.init(
             emitterRUC: summary.supplier.taxIdentifier.value,
