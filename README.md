@@ -3,6 +3,27 @@
 Librería Swift para construir, validar, transformar, firmar, empaquetar y
 enviar comprobantes electrónicos UBL a SUNAT.
 
+## Boleta
+
+El flujo completo y compilable para crear, firmar, empaquetar, enviar y leer
+la CDR de una boleta está en
+[`BoletaExampleTest.swift`](Tests/FlorShopCPETests/BoletaExampleTest.swift).
+El ejemplo es ejecutable con Swift Testing, pero su objetivo es documentar el
+uso público de la librería, no probar unidades aisladas.
+
+Para ejecutar realmente el envío individual contra SUNAT beta debe definirse:
+
+- `FLORSHOP_CPE_RUN_BOLETA_EXAMPLE=true`
+
+El ejemplo muestra directamente dónde proporcionar la ruta del archivo
+PKCS#12 y su contraseña. En una aplicación real, el POS debe seleccionar esas
+credenciales en tiempo de ejecución para el RUC emisor y proteger la contraseña
+en su propio almacén seguro.
+
+El envío individual de este ejemplo sirve para validar la integración en el
+ambiente beta. El flujo operativo de las boletas que deben informarse mediante
+Resumen Diario se modela por separado con `ResumenDiarioBoletas`.
+
 ## Notas de crédito
 
 La API pública incluye `NotaCredito`, `CreditNoteLine`,

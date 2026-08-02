@@ -2,7 +2,6 @@ import Foundation
 
 public protocol CreditNoteXMLTransforming: Sendable {
     func transform(_ note: NotaCredito) throws -> String
-    func transform(_ note: NotaCredito, signature: SignatureInformation) throws -> String
 }
 
 /// Genera el documento SUNAT `CreditNote` UBL 2.1 sin realizar envíos de red.
@@ -14,15 +13,11 @@ public struct CreditNoteXMLTransformer: CreditNoteXMLTransforming, Sendable {
     }
 
     public func transform(_ note: NotaCredito) throws -> String {
-        try transform(note, signature: note.signature)
-    }
-
-    public func transform(_ note: NotaCredito, signature: SignatureInformation) throws -> String {
-        try transform(note, signature: Optional(signature))
-    }
-
-    private func transform(_ note: NotaCredito, signature: SignatureInformation?) throws -> String {
         try validator.validate(note)
+        let signature = SignatureInformation(
+            identifier: note.identifier.value,
+            supplier: note.supplier
+        )
 
         var writer = XMLWriter()
         writer.declaration()
@@ -34,8 +29,8 @@ public struct CreditNoteXMLTransformer: CreditNoteXMLTransforming, Sendable {
             "xmlns:ext": "urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2"
         ])
         writeExtensions(to: &writer)
-        writer.element("cbc:UBLVersionID", text: note.ublVersion)
-        writer.element("cbc:CustomizationID", text: note.customizationID)
+        writer.element("cbc:UBLVersionID", text: "2.1")
+        writer.element("cbc:CustomizationID", text: "2.0")
         writer.element("cbc:ID", text: note.identifier.value)
         writer.element("cbc:IssueDate", text: format(note.issueDate))
         if let issueTime = note.issueTime {
@@ -47,7 +42,7 @@ public struct CreditNoteXMLTransformer: CreditNoteXMLTransforming, Sendable {
         writer.element("cbc:DocumentCurrencyCode", text: note.currency.rawValue)
         writeDiscrepancy(note, to: &writer)
         writeBillingReference(note.affectedDocument, to: &writer)
-        if let signature { write(signature, to: &writer) }
+        write(signature, to: &writer)
         write(note.supplier, to: &writer)
         write(note.customer, to: &writer)
         write(note.taxTotal, to: &writer)
@@ -111,7 +106,7 @@ public struct CreditNoteXMLTransformer: CreditNoteXMLTransforming, Sendable {
         writer.close("cac:SignatoryParty")
         writer.open("cac:DigitalSignatureAttachment")
         writer.open("cac:ExternalReference")
-        writer.element("cbc:URI", text: signature.uri)
+        writer.element("cbc:URI", text: SignatureInformation.uri)
         writer.close("cac:ExternalReference")
         writer.close("cac:DigitalSignatureAttachment")
         writer.close("cac:Signature")

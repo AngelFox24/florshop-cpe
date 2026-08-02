@@ -14,21 +14,11 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
     }
 
     public func transform(_ document: any UBLInvoiceDocument) throws -> String {
-        try transform(document, signature: document.signature)
-    }
-
-    public func transform(
-        _ document: any UBLInvoiceDocument,
-        signature: SignatureInformation
-    ) throws -> String {
-        try transform(document, signature: Optional(signature))
-    }
-
-    private func transform(
-        _ document: any UBLInvoiceDocument,
-        signature: SignatureInformation?
-    ) throws -> String {
         try validator.validate(document)
+        let signature = SignatureInformation(
+            identifier: document.identifier.value,
+            supplier: document.supplier
+        )
 
         var writer = XMLWriter()
         writer.declaration()
@@ -41,11 +31,11 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
         ])
 
         writeExtensions(to: &writer)
-        writer.element("cbc:UBLVersionID", text: document.ublVersion)
-        writer.element("cbc:CustomizationID", text: document.customizationID)
+        writer.element("cbc:UBLVersionID", text: "2.1")
+        writer.element("cbc:CustomizationID", text: "2.0")
         writer.element(
             "cbc:ProfileID",
-            text: document.operationTypeCode,
+            text: "0101",
             attributes: [
                 "schemeName": "SUNAT:Identificador de Tipo de Operación",
                 "schemeAgencyName": "PE:SUNAT",
@@ -62,7 +52,7 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
             text: document.identifier.type.rawValue,
             attributes: [
                 "listAgencyName": "PE:SUNAT",
-                "listID": document.operationTypeCode,
+                "listID": "0101",
                 "listName": "Tipo de Documento",
                 "listSchemeURI": "urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo51",
                 "listURI": "urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo01",
@@ -86,9 +76,7 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
         if let factura = document as? Factura {
             writeReferences(factura, to: &writer)
         }
-        if let signature {
-            write(signature, to: &writer)
-        }
+        write(signature, to: &writer)
         write(document.supplier, to: &writer)
         write(document.customer, to: &writer)
         if let factura = document as? Factura {
@@ -179,7 +167,7 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
         writer.close("cac:SignatoryParty")
         writer.open("cac:DigitalSignatureAttachment")
         writer.open("cac:ExternalReference")
-        writer.element("cbc:URI", text: signature.uri)
+        writer.element("cbc:URI", text: SignatureInformation.uri)
         writer.close("cac:ExternalReference")
         writer.close("cac:DigitalSignatureAttachment")
         writer.close("cac:Signature")

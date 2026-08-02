@@ -59,11 +59,9 @@ public struct SignedCPE: Sendable {
 }
 
 public struct SigningConfiguration: Sendable {
-    public let signature: SignatureInformation
     public let credentials: SigningCredentials
 
-    public init(signature: SignatureInformation, credentials: SigningCredentials) {
-        self.signature = signature
+    public init(credentials: SigningCredentials) {
         self.credentials = credentials
     }
 }
@@ -77,6 +75,5 @@ public enum SigningCredentials: Sendable {
 
 public enum CPESigningError: Error, Equatable, Sendable {
     case unsupportedPlatform
-    case invalidSignatureURI
     case signingFailed(String)
 }

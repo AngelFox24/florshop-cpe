@@ -2,7 +2,6 @@ import Foundation
 
 public protocol DailySummaryXMLTransforming: Sendable {
     func transform(_ summary: ResumenDiarioBoletas) throws -> String
-    func transform(_ summary: ResumenDiarioBoletas, signature: SignatureInformation) throws -> String
 }
 
 /// Genera el `SummaryDocuments` UBL 2.0 exigido por SUNAT.
@@ -14,18 +13,11 @@ public struct DailySummaryXMLTransformer: DailySummaryXMLTransforming, Sendable 
     }
 
     public func transform(_ summary: ResumenDiarioBoletas) throws -> String {
-        try transform(summary, signature: summary.signature)
-    }
-
-    public func transform(_ summary: ResumenDiarioBoletas, signature: SignatureInformation) throws -> String {
-        try transform(summary, signature: Optional(signature))
-    }
-
-    private func transform(
-        _ summary: ResumenDiarioBoletas,
-        signature: SignatureInformation?
-    ) throws -> String {
         try validator.validate(summary)
+        let signature = SignatureInformation(
+            identifier: summary.identifier.value,
+            supplier: summary.supplier
+        )
 
         var writer = XMLWriter()
         writer.declaration()
@@ -38,12 +30,12 @@ public struct DailySummaryXMLTransformer: DailySummaryXMLTransforming, Sendable 
             "xmlns:sac": "urn:sunat:names:specification:ubl:peru:schema:xsd:SunatAggregateComponents-1"
         ])
         writeExtensions(to: &writer)
-        writer.element("cbc:UBLVersionID", text: summary.ublVersion)
-        writer.element("cbc:CustomizationID", text: summary.customizationID)
+        writer.element("cbc:UBLVersionID", text: "2.0")
+        writer.element("cbc:CustomizationID", text: "1.1")
         writer.element("cbc:ID", text: summary.identifier.value)
         writer.element("cbc:ReferenceDate", text: format(summary.referenceDate))
         writer.element("cbc:IssueDate", text: format(summary.issueDate))
-        if let signature { write(signature, to: &writer) }
+        write(signature, to: &writer)
         write(summary.supplier, to: &writer)
         summary.lines.forEach { write($0, to: &writer) }
         writer.close("SummaryDocuments")
@@ -71,7 +63,7 @@ public struct DailySummaryXMLTransformer: DailySummaryXMLTransforming, Sendable 
         writer.close("cac:SignatoryParty")
         writer.open("cac:DigitalSignatureAttachment")
         writer.open("cac:ExternalReference")
-        writer.element("cbc:URI", text: signature.uri)
+        writer.element("cbc:URI", text: SignatureInformation.uri)
         writer.close("cac:ExternalReference")
         writer.close("cac:DigitalSignatureAttachment")
         writer.close("cac:Signature")

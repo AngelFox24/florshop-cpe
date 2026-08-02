@@ -4,8 +4,6 @@ public enum DailySummaryValidationError: Error, Equatable, Sendable {
     case invalidIdentifierDate
     case generationDateBeforeReferenceDate
     case invalidSequence
-    case invalidUBLVersion
-    case invalidCustomizationID
     case supplierMustHaveRUC
     case invalidRUC
     case emptyLines
@@ -36,8 +34,6 @@ public struct DailySummaryValidator: Sendable {
             throw DailySummaryValidationError.generationDateBeforeReferenceDate
         }
         guard (1 ... 99_999).contains(summary.identifier.sequence) else { throw DailySummaryValidationError.invalidSequence }
-        guard summary.ublVersion == "2.0" else { throw DailySummaryValidationError.invalidUBLVersion }
-        guard summary.customizationID == "1.1" else { throw DailySummaryValidationError.invalidCustomizationID }
         guard summary.supplier.taxIdentifier.documentType == .ruc else { throw DailySummaryValidationError.supplierMustHaveRUC }
         guard summary.supplier.taxIdentifier.value.range(of: #"^\d{11}$"#, options: .regularExpression) != nil else {
             throw DailySummaryValidationError.invalidRUC

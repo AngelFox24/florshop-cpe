@@ -11,10 +11,6 @@ public protocol UBLInvoiceDocument: Sendable {
     var monetaryTotal: MonetaryTotal { get }
     var lines: [InvoiceLine] { get }
     var additionalNotes: [DocumentNote] { get }
-    var signature: SignatureInformation? { get }
-    var ublVersion: String { get }
-    var customizationID: String { get }
-    var operationTypeCode: String { get }
 
     /// Tipo que corresponde al modelo concreto, independientemente del valor
     /// recibido en `identifier`.

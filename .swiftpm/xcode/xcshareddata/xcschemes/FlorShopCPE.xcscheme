@@ -91,7 +91,12 @@
          </EnvironmentVariable>
          <EnvironmentVariable
             key = "FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION_COMUNICACION_BAJA"
-            value = "true"
+            value = "false"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "FLORSHOP_CPE_RUN_BOLETA_EXAMPLE"
+            value = "false"
             isEnabled = "YES">
          </EnvironmentVariable>
       </EnvironmentVariables>

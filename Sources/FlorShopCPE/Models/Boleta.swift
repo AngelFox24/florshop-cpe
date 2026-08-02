@@ -15,10 +15,6 @@ public struct Boleta: Codable, Equatable, Sendable, UBLInvoiceDocument {
     public let monetaryTotal: MonetaryTotal
     public let lines: [InvoiceLine]
     public let additionalNotes: [DocumentNote]
-    public let signature: SignatureInformation?
-    public let ublVersion: String
-    public let customizationID: String
-    public let operationTypeCode: String
 
     public var expectedDocumentType: ElectronicDocumentType { .boleta }
 
@@ -32,11 +28,7 @@ public struct Boleta: Codable, Equatable, Sendable, UBLInvoiceDocument {
         taxTotal: TaxTotal,
         monetaryTotal: MonetaryTotal,
         lines: [InvoiceLine],
-        additionalNotes: [DocumentNote] = [],
-        signature: SignatureInformation? = nil,
-        ublVersion: String = "2.1",
-        customizationID: String = "2.0",
-        operationTypeCode: String = "0101"
+        additionalNotes: [DocumentNote] = []
     ) {
         self.identifier = identifier
         self.issueDate = issueDate
@@ -48,10 +40,6 @@ public struct Boleta: Codable, Equatable, Sendable, UBLInvoiceDocument {
         self.monetaryTotal = monetaryTotal
         self.lines = lines
         self.additionalNotes = additionalNotes
-        self.signature = signature
-        self.ublVersion = ublVersion
-        self.customizationID = customizationID
-        self.operationTypeCode = operationTypeCode
     }
 }
 

@@ -101,20 +101,12 @@ import ZIPFoundation
     #expect(try SunatBillPackageValidator().validate(zipAt: document.zipURL).xmlEntryName == "10708255195-07-FC01-200.xml")
 }
 
-@Test func creditNoteSignerValidatesSignatureURIBeforeReadingCertificate() {
-    let configuration = SigningConfiguration(
-        signature: SignatureInformation(
-            identifier: "FC01-200",
-            signatoryIdentifier: "10708255195",
-            signatoryName: "EMISOR S.A.C.",
-            uri: "invalid"
-        ),
-        credentials: .pkcs12(path: URL(fileURLWithPath: "/not-used.p12"), passwordProvider: { "" })
-    )
+@Test func creditNoteTransformerInfersSignatureMetadata() throws {
+    let xml = try CreditNoteXMLTransformer().transform(makeCreditNote())
 
-    #expect(throws: CPESigningError.invalidSignatureURI) {
-        _ = try XMLSecCPESigner().sign(makeCreditNote(), configuration: configuration)
-    }
+    #expect(xml.contains("<cac:Signature>"))
+    #expect(xml.contains("<cbc:URI>#SignSUNAT</cbc:URI>"))
+    #expect(xml.contains("<cbc:ID>10708255195</cbc:ID>"))
 }
 
 @Test func creditNoteSignerSignsAndVerifiesWhenCertificateIsConfigured() throws {
@@ -125,12 +117,6 @@ import ZIPFoundation
     let signed = try XMLSecCPESigner().sign(
         note,
         configuration: SigningConfiguration(
-            signature: SignatureInformation(
-                identifier: note.identifier.value,
-                signatoryIdentifier: note.supplier.taxIdentifier.value,
-                signatoryName: note.supplier.legalName,
-                uri: "#SignSUNAT"
-            ),
             credentials: .pkcs12(path: URL(fileURLWithPath: path), passwordProvider: { password })
         )
     )
@@ -211,8 +197,6 @@ struct OSECreditNoteManualValidationTests {
         let signedInvoice = try signer.sign(
             invoice,
             configuration: creditNoteSigningConfiguration(
-                identifier: invoice.identifier.value,
-                supplier: invoice.supplier,
                 pfxPath: pfxPath,
                 pfxPassword: pfxPassword
             )
@@ -221,8 +205,6 @@ struct OSECreditNoteManualValidationTests {
         let signedNote = try signer.sign(
             note,
             configuration: creditNoteSigningConfiguration(
-                identifier: note.identifier.value,
-                supplier: note.supplier,
                 pfxPath: pfxPath,
                 pfxPassword: pfxPassword
             )
@@ -368,8 +350,6 @@ private func signWriteAndSubmit(
     let signed = try XMLSecCPESigner().sign(
         invoice,
         configuration: creditNoteSigningConfiguration(
-            identifier: invoice.identifier.value,
-            supplier: invoice.supplier,
             pfxPath: pfxPath,
             pfxPassword: pfxPassword
         )
@@ -386,8 +366,6 @@ private func signWriteAndSubmit(
     let signed = try XMLSecCPESigner().sign(
         note,
         configuration: creditNoteSigningConfiguration(
-            identifier: note.identifier.value,
-            supplier: note.supplier,
             pfxPath: pfxPath,
             pfxPassword: pfxPassword
         )
@@ -396,18 +374,10 @@ private func signWriteAndSubmit(
 }
 
 private func creditNoteSigningConfiguration(
-    identifier: String,
-    supplier: Supplier,
     pfxPath: String,
     pfxPassword: String
 ) -> SigningConfiguration {
     SigningConfiguration(
-        signature: SignatureInformation(
-            identifier: identifier,
-            signatoryIdentifier: supplier.taxIdentifier.value,
-            signatoryName: supplier.legalName,
-            uri: "#SignSUNAT"
-        ),
         credentials: .pkcs12(path: URL(fileURLWithPath: pfxPath), passwordProvider: { pfxPassword })
     )
 }

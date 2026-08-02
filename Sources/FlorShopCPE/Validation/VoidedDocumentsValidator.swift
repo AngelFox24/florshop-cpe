@@ -4,8 +4,6 @@ public enum VoidedDocumentsValidationError: Error, Equatable, Sendable {
     case invalidIdentifierDate
     case generationDateBeforeReferenceDate
     case invalidSequence
-    case invalidUBLVersion
-    case invalidCustomizationID
     case supplierMustHaveRUC
     case invalidRUC
     case invalidSupplierLegalName
@@ -34,12 +32,6 @@ public struct VoidedDocumentsValidator: Sendable {
         }
         guard (1 ... 99_999).contains(communication.identifier.sequence) else {
             throw VoidedDocumentsValidationError.invalidSequence
-        }
-        guard communication.ublVersion == "2.0" else {
-            throw VoidedDocumentsValidationError.invalidUBLVersion
-        }
-        guard communication.customizationID == "1.0" else {
-            throw VoidedDocumentsValidationError.invalidCustomizationID
         }
         guard communication.supplier.taxIdentifier.documentType == .ruc else {
             throw VoidedDocumentsValidationError.supplierMustHaveRUC

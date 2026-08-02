@@ -121,23 +121,13 @@ import Testing
     #expect(package.xmlEntryName == "20123456789-RA-20260802-00001.xml")
 }
 
-@Test func voidedDocumentsSignerValidatesSignatureURIBeforeReadingCertificate() throws {
-    let configuration = SigningConfiguration(
-        signature: SignatureInformation(
-            identifier: "RA-20260802-00001",
-            signatoryIdentifier: "20123456789",
-            signatoryName: "EMISOR S.A.C.",
-            uri: "invalid"
-        ),
-        credentials: .pkcs12(
-            path: URL(fileURLWithPath: "/does/not/exist.p12"),
-            passwordProvider: { "secret" }
-        )
-    )
+@Test func voidedDocumentsTransformerInfersSignatureMetadata() throws {
+    let communication = try makeVoidedDocuments()
+    let xml = try VoidedDocumentsXMLTransformer().transform(communication)
 
-    #expect(throws: CPESigningError.invalidSignatureURI) {
-        _ = try XMLSecCPESigner().sign(try makeVoidedDocuments(), configuration: configuration)
-    }
+    #expect(xml.contains("<cac:Signature>"))
+    #expect(xml.contains("<cbc:URI>#SignSUNAT</cbc:URI>"))
+    #expect(xml.contains("<cbc:ID>20123456789</cbc:ID>"))
 }
 
 @Test func voidedDocumentsSignerSignsAndVerifiesWhenCertificateIsConfigured() throws {
@@ -148,7 +138,6 @@ import Testing
     let signed = try XMLSecCPESigner().sign(
         communication,
         configuration: voidedSigningConfiguration(
-            communication: communication,
             pfxPath: path,
             pfxPassword: password
         )
@@ -247,7 +236,6 @@ struct SunatBetaVoidedDocumentsIntegrationTests {
         let signed = try XMLSecCPESigner().sign(
             communication,
             configuration: voidedSigningConfiguration(
-                communication: communication,
                 pfxPath: pfxPath,
                 pfxPassword: pfxPassword
             )
@@ -298,8 +286,7 @@ struct OSEVoidedDocumentsManualValidationTests {
         let signer = XMLSecCPESigner()
         let signedInvoice = try signer.sign(
             invoice,
-            configuration: voidedInvoiceSigningConfiguration(
-                invoice: invoice,
+            configuration: voidedSigningConfiguration(
                 pfxPath: pfxPath,
                 pfxPassword: pfxPassword
             )
@@ -307,7 +294,6 @@ struct OSEVoidedDocumentsManualValidationTests {
         let signedCommunication = try signer.sign(
             communication,
             configuration: voidedSigningConfiguration(
-                communication: communication,
                 pfxPath: pfxPath,
                 pfxPassword: pfxPassword
             )
@@ -411,36 +397,10 @@ private func makeVoidedPrerequisiteInvoice(number: String, issueDate: IssueDate)
 }
 
 private func voidedSigningConfiguration(
-    communication: ComunicacionBaja,
     pfxPath: String,
     pfxPassword: String
 ) -> SigningConfiguration {
     SigningConfiguration(
-        signature: SignatureInformation(
-            identifier: communication.identifier.value,
-            signatoryIdentifier: communication.supplier.taxIdentifier.value,
-            signatoryName: communication.supplier.legalName,
-            uri: "#SignSUNAT"
-        ),
-        credentials: .pkcs12(
-            path: URL(fileURLWithPath: pfxPath),
-            passwordProvider: { pfxPassword }
-        )
-    )
-}
-
-private func voidedInvoiceSigningConfiguration(
-    invoice: Factura,
-    pfxPath: String,
-    pfxPassword: String
-) -> SigningConfiguration {
-    SigningConfiguration(
-        signature: SignatureInformation(
-            identifier: invoice.identifier.value,
-            signatoryIdentifier: invoice.supplier.taxIdentifier.value,
-            signatoryName: invoice.supplier.legalName,
-            uri: "#SignSUNAT"
-        ),
         credentials: .pkcs12(
             path: URL(fileURLWithPath: pfxPath),
             passwordProvider: { pfxPassword }
@@ -455,8 +415,7 @@ private func signWriteAndSubmitVoidedPrerequisite(
 ) async throws -> SunatBillSubmissionResult {
     let signed = try XMLSecCPESigner().sign(
         invoice,
-        configuration: voidedInvoiceSigningConfiguration(
-            invoice: invoice,
+        configuration: voidedSigningConfiguration(
             pfxPath: pfxPath,
             pfxPassword: pfxPassword
         )

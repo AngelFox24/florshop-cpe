@@ -2,7 +2,6 @@ import Foundation
 
 public protocol VoidedDocumentsXMLTransforming: Sendable {
     func transform(_ communication: ComunicacionBaja) throws -> String
-    func transform(_ communication: ComunicacionBaja, signature: SignatureInformation) throws -> String
 }
 
 /// Genera el documento SUNAT `VoidedDocuments` UBL 2.0 sin realizar envíos.
@@ -14,21 +13,11 @@ public struct VoidedDocumentsXMLTransformer: VoidedDocumentsXMLTransforming, Sen
     }
 
     public func transform(_ communication: ComunicacionBaja) throws -> String {
-        try transform(communication, signature: communication.signature)
-    }
-
-    public func transform(
-        _ communication: ComunicacionBaja,
-        signature: SignatureInformation
-    ) throws -> String {
-        try transform(communication, signature: Optional(signature))
-    }
-
-    private func transform(
-        _ communication: ComunicacionBaja,
-        signature: SignatureInformation?
-    ) throws -> String {
         try validator.validate(communication)
+        let signature = SignatureInformation(
+            identifier: communication.identifier.value,
+            supplier: communication.supplier
+        )
 
         var writer = XMLWriter()
         writer.declaration()
@@ -41,12 +30,12 @@ public struct VoidedDocumentsXMLTransformer: VoidedDocumentsXMLTransforming, Sen
             "xmlns:sac": "urn:sunat:names:specification:ubl:peru:schema:xsd:SunatAggregateComponents-1"
         ])
         writeExtensions(to: &writer)
-        writer.element("cbc:UBLVersionID", text: communication.ublVersion)
-        writer.element("cbc:CustomizationID", text: communication.customizationID)
+        writer.element("cbc:UBLVersionID", text: "2.0")
+        writer.element("cbc:CustomizationID", text: "1.0")
         writer.element("cbc:ID", text: communication.identifier.value)
         writer.element("cbc:ReferenceDate", text: format(communication.referenceDate))
         writer.element("cbc:IssueDate", text: format(communication.issueDate))
-        if let signature { write(signature, to: &writer) }
+        write(signature, to: &writer)
         write(communication.supplier, to: &writer)
         communication.lines.forEach { write($0, to: &writer) }
         writer.close("VoidedDocuments")
@@ -74,7 +63,7 @@ public struct VoidedDocumentsXMLTransformer: VoidedDocumentsXMLTransforming, Sen
         writer.close("cac:SignatoryParty")
         writer.open("cac:DigitalSignatureAttachment")
         writer.open("cac:ExternalReference")
-        writer.element("cbc:URI", text: signature.uri)
+        writer.element("cbc:URI", text: SignatureInformation.uri)
         writer.close("cac:ExternalReference")
         writer.close("cac:DigitalSignatureAttachment")
         writer.close("cac:Signature")

@@ -143,20 +143,12 @@ import Testing
     #expect(try SunatBillPackageValidator().validate(zipAt: document.zipURL).xmlEntryName == "10708255195-08-FD01-200.xml")
 }
 
-@Test func debitNoteSignerValidatesSignatureURIBeforeReadingCertificate() {
-    let configuration = SigningConfiguration(
-        signature: SignatureInformation(
-            identifier: "FD01-200",
-            signatoryIdentifier: "10708255195",
-            signatoryName: "EMISOR S.A.C.",
-            uri: "invalid"
-        ),
-        credentials: .pkcs12(path: URL(fileURLWithPath: "/not-used.p12"), passwordProvider: { "" })
-    )
+@Test func debitNoteTransformerInfersSignatureMetadata() throws {
+    let xml = try DebitNoteXMLTransformer().transform(makeDebitNote())
 
-    #expect(throws: CPESigningError.invalidSignatureURI) {
-        _ = try XMLSecCPESigner().sign(makeDebitNote(), configuration: configuration)
-    }
+    #expect(xml.contains("<cac:Signature>"))
+    #expect(xml.contains("<cbc:URI>#SignSUNAT</cbc:URI>"))
+    #expect(xml.contains("<cbc:ID>10708255195</cbc:ID>"))
 }
 
 @Test func debitNoteSignerSignsAndVerifiesWhenCertificateIsConfigured() throws {
@@ -167,12 +159,6 @@ import Testing
     let signed = try XMLSecCPESigner().sign(
         note,
         configuration: SigningConfiguration(
-            signature: SignatureInformation(
-                identifier: note.identifier.value,
-                signatoryIdentifier: note.supplier.taxIdentifier.value,
-                signatoryName: note.supplier.legalName,
-                uri: "#SignSUNAT"
-            ),
             credentials: .pkcs12(path: URL(fileURLWithPath: path), passwordProvider: { password })
         )
     )
@@ -253,8 +239,6 @@ struct OSEDebitNoteManualValidationTests {
         let signedInvoice = try signer.sign(
             invoice,
             configuration: debitNoteSigningConfiguration(
-                identifier: invoice.identifier.value,
-                supplier: invoice.supplier,
                 pfxPath: pfxPath,
                 pfxPassword: pfxPassword
             )
@@ -262,8 +246,6 @@ struct OSEDebitNoteManualValidationTests {
         let signedNote = try signer.sign(
             note,
             configuration: debitNoteSigningConfiguration(
-                identifier: note.identifier.value,
-                supplier: note.supplier,
                 pfxPath: pfxPath,
                 pfxPassword: pfxPassword
             )
@@ -434,8 +416,6 @@ private func signWriteAndSubmitDebitScenario(
     let signed = try XMLSecCPESigner().sign(
         invoice,
         configuration: debitNoteSigningConfiguration(
-            identifier: invoice.identifier.value,
-            supplier: invoice.supplier,
             pfxPath: pfxPath,
             pfxPassword: pfxPassword
         )
@@ -456,8 +436,6 @@ private func signWriteAndSubmitDebitScenario(
     let signed = try XMLSecCPESigner().sign(
         note,
         configuration: debitNoteSigningConfiguration(
-            identifier: note.identifier.value,
-            supplier: note.supplier,
             pfxPath: pfxPath,
             pfxPassword: pfxPassword
         )
@@ -470,18 +448,10 @@ private func signWriteAndSubmitDebitScenario(
 }
 
 private func debitNoteSigningConfiguration(
-    identifier: String,
-    supplier: Supplier,
     pfxPath: String,
     pfxPassword: String
 ) -> SigningConfiguration {
     SigningConfiguration(
-        signature: SignatureInformation(
-            identifier: identifier,
-            signatoryIdentifier: supplier.taxIdentifier.value,
-            signatoryName: supplier.legalName,
-            uri: "#SignSUNAT"
-        ),
         credentials: .pkcs12(path: URL(fileURLWithPath: pfxPath), passwordProvider: { pfxPassword })
     )
 }

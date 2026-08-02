@@ -30,15 +30,14 @@ public struct XMLSecCPESigner: CPESigning, CreditNoteSigning, DebitNoteSigning, 
         _ summary: ResumenDiarioBoletas,
         configuration: SigningConfiguration
     ) throws -> SignedCPE {
-        let unsignedXML = try dailySummaryTransformer.transform(summary, signature: configuration.signature)
-        let signatureID = try signatureID(from: configuration.signature.uri)
+        let unsignedXML = try dailySummaryTransformer.transform(summary)
         switch configuration.credentials {
         case let .pkcs12(path, passwordProvider):
             return try signPKCS12(
                 xml: Data(unsignedXML.utf8),
                 path: path,
                 password: passwordProvider(),
-                signatureID: signatureID,
+                signatureID: SignatureInformation.xmlSignatureID,
                 identity: CPEIdentity(summary: summary)
             )
         }
@@ -48,8 +47,7 @@ public struct XMLSecCPESigner: CPESigning, CreditNoteSigning, DebitNoteSigning, 
         _ document: any UBLInvoiceDocument,
         configuration: SigningConfiguration
     ) throws -> SignedCPE {
-        let unsignedXML = try transformer.transform(document, signature: configuration.signature)
-        let signatureID = try signatureID(from: configuration.signature.uri)
+        let unsignedXML = try transformer.transform(document)
 
         switch configuration.credentials {
         case let .pkcs12(path, passwordProvider):
@@ -57,7 +55,7 @@ public struct XMLSecCPESigner: CPESigning, CreditNoteSigning, DebitNoteSigning, 
                 xml: Data(unsignedXML.utf8),
                 path: path,
                 password: passwordProvider(),
-                signatureID: signatureID,
+                signatureID: SignatureInformation.xmlSignatureID,
                 identity: CPEIdentity(document: document)
             )
         }
@@ -67,8 +65,7 @@ public struct XMLSecCPESigner: CPESigning, CreditNoteSigning, DebitNoteSigning, 
         _ note: NotaCredito,
         configuration: SigningConfiguration
     ) throws -> SignedCPE {
-        let unsignedXML = try creditNoteTransformer.transform(note, signature: configuration.signature)
-        let signatureID = try signatureID(from: configuration.signature.uri)
+        let unsignedXML = try creditNoteTransformer.transform(note)
 
         switch configuration.credentials {
         case let .pkcs12(path, passwordProvider):
@@ -76,7 +73,7 @@ public struct XMLSecCPESigner: CPESigning, CreditNoteSigning, DebitNoteSigning, 
                 xml: Data(unsignedXML.utf8),
                 path: path,
                 password: passwordProvider(),
-                signatureID: signatureID,
+                signatureID: SignatureInformation.xmlSignatureID,
                 identity: CPEIdentity(note: note)
             )
         }
@@ -86,8 +83,7 @@ public struct XMLSecCPESigner: CPESigning, CreditNoteSigning, DebitNoteSigning, 
         _ note: NotaDebito,
         configuration: SigningConfiguration
     ) throws -> SignedCPE {
-        let unsignedXML = try debitNoteTransformer.transform(note, signature: configuration.signature)
-        let signatureID = try signatureID(from: configuration.signature.uri)
+        let unsignedXML = try debitNoteTransformer.transform(note)
 
         switch configuration.credentials {
         case let .pkcs12(path, passwordProvider):
@@ -95,7 +91,7 @@ public struct XMLSecCPESigner: CPESigning, CreditNoteSigning, DebitNoteSigning, 
                 xml: Data(unsignedXML.utf8),
                 path: path,
                 password: passwordProvider(),
-                signatureID: signatureID,
+                signatureID: SignatureInformation.xmlSignatureID,
                 identity: CPEIdentity(debitNote: note)
             )
         }
@@ -105,11 +101,7 @@ public struct XMLSecCPESigner: CPESigning, CreditNoteSigning, DebitNoteSigning, 
         _ communication: ComunicacionBaja,
         configuration: SigningConfiguration
     ) throws -> SignedCPE {
-        let unsignedXML = try voidedDocumentsTransformer.transform(
-            communication,
-            signature: configuration.signature
-        )
-        let signatureID = try signatureID(from: configuration.signature.uri)
+        let unsignedXML = try voidedDocumentsTransformer.transform(communication)
 
         switch configuration.credentials {
         case let .pkcs12(path, passwordProvider):
@@ -117,17 +109,10 @@ public struct XMLSecCPESigner: CPESigning, CreditNoteSigning, DebitNoteSigning, 
                 xml: Data(unsignedXML.utf8),
                 path: path,
                 password: passwordProvider(),
-                signatureID: signatureID,
+                signatureID: SignatureInformation.xmlSignatureID,
                 identity: CPEIdentity(communication: communication)
             )
         }
-    }
-
-    private func signatureID(from uri: String) throws -> String {
-        guard uri.hasPrefix("#"), uri.count > 1 else {
-            throw CPESigningError.invalidSignatureURI
-        }
-        return String(uri.dropFirst())
     }
 
     private func signPKCS12(

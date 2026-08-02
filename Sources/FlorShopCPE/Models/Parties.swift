@@ -94,16 +94,17 @@ public struct Contact: Codable, Equatable, Sendable {
     }
 }
 
-public struct SignatureInformation: Codable, Equatable, Sendable {
-    public let identifier: String
-    public let signatoryIdentifier: String
-    public let signatoryName: String
-    public let uri: String
+struct SignatureInformation: Sendable {
+    static let xmlSignatureID = "SignSUNAT"
+    static let uri = "#\(xmlSignatureID)"
 
-    public init(identifier: String, signatoryIdentifier: String, signatoryName: String, uri: String) {
+    let identifier: String
+    let signatoryIdentifier: String
+    let signatoryName: String
+
+    init(identifier: String, supplier: Supplier) {
         self.identifier = identifier
-        self.signatoryIdentifier = signatoryIdentifier
-        self.signatoryName = signatoryName
-        self.uri = uri
+        self.signatoryIdentifier = supplier.taxIdentifier.value
+        self.signatoryName = supplier.legalName
     }
 }

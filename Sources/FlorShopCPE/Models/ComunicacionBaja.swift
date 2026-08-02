@@ -48,28 +48,19 @@ public struct ComunicacionBaja: Codable, Equatable, Sendable {
     public let referenceDate: IssueDate
     public let supplier: Supplier
     public let lines: [VoidedDocumentLine]
-    public let signature: SignatureInformation?
-    public let ublVersion: String
-    public let customizationID: String
 
     public init(
         identifier: VoidedDocumentsIdentifier,
         issueDate: IssueDate,
         referenceDate: IssueDate,
         supplier: Supplier,
-        lines: [VoidedDocumentLine],
-        signature: SignatureInformation? = nil,
-        ublVersion: String = "2.0",
-        customizationID: String = "1.0"
+        lines: [VoidedDocumentLine]
     ) throws {
         self.identifier = identifier
         self.issueDate = issueDate
         self.referenceDate = referenceDate
         self.supplier = supplier
         self.lines = lines
-        self.signature = signature
-        self.ublVersion = ublVersion
-        self.customizationID = customizationID
         try VoidedDocumentsValidator().validate(self)
     }
 }

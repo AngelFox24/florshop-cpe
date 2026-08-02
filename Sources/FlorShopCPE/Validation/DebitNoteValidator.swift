@@ -6,8 +6,6 @@ public enum DebitNoteValidationError: Error, Equatable, Sendable {
     case invalidSeries(expectedPrefix: String)
     case invalidAffectedDocumentSeries(expectedPrefix: String)
     case invalidNumber
-    case invalidUBLVersion
-    case invalidCustomizationID
     case emptyReasonDescription
     case invalidReasonDescriptionWhitespace
     case reasonDescriptionTooLong
@@ -41,9 +39,6 @@ public struct DebitNoteValidator: Sendable {
         guard [.factura, .boleta].contains(note.affectedDocument.type) else {
             throw DebitNoteValidationError.invalidAffectedDocumentType
         }
-        guard note.ublVersion == "2.1" else { throw DebitNoteValidationError.invalidUBLVersion }
-        guard note.customizationID == "2.0" else { throw DebitNoteValidationError.invalidCustomizationID }
-
         let expectedPrefix = note.affectedDocument.type == .factura ? "F" : "B"
         try validateSeries(note.identifier.series, prefix: expectedPrefix, affected: false)
         try validateSeries(note.affectedDocument.series, prefix: expectedPrefix, affected: true)

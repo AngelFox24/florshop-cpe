@@ -152,21 +152,13 @@ import ZIPFoundation
     #expect(try formatter.format(Decimal(string: "1000000.50")!, currency: .usd) == "SON UN MILLÓN CON 50/100 DÓLARES AMERICANOS")
 }
 
-@Test func signerRejectsAnInvalidSignatureReferenceBeforeUsingTheCertificate() {
-    let signer = XMLSecCPESigner()
-    let configuration = SigningConfiguration(
-        signature: SignatureInformation(
-            identifier: "20123456789",
-            signatoryIdentifier: "20123456789",
-            signatoryName: "GREENTER S.A.C.",
-            uri: "GREENTER-SIGN"
-        ),
-        credentials: .pkcs12(path: URL(fileURLWithPath: "/not-used.pfx"), passwordProvider: { "" })
-    )
-    
-    #expect(throws: CPESigningError.invalidSignatureURI) {
-        try signer.sign(makeBoleta(), configuration: configuration)
-    }
+@Test func transformerInfersBoletaSignatureMetadata() throws {
+    let xml = try UBLInvoiceXMLTransformer().transform(makeBoleta())
+
+    #expect(xml.contains("<cac:Signature>"))
+    #expect(xml.contains("<cbc:URI>#SignSUNAT</cbc:URI>"))
+    #expect(xml.contains("<cbc:ID>20123456789</cbc:ID>"))
+    #expect(xml.contains("<cbc:Name>GREENTER S.A.C.</cbc:Name>"))
 }
 
 /// Prueba de integración opcional. Para activarla, define ambas variables de entorno:
@@ -179,12 +171,6 @@ import ZIPFoundation
     }
     
     let configuration = SigningConfiguration(
-        signature: SignatureInformation(
-            identifier: "20123456789",
-            signatoryIdentifier: "20123456789",
-            signatoryName: "GREENTER S.A.C.",
-            uri: "#GREENTER-SIGN"
-        ),
         credentials: .pkcs12(
             path: URL(fileURLWithPath: certificatePath),
             passwordProvider: { certificatePassword }
@@ -196,7 +182,7 @@ import ZIPFoundation
     
     #expect(signedXML.contains("<cac:Signature>"))
     #expect(signedXML.contains("<ds:Signature"))
-    #expect(signedXML.contains("Id=\"GREENTER-SIGN\""))
+    #expect(signedXML.contains("Id=\"SignSUNAT\""))
     #expect(signedXML.contains("<ds:SignatureValue>"))
     #expect(signedXML.contains("<ds:X509Certificate>"))
 }
@@ -496,7 +482,7 @@ struct SunatBetaIntegrationTests {
         defer { try? fileManager.removeItem(at: directoryURL) }
         
         let boleta = makeBoletaForSunatBeta()
-        guard let signingConfiguration = integrationSigningConfiguration(for: boleta) else {
+        guard let signingConfiguration = integrationSigningConfiguration() else {
             throw IntegrationConfigurationError.missingSigningCredentials
         }
         let signedCPE = try XMLSecCPESigner().sign(boleta, configuration: signingConfiguration)
@@ -540,7 +526,7 @@ struct SunatBetaIntegrationTests {
         defer { try? fileManager.removeItem(at: directoryURL) }
         
         let boleta = makeMultiProductBoletaForSunatBeta()
-        guard let signingConfiguration = integrationSigningConfiguration(for: boleta) else {
+        guard let signingConfiguration = integrationSigningConfiguration() else {
             throw IntegrationConfigurationError.missingSigningCredentials
         }
         let signedCPE = try XMLSecCPESigner().sign(boleta, configuration: signingConfiguration)
@@ -584,7 +570,7 @@ struct SunatBetaIntegrationTests {
         defer { try? fileManager.removeItem(at: directoryURL) }
 
         let boleta = makeReferenceBoletaForSunatBeta()
-        guard let signingConfiguration = integrationSigningConfiguration(for: boleta) else {
+        guard let signingConfiguration = integrationSigningConfiguration() else {
             throw IntegrationConfigurationError.missingSigningCredentials
         }
         let signedCPE = try XMLSecCPESigner().sign(
@@ -731,7 +717,7 @@ private func printSignedBoletaBetaXML(
     ===== SUNAT BETA \(scenario): XML FIRMADO =====
     Archivo XML: \(document.signedXMLURL.lastPathComponent)
     Archivo ZIP: \(document.zipURL.lastPathComponent)
-    Tipo de operación esperado: \(boleta.operationTypeCode)
+    Tipo de operación esperado: 0101
     Tipo de documento esperado: \(boleta.identifier.type.rawValue)
     \(String(decoding: signedCPE.xml, as: UTF8.self))
     ===== FIN SUNAT BETA \(scenario): XML FIRMADO =====
@@ -747,35 +733,6 @@ private func integrationSigningConfiguration() -> SigningConfiguration? {
     }
     
     return SigningConfiguration(
-        signature: SignatureInformation(
-            identifier: "20123456789",
-            signatoryIdentifier: "20123456789",
-            signatoryName: "GREENTER S.A.C.",
-            uri: "#GREENTER-SIGN"
-        ),
-        credentials: .pkcs12(
-            path: URL(fileURLWithPath: certificatePath),
-            passwordProvider: { certificatePassword }
-        )
-    )
-}
-
-private func integrationSigningConfiguration(
-    for document: any UBLInvoiceDocument
-) -> SigningConfiguration? {
-    let environment = ProcessInfo.processInfo.environment
-    guard let certificatePath = environment["FLORSHOP_CPE_TEST_PFX_PATH"],
-          let certificatePassword = environment["FLORSHOP_CPE_TEST_PFX_PASSWORD"] else {
-        return nil
-    }
-
-    return SigningConfiguration(
-        signature: SignatureInformation(
-            identifier: document.identifier.value,
-            signatoryIdentifier: document.supplier.taxIdentifier.value,
-            signatoryName: document.supplier.legalName,
-            uri: "#SignSUNAT"
-        ),
         credentials: .pkcs12(
             path: URL(fileURLWithPath: certificatePath),
             passwordProvider: { certificatePassword }

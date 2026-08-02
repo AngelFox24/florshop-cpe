@@ -97,9 +97,6 @@ public struct NotaCredito: Codable, Equatable, Sendable {
     public let monetaryTotal: CreditNoteMonetaryTotal
     public let lines: [CreditNoteLine]
     public let additionalNotes: [DocumentNote]
-    public let signature: SignatureInformation?
-    public let ublVersion: String
-    public let customizationID: String
 
     public init(
         identifier: DocumentIdentifier,
@@ -114,10 +111,7 @@ public struct NotaCredito: Codable, Equatable, Sendable {
         taxTotal: TaxTotal,
         monetaryTotal: CreditNoteMonetaryTotal,
         lines: [CreditNoteLine],
-        additionalNotes: [DocumentNote] = [],
-        signature: SignatureInformation? = nil,
-        ublVersion: String = "2.1",
-        customizationID: String = "2.0"
+        additionalNotes: [DocumentNote] = []
     ) {
         self.identifier = identifier
         self.issueDate = issueDate
@@ -132,8 +126,5 @@ public struct NotaCredito: Codable, Equatable, Sendable {
         self.monetaryTotal = monetaryTotal
         self.lines = lines
         self.additionalNotes = additionalNotes
-        self.signature = signature
-        self.ublVersion = ublVersion
-        self.customizationID = customizationID
     }
 }

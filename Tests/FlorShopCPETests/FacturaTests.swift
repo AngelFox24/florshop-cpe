@@ -129,23 +129,12 @@ import ZIPFoundation
     #expect(!xml.contains("<cbc:AddressTypeCode>0</cbc:AddressTypeCode>"))
 }
 
-@Test func genericSignerValidatesFacturaBeforeReadingCertificate() {
-    let configuration = SigningConfiguration(
-        signature: SignatureInformation(
-            identifier: "F001-1137",
-            signatoryIdentifier: "20566331030",
-            signatoryName: "NKR PROFESSIONAL PRODUCTS S.A.C.",
-            uri: "SignSUNAT"
-        ),
-        credentials: .pkcs12(
-            path: URL(fileURLWithPath: "/not-used.pfx"),
-            passwordProvider: { "" }
-        )
-    )
+@Test func transformerInfersFacturaSignatureMetadata() throws {
+    let xml = try UBLInvoiceXMLTransformer().transform(makeFactura())
 
-    #expect(throws: CPESigningError.invalidSignatureURI) {
-        try XMLSecCPESigner().sign(makeFactura(), configuration: configuration)
-    }
+    #expect(xml.contains("<cac:Signature>"))
+    #expect(xml.contains("<cbc:URI>#SignSUNAT</cbc:URI>"))
+    #expect(xml.contains("<cbc:ID>20566331030</cbc:ID>"))
 }
 
 /// Integración local opcional; no se comunica con SUNAT.
@@ -156,12 +145,6 @@ import ZIPFoundation
         return
     }
     let configuration = SigningConfiguration(
-        signature: SignatureInformation(
-            identifier: "F001-1137",
-            signatoryIdentifier: "20566331030",
-            signatoryName: "NKR PROFESSIONAL PRODUCTS S.A.C.",
-            uri: "#SignSUNAT"
-        ),
         credentials: .pkcs12(
             path: URL(fileURLWithPath: certificatePath),
             passwordProvider: { certificatePassword }
@@ -457,12 +440,6 @@ private func signAndSubmitFacturaToSunatBeta(
 
     let emitterRUC = factura.supplier.taxIdentifier.value
     let configuration = SigningConfiguration(
-        signature: SignatureInformation(
-            identifier: factura.identifier.value,
-            signatoryIdentifier: emitterRUC,
-            signatoryName: factura.supplier.legalName,
-            uri: "#SignSUNAT"
-        ),
         credentials: .pkcs12(
             path: URL(fileURLWithPath: credentials.certificatePath),
             passwordProvider: { credentials.certificatePassword }
@@ -485,7 +462,7 @@ private func signAndSubmitFacturaToSunatBeta(
     ===== SUNAT BETA FACTURA \(scenario): XML FIRMADO =====
     Archivo XML: \(document.signedXMLURL.lastPathComponent)
     Archivo ZIP: \(document.zipURL.lastPathComponent)
-    Tipo de operación esperado: \(factura.operationTypeCode)
+    Tipo de operación esperado: 0101
     Tipo de documento esperado: \(factura.identifier.type.rawValue)
     \(signedXML)
     ===== FIN SUNAT BETA FACTURA \(scenario): XML FIRMADO =====

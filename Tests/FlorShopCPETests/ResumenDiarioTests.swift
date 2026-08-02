@@ -145,24 +145,13 @@ import ZIPFoundation
     #expect(package.xmlEntryName == "20123456789-RC-20260802-00001.xml")
 }
 
-@Test func dailySummarySignerValidatesSignatureURIBeforeReadingCertificate() throws {
+@Test func dailySummaryTransformerInfersSignatureMetadata() throws {
     let summary = try makeDailySummary()
-    let configuration = SigningConfiguration(
-        signature: SignatureInformation(
-            identifier: "20123456789",
-            signatoryIdentifier: "20123456789",
-            signatoryName: "EMISOR S.A.C.",
-            uri: "invalid"
-        ),
-        credentials: .pkcs12(
-            path: URL(fileURLWithPath: "/does/not/exist.p12"),
-            passwordProvider: { "secret" }
-        )
-    )
+    let xml = try DailySummaryXMLTransformer().transform(summary)
 
-    #expect(throws: CPESigningError.invalidSignatureURI) {
-        _ = try XMLSecCPESigner().sign(summary, configuration: configuration)
-    }
+    #expect(xml.contains("<cac:Signature>"))
+    #expect(xml.contains("<cbc:URI>#SignSUNAT</cbc:URI>"))
+    #expect(xml.contains("<cbc:ID>20123456789</cbc:ID>"))
 }
 
 @Test func dailySummarySignerSignsAndVerifiesWhenCertificateIsConfigured() throws {
@@ -170,12 +159,6 @@ import ZIPFoundation
     guard let path = environment["FLORSHOP_CPE_TEST_PFX_PATH"],
           let password = environment["FLORSHOP_CPE_TEST_PFX_PASSWORD"] else { return }
     let configuration = SigningConfiguration(
-        signature: SignatureInformation(
-            identifier: "SRC-20260802-00001",
-            signatoryIdentifier: "20123456789",
-            signatoryName: "EMISOR S.A.C.",
-            uri: "#SignSUNAT"
-        ),
         credentials: .pkcs12(path: URL(fileURLWithPath: path), passwordProvider: { password })
     )
 
@@ -306,12 +289,6 @@ struct SunatBetaDailySummaryIntegrationTests {
             ]
         )
         let configuration = SigningConfiguration(
-            signature: SignatureInformation(
-                identifier: summary.identifier.value,
-                signatoryIdentifier: "10708255195",
-                signatoryName: summary.supplier.legalName,
-                uri: "#SignSUNAT"
-            ),
             credentials: .pkcs12(path: URL(fileURLWithPath: pfxPath), passwordProvider: { pfxPassword })
         )
         let signed = try XMLSecCPESigner().sign(summary, configuration: configuration)

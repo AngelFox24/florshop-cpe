@@ -4,7 +4,6 @@ public enum UBLInvoiceDocumentValidationError: Error, Equatable, Sendable {
     case unexpectedDocumentType(expected: ElectronicDocumentType, actual: ElectronicDocumentType)
     case invalidSeries(expectedPrefix: String)
     case invalidNumber
-    case invalidOperationTypeCode
     case supplierMustHaveRUC
     case facturaCustomerMustHaveRUC
     case invalidRUC
@@ -33,12 +32,6 @@ public struct UBLInvoiceDocumentValidator: Sendable {
         }
         guard document.identifier.number.range(of: #"^[1-9]\d{0,7}$"#, options: .regularExpression) != nil else {
             throw UBLInvoiceDocumentValidationError.invalidNumber
-        }
-        guard document.operationTypeCode.range(
-            of: #"^\d{4}$"#,
-            options: .regularExpression
-        ) != nil else {
-            throw UBLInvoiceDocumentValidationError.invalidOperationTypeCode
         }
         guard document.supplier.taxIdentifier.documentType == .ruc else {
             throw UBLInvoiceDocumentValidationError.supplierMustHaveRUC

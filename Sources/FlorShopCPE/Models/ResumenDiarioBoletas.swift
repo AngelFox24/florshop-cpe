@@ -289,28 +289,19 @@ public struct ResumenDiarioBoletas: Codable, Equatable, Sendable {
     public let referenceDate: IssueDate
     public let supplier: Supplier
     public let lines: [DailySummaryLine]
-    public let signature: SignatureInformation?
-    public let ublVersion: String
-    public let customizationID: String
 
     public init(
         identifier: DailySummaryIdentifier,
         issueDate: IssueDate,
         referenceDate: IssueDate,
         supplier: Supplier,
-        lines: [DailySummaryLine],
-        signature: SignatureInformation? = nil,
-        ublVersion: String = "2.0",
-        customizationID: String = "1.1"
+        lines: [DailySummaryLine]
     ) throws {
         self.identifier = identifier
         self.issueDate = issueDate
         self.referenceDate = referenceDate
         self.supplier = supplier
         self.lines = lines
-        self.signature = signature
-        self.ublVersion = ublVersion
-        self.customizationID = customizationID
         try DailySummaryValidator().validate(self)
     }
 
@@ -318,8 +309,7 @@ public struct ResumenDiarioBoletas: Codable, Equatable, Sendable {
     public init(
         identifier: DailySummaryIdentifier,
         issueDate: IssueDate,
-        boletas: [Boleta],
-        signature: SignatureInformation? = nil
+        boletas: [Boleta]
     ) throws {
         guard let first = boletas.first else { throw DailySummaryValidationError.emptyLines }
         try DailySummaryValidator().validateSourceBoletas(boletas)
@@ -330,8 +320,7 @@ public struct ResumenDiarioBoletas: Codable, Equatable, Sendable {
             supplier: first.supplier,
             lines: boletas.enumerated().map {
                 DailySummaryLine(lineID: $0.offset + 1, boleta: $0.element)
-            },
-            signature: signature
+            }
         )
     }
 }
