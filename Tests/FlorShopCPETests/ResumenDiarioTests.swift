@@ -103,6 +103,32 @@ import ZIPFoundation
     #expect(!xml.contains("<cac:InvoiceLine>"))
 }
 
+@Test func dailySummaryIncludesCreditNoteLinkedToBoleta() throws {
+    let boleta = makeSummaryBoleta(number: "100")
+    let creditNote = makeSummaryCreditNote(number: "101", affectedBoleta: boleta)
+    let summary = try ResumenDiarioBoletas(
+        identifier: DailySummaryIdentifier(date: boleta.issueDate, sequence: 2),
+        issueDate: boleta.issueDate,
+        referenceDate: boleta.issueDate,
+        supplier: boleta.supplier,
+        lines: [
+            DailySummaryLine(lineID: 1, boleta: boleta),
+            try DailySummaryLine(lineID: 2, creditNote: creditNote)
+        ]
+    )
+    let xml = try DailySummaryXMLTransformer().transform(summary)
+
+    #expect(summary.lines.count == 2)
+    #expect(summary.lines[0].documentType == .boleta)
+    #expect(summary.lines[1].documentType == .notaDeCredito)
+    #expect(summary.lines[1].affectedDocument == boleta.identifier)
+    #expect(xml.components(separatedBy: "<sac:SummaryDocumentsLine>").count - 1 == 2)
+    #expect(xml.contains("<cbc:DocumentTypeCode>03</cbc:DocumentTypeCode>"))
+    #expect(xml.contains("<cbc:DocumentTypeCode>07</cbc:DocumentTypeCode>"))
+    #expect(xml.contains("<cbc:ID>BC01-101</cbc:ID>"))
+    #expect(xml.contains("<cbc:ID>B001-100</cbc:ID>"))
+}
+
 @Test func dailySummaryWriterAndPackageUseTheRCFileName() throws {
     let fileManager = FileManager.default
     let directory = try makeSummaryTemporaryDirectory()
@@ -259,14 +285,25 @@ struct SunatBetaDailySummaryIntegrationTests {
         }
         let date = currentLimaSummaryDate()
         let sequence = max(1, Int(Date().timeIntervalSince1970) % 99_999)
+        let base = max(1, Int(Date().timeIntervalSince1970) % 99_999_990)
+        let boleta = makeSummaryBoleta(
+            number: String(base),
+            issueDate: date,
+            emitterRUC: "10708255195"
+        )
+        let creditNote = makeSummaryCreditNote(
+            number: String(base + 1),
+            affectedBoleta: boleta
+        )
         let summary = try ResumenDiarioBoletas(
             identifier: DailySummaryIdentifier(date: date, sequence: sequence),
             issueDate: date,
-            boletas: [makeSummaryBoleta(
-                number: String(Int(Date().timeIntervalSince1970) % 99_999_999),
-                issueDate: date,
-                emitterRUC: "10708255195"
-            )]
+            referenceDate: date,
+            supplier: boleta.supplier,
+            lines: [
+                DailySummaryLine(lineID: 1, boleta: boleta),
+                try DailySummaryLine(lineID: 2, creditNote: creditNote)
+            ]
         )
         let configuration = SigningConfiguration(
             signature: SignatureInformation(
@@ -286,11 +323,11 @@ struct SunatBetaDailySummaryIntegrationTests {
         )
         print("""
 
-        ===== SUNAT BETA RESUMEN DIARIO: XML FIRMADO =====
+        ===== SUNAT BETA RESUMEN DIARIO CON NOTA DE CRÉDITO: XML FIRMADO =====
         Archivo XML: \(document.signedXMLURL.lastPathComponent)
         Archivo ZIP: \(document.zipURL.lastPathComponent)
         \(String(decoding: signed.xml, as: UTF8.self))
-        ===== FIN SUNAT BETA RESUMEN DIARIO: XML FIRMADO =====
+        ===== FIN SUNAT BETA RESUMEN DIARIO CON NOTA DE CRÉDITO: XML FIRMADO =====
 
         """)
         let client = SunatSummaryClient(transport: SummaryIntegrationDiagnosticTransport())
@@ -389,6 +426,24 @@ private func makeSummaryBoleta(
             item: Item(description: "PRODUCTO"),
             price: MonetaryAmount(value: 100, currency: currency)
         )]
+    )
+}
+
+private func makeSummaryCreditNote(number: String, affectedBoleta: Boleta) -> NotaCredito {
+    NotaCredito(
+        identifier: DocumentIdentifier(series: "BC01", number: number, type: .notaDeCredito),
+        issueDate: affectedBoleta.issueDate,
+        currency: affectedBoleta.currency,
+        supplier: affectedBoleta.supplier,
+        customer: affectedBoleta.customer,
+        affectedDocument: affectedBoleta.identifier,
+        reasonCode: .devolucionTotal,
+        reasonDescription: "DEVOLUCIÓN TOTAL DE LA VENTA",
+        taxTotal: affectedBoleta.taxTotal,
+        monetaryTotal: CreditNoteMonetaryTotal(
+            payableAmount: affectedBoleta.monetaryTotal.payableAmount
+        ),
+        lines: affectedBoleta.lines.map(CreditNoteLine.init(invoiceLine:))
     )
 }
 

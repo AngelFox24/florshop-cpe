@@ -5,16 +5,19 @@ import XMLSecBridge
 #endif
 
 /// Firma los CPE UBL soportados mediante XMLDSIG usando libxmlsec.
-public struct XMLSecCPESigner: CPESigning {
+public struct XMLSecCPESigner: CPESigning, CreditNoteSigning {
     private let transformer: any UBLInvoiceXMLTransforming
     private let dailySummaryTransformer: any DailySummaryXMLTransforming
+    private let creditNoteTransformer: any CreditNoteXMLTransforming
 
     public init(
         transformer: any UBLInvoiceXMLTransforming = UBLInvoiceXMLTransformer(),
-        dailySummaryTransformer: any DailySummaryXMLTransforming = DailySummaryXMLTransformer()
+        dailySummaryTransformer: any DailySummaryXMLTransforming = DailySummaryXMLTransformer(),
+        creditNoteTransformer: any CreditNoteXMLTransforming = CreditNoteXMLTransformer()
     ) {
         self.transformer = transformer
         self.dailySummaryTransformer = dailySummaryTransformer
+        self.creditNoteTransformer = creditNoteTransformer
     }
 
     public func sign(
@@ -50,6 +53,25 @@ public struct XMLSecCPESigner: CPESigning {
                 password: passwordProvider(),
                 signatureID: signatureID,
                 identity: CPEIdentity(document: document)
+            )
+        }
+    }
+
+    public func sign(
+        _ note: NotaCredito,
+        configuration: SigningConfiguration
+    ) throws -> SignedCPE {
+        let unsignedXML = try creditNoteTransformer.transform(note, signature: configuration.signature)
+        let signatureID = try signatureID(from: configuration.signature.uri)
+
+        switch configuration.credentials {
+        case let .pkcs12(path, passwordProvider):
+            return try signPKCS12(
+                xml: Data(unsignedXML.utf8),
+                path: path,
+                password: passwordProvider(),
+                signatureID: signatureID,
+                identity: CPEIdentity(note: note)
             )
         }
     }

@@ -7,6 +7,17 @@ public protocol CPESigning {
     ) throws -> SignedCPE
 }
 
+/// Capacidad de firma específica para notas de crédito.
+///
+/// Se mantiene separada de `CPESigning` para que agregar este tipo de CPE no
+/// rompa implementaciones existentes que ya conforman al protocolo original.
+public protocol CreditNoteSigning {
+    func sign(
+        _ note: NotaCredito,
+        configuration: SigningConfiguration
+    ) throws -> SignedCPE
+}
+
 /// Comprobante electrónico firmado, aún sin escribir en disco.
 ///
 /// Además del XML, conserva la identidad necesaria para crear sus archivos

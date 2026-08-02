@@ -116,6 +116,33 @@ public struct DailySummaryLine: Codable, Equatable, Sendable {
         )
     }
 
+    /// Deriva la línea `07` exigida por el Resumen Diario para una Nota de
+    /// Crédito asociada a una boleta. Las notas de facturas se envían de forma
+    /// individual mediante `sendBill` y no pueden convertirse con esta API.
+    public init(
+        lineID: Int,
+        creditNote: NotaCredito,
+        condition: DailySummaryCondition = .add
+    ) throws {
+        guard creditNote.affectedDocument.type == .boleta else {
+            throw DailySummaryValidationError.invalidAffectedDocument(lineID)
+        }
+        try CreditNoteValidator().validate(creditNote)
+        self.init(
+            lineID: lineID,
+            documentType: .notaDeCredito,
+            documentIdentifier: creditNote.identifier,
+            customerIdentifier: creditNote.customer.identifier,
+            customerLegalName: creditNote.customer.legalName,
+            affectedDocument: creditNote.affectedDocument,
+            condition: condition,
+            totalAmount: creditNote.monetaryTotal.payableAmount,
+            sales: Self.sales(from: creditNote),
+            chargeTotalAmount: creditNote.monetaryTotal.chargeTotalAmount,
+            taxes: Self.taxes(from: creditNote)
+        )
+    }
+
     private static func sales(from boleta: Boleta) -> [DailySummarySale] {
         var totals: [DailySummarySaleType: Decimal] = [:]
         for line in boleta.lines {
@@ -130,6 +157,24 @@ public struct DailySummaryLine: Codable, Equatable, Sendable {
             return DailySummarySale(
                 type: type,
                 amount: MonetaryAmount(value: totals[type, default: 0], currency: boleta.currency)
+            )
+        }
+    }
+
+    private static func sales(from note: NotaCredito) -> [DailySummarySale] {
+        var totals: [DailySummarySaleType: Decimal] = [:]
+        for line in note.lines {
+            for subtotal in line.taxTotal.subtotals {
+                let type = saleType(for: subtotal.category)
+                totals[type, default: 0] += subtotal.taxableAmount.value
+            }
+        }
+        return DailySummarySaleType.sunatOrder.compactMap { type in
+            let isMandatory = [.taxable, .exempt, .unaffected].contains(type)
+            guard isMandatory || totals[type] != nil else { return nil }
+            return DailySummarySale(
+                type: type,
+                amount: MonetaryAmount(value: totals[type, default: 0], currency: note.currency)
             )
         }
     }
@@ -159,6 +204,17 @@ public struct DailySummaryLine: Codable, Equatable, Sendable {
                 percent: percent,
                 scheme: subtotal.scheme
             )
+        }
+    }
+
+    private static func taxes(from note: NotaCredito) -> [DailySummaryTax] {
+        note.taxTotal.subtotals.map { subtotal in
+            let percent = note.lines
+                .lazy
+                .flatMap(\.taxTotal.subtotals)
+                .first(where: { $0.category.scheme.identifier == subtotal.scheme.identifier })?
+                .category.percent
+            return DailySummaryTax(amount: subtotal.taxAmount, percent: percent, scheme: subtotal.scheme)
         }
     }
 }
