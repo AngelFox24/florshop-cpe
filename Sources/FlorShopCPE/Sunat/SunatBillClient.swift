@@ -260,7 +260,7 @@ private enum SunatSOAPRequestBuilder {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.setValue("text/xml; charset=UTF-8", forHTTPHeaderField: "Content-Type")
-        request.setValue("sendBill", forHTTPHeaderField: "SOAPAction")
+        request.setValue("urn:sendBill", forHTTPHeaderField: "SOAPAction")
         request.httpBody = soapEnvelope.utf8Data
         return request
     }

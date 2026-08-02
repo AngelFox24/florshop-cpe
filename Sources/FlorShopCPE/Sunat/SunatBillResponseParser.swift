@@ -27,7 +27,7 @@ enum SunatBillResponseParser {
         }
     }
 
-    private static func parseCDR(archiveData: Data) throws -> SunatBillSubmissionResult {
+    static func parseCDR(archiveData: Data) throws -> SunatBillSubmissionResult {
         let archive: Archive
         do {
             archive = try Archive(data: archiveData, accessMode: .read)
@@ -72,7 +72,7 @@ enum SunatBillResponseParser {
         )
     }
 
-    private static func throwSOAPFaultIfPresent(in data: Data) throws {
+    static func throwSOAPFaultIfPresent(in data: Data) throws {
         guard let fault = SOAPFaultParser.parse(data) else { return }
         throw SunatBillSubmissionError.soapFault(code: fault.code, message: fault.message)
     }

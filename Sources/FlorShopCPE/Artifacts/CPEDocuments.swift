@@ -3,7 +3,8 @@ import Foundation
 /// Identidad usada para los nombres de archivo exigidos por SUNAT.
 public struct CPEIdentity: Sendable, Equatable {
     public let emitterRUC: String
-    public let documentType: ElectronicDocumentType
+    /// Código usado en el nombre SUNAT (`01`, `03`, `RC`, posteriormente `RA`).
+    public let documentTypeCode: String
     public let documentIdentifier: String
 
     public init(
@@ -12,7 +13,7 @@ public struct CPEIdentity: Sendable, Equatable {
         documentIdentifier: String
     ) {
         self.emitterRUC = emitterRUC
-        self.documentType = documentType
+        self.documentTypeCode = documentType.rawValue
         self.documentIdentifier = documentIdentifier
     }
 
@@ -24,8 +25,26 @@ public struct CPEIdentity: Sendable, Equatable {
         )
     }
 
+    public init(summary: ResumenDiarioBoletas) {
+        self.init(
+            emitterRUC: summary.supplier.taxIdentifier.value,
+            documentTypeCode: "RC",
+            documentIdentifier: String(summary.identifier.value.dropFirst(3))
+        )
+    }
+
+    private init(
+        emitterRUC: String,
+        documentTypeCode: String,
+        documentIdentifier: String
+    ) {
+        self.emitterRUC = emitterRUC
+        self.documentTypeCode = documentTypeCode
+        self.documentIdentifier = documentIdentifier
+    }
+
     public var fileBaseName: String {
-        "\(emitterRUC)-\(documentType.rawValue)-\(documentIdentifier)"
+        "\(emitterRUC)-\(documentTypeCode)-\(documentIdentifier)"
     }
 }
 

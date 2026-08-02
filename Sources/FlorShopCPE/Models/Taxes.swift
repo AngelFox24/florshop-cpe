@@ -67,7 +67,7 @@ public enum TaxExemptionReasonCode: String, Codable, Sendable {
     case exonerado = "20"
     case inafecto = "30"
     case inafectoRetiroPorBonificacion = "31"
-    case gratuito = "40"
+    case exportacion = "40"
 }
 
 public struct TaxScheme: Codable, Equatable, Sendable {

@@ -378,7 +378,7 @@ import ZIPFoundation
     #expect(result.responseCode == "0")
     #expect(request.url == SunatBillClient.betaEndpoint)
     #expect(request.value(forHTTPHeaderField: "Content-Type") == "text/xml; charset=UTF-8")
-    #expect(request.value(forHTTPHeaderField: "SOAPAction") == "sendBill")
+    #expect(request.value(forHTTPHeaderField: "SOAPAction") == "urn:sendBill")
     #expect(body.contains(Data("<wsse:Username>10708255195MODDATOS</wsse:Username>".utf8)))
     #expect(body.contains(Data("<fileName>10708255195-03-B001-1.zip</fileName>".utf8)))
     #expect(body.contains(Data("<contentFile>".utf8)))
