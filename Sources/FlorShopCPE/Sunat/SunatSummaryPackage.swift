@@ -41,7 +41,10 @@ public struct SunatSummaryPackageValidator {
             throw SunatSummaryPackageError.sourceIsNotAZIP
         }
         let fileName = url.lastPathComponent
-        guard fileName.range(of: #"^\d{11}-RC-\d{8}-\d{5}\.zip$"#, options: .regularExpression) != nil else {
+        guard fileName.range(
+            of: #"^\d{11}-(RC|RA)-\d{8}-\d{5}\.zip$"#,
+            options: .regularExpression
+        ) != nil else {
             throw SunatSummaryPackageError.invalidFileName
         }
         let archive: Archive

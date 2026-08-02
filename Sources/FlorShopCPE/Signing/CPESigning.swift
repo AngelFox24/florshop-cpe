@@ -29,6 +29,17 @@ public protocol DebitNoteSigning {
     ) throws -> SignedCPE
 }
 
+/// Capacidad de firma específica para comunicaciones de baja.
+///
+/// Se mantiene separada de los protocolos existentes para no romper
+/// firmadores externos que ya los implementan.
+public protocol VoidedDocumentsSigning {
+    func sign(
+        _ communication: ComunicacionBaja,
+        configuration: SigningConfiguration
+    ) throws -> SignedCPE
+}
+
 /// Comprobante electrónico firmado, aún sin escribir en disco.
 ///
 /// Además del XML, conserva la identidad necesaria para crear sus archivos

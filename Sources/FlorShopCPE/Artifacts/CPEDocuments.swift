@@ -3,7 +3,7 @@ import Foundation
 /// Identidad usada para los nombres de archivo exigidos por SUNAT.
 public struct CPEIdentity: Sendable, Equatable {
     public let emitterRUC: String
-    /// Código usado en el nombre SUNAT (`01`, `03`, `RC`, posteriormente `RA`).
+    /// Código usado en el nombre SUNAT (`01`, `03`, `07`, `08`, `RC`, `RA`).
     public let documentTypeCode: String
     public let documentIdentifier: String
 
@@ -46,6 +46,14 @@ public struct CPEIdentity: Sendable, Equatable {
             emitterRUC: summary.supplier.taxIdentifier.value,
             documentTypeCode: "RC",
             documentIdentifier: String(summary.identifier.value.dropFirst(3))
+        )
+    }
+
+    public init(communication: ComunicacionBaja) {
+        self.init(
+            emitterRUC: communication.supplier.taxIdentifier.value,
+            documentTypeCode: "RA",
+            documentIdentifier: String(communication.identifier.value.dropFirst(3))
         )
     }
 

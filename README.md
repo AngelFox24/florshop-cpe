@@ -39,3 +39,23 @@ dígitos correspondiente al establecimiento declarado ante SUNAT (por ejemplo,
 
 La consulta de existencia y estado del comprobante afectado requiere datos de
 SUNAT/OSE; por eso no forma parte de la validación local del modelo.
+
+## Comunicación de bajas
+
+La API pública incluye `ComunicacionBaja`, `VoidedDocumentsIdentifier`,
+`VoidedDocumentLine`, `VoidedDocumentsValidator` y
+`VoidedDocumentsXMLTransformer`. Genera el documento `RA` UBL 2.0 exigido por
+SUNAT y usa el flujo asíncrono de `SunatSummaryClient`: primero `submit` devuelve
+un ticket y después `status` permite consultar la CDR.
+
+Una Comunicación de Baja se usa para facturas y notas de crédito o débito con
+serie `F...` que fueron generadas pero no otorgadas al cliente. La librería no
+permite incluir boletas ni notas de serie `B...`: esos documentos se informan
+con condición de baja dentro de `ResumenDiarioBoletas`.
+
+La validación local comprueba el identificador `RA-YYYYMMDD-#####`, fechas,
+RUC, líneas, tipo de documento, serie, correlativo y motivo. SUNAT comprueba al
+recibirla que el documento exista, que su estado permita la baja y que se
+respete el plazo normativo. La persistencia del ticket, la consulta periódica,
+los reintentos y el control de correlativos siguen siendo responsabilidad del
+POS.

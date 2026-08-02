@@ -86,6 +86,11 @@
          </EnvironmentVariable>
          <EnvironmentVariable
             key = "FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION_NOTA_DEBITO"
+            value = "false"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION_COMUNICACION_BAJA"
             value = "true"
             isEnabled = "YES">
          </EnvironmentVariable>

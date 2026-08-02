@@ -5,22 +5,25 @@ import XMLSecBridge
 #endif
 
 /// Firma los CPE UBL soportados mediante XMLDSIG usando libxmlsec.
-public struct XMLSecCPESigner: CPESigning, CreditNoteSigning, DebitNoteSigning {
+public struct XMLSecCPESigner: CPESigning, CreditNoteSigning, DebitNoteSigning, VoidedDocumentsSigning {
     private let transformer: any UBLInvoiceXMLTransforming
     private let dailySummaryTransformer: any DailySummaryXMLTransforming
     private let creditNoteTransformer: any CreditNoteXMLTransforming
     private let debitNoteTransformer: any DebitNoteXMLTransforming
+    private let voidedDocumentsTransformer: any VoidedDocumentsXMLTransforming
 
     public init(
         transformer: any UBLInvoiceXMLTransforming = UBLInvoiceXMLTransformer(),
         dailySummaryTransformer: any DailySummaryXMLTransforming = DailySummaryXMLTransformer(),
         creditNoteTransformer: any CreditNoteXMLTransforming = CreditNoteXMLTransformer(),
-        debitNoteTransformer: any DebitNoteXMLTransforming = DebitNoteXMLTransformer()
+        debitNoteTransformer: any DebitNoteXMLTransforming = DebitNoteXMLTransformer(),
+        voidedDocumentsTransformer: any VoidedDocumentsXMLTransforming = VoidedDocumentsXMLTransformer()
     ) {
         self.transformer = transformer
         self.dailySummaryTransformer = dailySummaryTransformer
         self.creditNoteTransformer = creditNoteTransformer
         self.debitNoteTransformer = debitNoteTransformer
+        self.voidedDocumentsTransformer = voidedDocumentsTransformer
     }
 
     public func sign(
@@ -94,6 +97,28 @@ public struct XMLSecCPESigner: CPESigning, CreditNoteSigning, DebitNoteSigning {
                 password: passwordProvider(),
                 signatureID: signatureID,
                 identity: CPEIdentity(debitNote: note)
+            )
+        }
+    }
+
+    public func sign(
+        _ communication: ComunicacionBaja,
+        configuration: SigningConfiguration
+    ) throws -> SignedCPE {
+        let unsignedXML = try voidedDocumentsTransformer.transform(
+            communication,
+            signature: configuration.signature
+        )
+        let signatureID = try signatureID(from: configuration.signature.uri)
+
+        switch configuration.credentials {
+        case let .pkcs12(path, passwordProvider):
+            return try signPKCS12(
+                xml: Data(unsignedXML.utf8),
+                path: path,
+                password: passwordProvider(),
+                signatureID: signatureID,
+                identity: CPEIdentity(communication: communication)
             )
         }
     }
