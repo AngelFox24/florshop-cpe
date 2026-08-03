@@ -81,7 +81,7 @@ public struct NotaDebito: Codable, Equatable, Sendable {
     public let currency: CurrencyCode
     public let supplier: Supplier
     public let customer: Customer
-    public let affectedDocument: DocumentIdentifier
+    public let affectedDocument: AffectedDocumentIdentifier
     public let reasonCode: DebitNoteReasonCode
     public let reasonDescription: String
     public let taxTotal: TaxTotal
@@ -96,7 +96,7 @@ public struct NotaDebito: Codable, Equatable, Sendable {
         currency: CurrencyCode,
         supplier: Supplier,
         customer: Customer,
-        affectedDocument: DocumentIdentifier,
+        affectedDocument: AffectedDocumentIdentifier,
         reasonCode: DebitNoteReasonCode,
         reasonDescription: String,
         taxTotal: TaxTotal,
@@ -118,4 +118,6 @@ public struct NotaDebito: Codable, Equatable, Sendable {
         self.lines = lines
         self.additionalNotes = additionalNotes
     }
+
+    public var documentType: ElectronicDocumentType { .notaDeDebito }
 }

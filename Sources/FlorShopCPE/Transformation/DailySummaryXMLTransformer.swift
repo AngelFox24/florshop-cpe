@@ -19,7 +19,7 @@ public struct DailySummaryXMLTransformer: DailySummaryXMLTransforming, Sendable 
             supplier: summary.supplier
         )
 
-        var writer = XMLWriter()
+        var writer = XMLWriter(documentCurrency: .pen)
         writer.declaration()
         writer.open("SummaryDocuments", attributes: [
             "xmlns": "urn:sunat:names:specification:ubl:peru:schema:xsd:SummaryDocuments-1",
@@ -101,7 +101,10 @@ public struct DailySummaryXMLTransformer: DailySummaryXMLTransforming, Sendable 
             writer.open("cac:BillingReference")
             writer.open("cac:InvoiceDocumentReference")
             writer.element("cbc:ID", text: affected.value)
-            writer.element("cbc:DocumentTypeCode", text: affected.type.rawValue)
+            writer.element(
+                "cbc:DocumentTypeCode",
+                text: AffectedInvoiceDocumentType.boleta.rawValue
+            )
             writer.close("cac:InvoiceDocumentReference")
             writer.close("cac:BillingReference")
         }
@@ -145,21 +148,11 @@ public struct DailySummaryXMLTransformer: DailySummaryXMLTransforming, Sendable 
     }
 
     private func write(_ name: String, amount: MonetaryAmount, to writer: inout XMLWriter) {
-        writer.element(name, text: formatMoney(amount.value), attributes: ["currencyID": amount.currency.rawValue])
+        writer.monetaryElement(name, amount: amount)
     }
 
     private func format(_ date: IssueDate) -> String {
         String(format: "%04d-%02d-%02d", date.year, date.month, date.day)
-    }
-
-    private func formatMoney(_ value: Decimal) -> String {
-        let formatter = NumberFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.numberStyle = .decimal
-        formatter.usesGroupingSeparator = false
-        formatter.minimumFractionDigits = 2
-        formatter.maximumFractionDigits = 2
-        return formatter.string(from: value as NSDecimalNumber) ?? NSDecimalNumber(decimal: value).stringValue
     }
 
     private func formatDecimal(_ value: Decimal) -> String {

@@ -20,7 +20,7 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
             supplier: document.supplier
         )
 
-        var writer = XMLWriter()
+        var writer = XMLWriter(documentCurrency: document.currency)
         writer.declaration()
         writer.open("Invoice", attributes: [
             "xmlns": "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2",
@@ -49,7 +49,7 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
         }
         writer.element(
             "cbc:InvoiceTypeCode",
-            text: document.identifier.type.rawValue,
+            text: document.documentType.rawValue,
             attributes: [
                 "listAgencyName": "PE:SUNAT",
                 "listID": "0101",
@@ -61,7 +61,7 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
         )
         let note = try amountInWordsFormatter.format(
             document.monetaryTotal.payableAmount.value,
-            currency: document.monetaryTotal.payableAmount.currency
+            currency: document.currency
         )
         writer.element("cbc:Note", text: note, attributes: ["languageLocaleID": "1000"])
         document.additionalNotes.forEach { note in
@@ -117,18 +117,7 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
             writer.close("cac:Party")
             writer.close("cac:BuyerCustomerParty")
         }
-        factura.paymentTerms.forEach { term in
-            writer.open("cac:PaymentTerms")
-            writer.element("cbc:ID", text: term.identifier)
-            writer.element("cbc:PaymentMeansID", text: term.paymentMeansID)
-            if let amount = term.amount {
-                write("cbc:Amount", amount: amount, to: &writer)
-            }
-            if let dueDate = term.dueDate {
-                writer.element("cbc:PaymentDueDate", text: format(dueDate))
-            }
-            writer.close("cac:PaymentTerms")
-        }
+        write(factura.paymentCondition, to: &writer)
         factura.allowanceCharges.forEach { allowance in
             writer.open("cac:AllowanceCharge")
             writer.element("cbc:ChargeIndicator", text: allowance.isCharge ? "true" : "false")
@@ -143,6 +132,35 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
                 write("cbc:BaseAmount", amount: baseAmount, to: &writer)
             }
             writer.close("cac:AllowanceCharge")
+        }
+    }
+
+    private func write(_ condition: PaymentCondition, to writer: inout XMLWriter) {
+        switch condition {
+        case .cash:
+            writer.open("cac:PaymentTerms")
+            writer.element("cbc:ID", text: "FormaPago")
+            writer.element("cbc:PaymentMeansID", text: "Contado")
+            writer.close("cac:PaymentTerms")
+
+        case let .credit(pendingAmount, installments):
+            writer.open("cac:PaymentTerms")
+            writer.element("cbc:ID", text: "FormaPago")
+            writer.element("cbc:PaymentMeansID", text: "Credito")
+            write("cbc:Amount", amount: pendingAmount, to: &writer)
+            writer.close("cac:PaymentTerms")
+
+            for (index, installment) in installments.enumerated() {
+                writer.open("cac:PaymentTerms")
+                writer.element("cbc:ID", text: "FormaPago")
+                writer.element(
+                    "cbc:PaymentMeansID",
+                    text: String(format: "Cuota%03d", index + 1)
+                )
+                write("cbc:Amount", amount: installment.amount, to: &writer)
+                writer.element("cbc:PaymentDueDate", text: format(installment.dueDate))
+                writer.close("cac:PaymentTerms")
+            }
         }
     }
 
@@ -386,7 +404,7 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
     }
 
     private func write(_ name: String, amount: MonetaryAmount, to writer: inout XMLWriter) {
-        writer.element(name, text: formatMoney(amount.value), attributes: ["currencyID": amount.currency.rawValue])
+        writer.monetaryElement(name, amount: amount)
     }
 
     private func format(_ date: IssueDate) -> String {
@@ -407,13 +425,4 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
         return formatter.string(from: value as NSDecimalNumber) ?? NSDecimalNumber(decimal: value).stringValue
     }
 
-    private func formatMoney(_ value: Decimal) -> String {
-        let formatter = NumberFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.numberStyle = .decimal
-        formatter.usesGroupingSeparator = false
-        formatter.minimumFractionDigits = 2
-        formatter.maximumFractionDigits = 2
-        return formatter.string(from: value as NSDecimalNumber) ?? NSDecimalNumber(decimal: value).stringValue
-    }
 }

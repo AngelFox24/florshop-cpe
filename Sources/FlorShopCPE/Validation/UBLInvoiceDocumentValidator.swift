@@ -1,7 +1,6 @@
 import Foundation
 
 public enum UBLInvoiceDocumentValidationError: Error, Equatable, Sendable {
-    case unexpectedDocumentType(expected: ElectronicDocumentType, actual: ElectronicDocumentType)
     case invalidSeries(expectedPrefix: String)
     case invalidNumber
     case supplierMustHaveRUC
@@ -10,7 +9,12 @@ public enum UBLInvoiceDocumentValidationError: Error, Equatable, Sendable {
     case invalidSupplierAddressTypeCode
     case emptyLines
     case duplicatedLineIdentifier(String)
-    case inconsistentCurrency
+    case emptyPaymentInstallments
+    case tooManyPaymentInstallments
+    case nonPositivePendingPaymentAmount
+    case nonPositivePaymentInstallment(Int)
+    case invalidPaymentInstallmentDueDate(Int)
+    case paymentInstallmentsTotalMismatch
 }
 
 /// Verifica invariantes del dominio antes de generar o firmar el XML.
@@ -18,14 +22,7 @@ public struct UBLInvoiceDocumentValidator: Sendable {
     public init() {}
 
     public func validate(_ document: any UBLInvoiceDocument) throws {
-        guard document.identifier.type == document.expectedDocumentType else {
-            throw UBLInvoiceDocumentValidationError.unexpectedDocumentType(
-                expected: document.expectedDocumentType,
-                actual: document.identifier.type
-            )
-        }
-
-        let expectedPrefix = document.expectedDocumentType == .factura ? "F" : "B"
+        let expectedPrefix = document.documentType == .factura ? "F" : "B"
         let seriesPattern = "^\(expectedPrefix)[A-Za-z0-9]{3}$"
         guard document.identifier.series.range(of: seriesPattern, options: .regularExpression) != nil else {
             throw UBLInvoiceDocumentValidationError.invalidSeries(expectedPrefix: expectedPrefix)
@@ -43,7 +40,7 @@ public struct UBLInvoiceDocumentValidator: Sendable {
            addressTypeCode.range(of: #"^\d{4}$"#, options: .regularExpression) == nil {
             throw UBLInvoiceDocumentValidationError.invalidSupplierAddressTypeCode
         }
-        if document.expectedDocumentType == .factura {
+        if document.documentType == .factura {
             guard document.customer.identifier.documentType == .ruc else {
                 throw UBLInvoiceDocumentValidationError.facturaCustomerMustHaveRUC
             }
@@ -60,8 +57,31 @@ public struct UBLInvoiceDocumentValidator: Sendable {
             throw UBLInvoiceDocumentValidationError.duplicatedLineIdentifier(line.id)
         }
 
-        guard currencies(in: document).allSatisfy({ $0 == document.currency }) else {
-            throw UBLInvoiceDocumentValidationError.inconsistentCurrency
+        if let factura = document as? Factura,
+           case let .credit(pendingAmount, installments) = factura.paymentCondition {
+            guard pendingAmount.value > 0 else {
+                throw UBLInvoiceDocumentValidationError.nonPositivePendingPaymentAmount
+            }
+            guard !installments.isEmpty else {
+                throw UBLInvoiceDocumentValidationError.emptyPaymentInstallments
+            }
+            guard installments.count <= 999 else {
+                throw UBLInvoiceDocumentValidationError.tooManyPaymentInstallments
+            }
+            for (index, installment) in installments.enumerated() {
+                guard installment.amount.value > 0 else {
+                    throw UBLInvoiceDocumentValidationError.nonPositivePaymentInstallment(index + 1)
+                }
+                guard dateKey(installment.dueDate) > dateKey(factura.issueDate) else {
+                    throw UBLInvoiceDocumentValidationError.invalidPaymentInstallmentDueDate(index + 1)
+                }
+            }
+            let installmentsTotal = installments.reduce(Decimal.zero) { partial, installment in
+                partial + installment.amount.value
+            }
+            guard installmentsTotal == pendingAmount.value else {
+                throw UBLInvoiceDocumentValidationError.paymentInstallmentsTotalMismatch
+            }
         }
     }
 
@@ -69,36 +89,7 @@ public struct UBLInvoiceDocumentValidator: Sendable {
         value.range(of: #"^\d{11}$"#, options: .regularExpression) != nil
     }
 
-    private func currencies(in document: any UBLInvoiceDocument) -> [CurrencyCode] {
-        var result = [
-            document.taxTotal.amount.currency,
-            document.monetaryTotal.lineExtensionAmount.currency,
-            document.monetaryTotal.taxInclusiveAmount.currency,
-            document.monetaryTotal.payableAmount.currency
-        ]
-        result.append(contentsOf: [
-            document.monetaryTotal.allowanceTotalAmount?.currency,
-            document.monetaryTotal.chargeTotalAmount?.currency,
-            document.monetaryTotal.prepaidAmount?.currency
-        ].compactMap { $0 })
-        result.append(contentsOf: document.taxTotal.subtotals.flatMap {
-            [$0.taxableAmount.currency, $0.taxAmount.currency]
-        })
-        for line in document.lines {
-            result.append(line.lineExtensionAmount.currency)
-            result.append(line.price.currency)
-            result.append(line.taxTotal.amount.currency)
-            result.append(contentsOf: line.alternativePrices.map(\.amount.currency))
-            result.append(contentsOf: line.taxTotal.subtotals.flatMap {
-                [$0.taxableAmount.currency, $0.taxAmount.currency]
-            })
-        }
-        if let factura = document as? Factura {
-            result.append(contentsOf: factura.paymentTerms.compactMap(\.amount?.currency))
-            result.append(contentsOf: factura.allowanceCharges.flatMap {
-                [$0.amount.currency] + [$0.baseAmount?.currency].compactMap { $0 }
-            })
-        }
-        return result
+    private func dateKey(_ date: IssueDate) -> Int {
+        date.year * 10_000 + date.month * 100 + date.day
     }
 }

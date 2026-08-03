@@ -16,21 +16,32 @@ public struct VoidedDocumentsIdentifier: Codable, Equatable, Sendable {
     }
 }
 
+/// Tipos de comprobante admitidos por una Comunicación de Baja.
+/// Las boletas y sus notas se anulan mediante el Resumen Diario.
+public enum VoidedDocumentType: String, Codable, Sendable {
+    case factura = "01"
+    case notaDeCredito = "07"
+    case notaDeDebito = "08"
+}
+
 /// Documento cuya numeración se comunica como dada de baja.
 ///
 /// La Comunicación de Baja admite facturas y notas vinculadas a facturas.
 /// Las boletas y sus notas se anulan mediante el Resumen Diario.
 public struct VoidedDocumentLine: Codable, Equatable, Sendable {
     public let lineID: Int
+    public let documentType: VoidedDocumentType
     public let documentIdentifier: DocumentIdentifier
     public let reason: String
 
     public init(
         lineID: Int,
+        documentType: VoidedDocumentType,
         documentIdentifier: DocumentIdentifier,
         reason: String
     ) {
         self.lineID = lineID
+        self.documentType = documentType
         self.documentIdentifier = documentIdentifier
         self.reason = reason
     }

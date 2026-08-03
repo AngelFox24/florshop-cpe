@@ -10,7 +10,6 @@ public enum VoidedDocumentsValidationError: Error, Equatable, Sendable {
     case emptyLines
     case invalidLineIdentifier(Int)
     case duplicatedLineIdentifier(Int)
-    case unsupportedDocumentType(ElectronicDocumentType)
     case invalidDocumentSeries(String)
     case invalidDocumentNumber(String)
     case duplicatedDocument(String)
@@ -62,9 +61,6 @@ public struct VoidedDocumentsValidator: Sendable {
             guard lineIDs.insert(line.lineID).inserted else {
                 throw VoidedDocumentsValidationError.duplicatedLineIdentifier(line.lineID)
             }
-            guard [.factura, .notaDeCredito, .notaDeDebito].contains(line.documentIdentifier.type) else {
-                throw VoidedDocumentsValidationError.unsupportedDocumentType(line.documentIdentifier.type)
-            }
             guard isValidSeries(line.documentIdentifier.series) else {
                 throw VoidedDocumentsValidationError.invalidDocumentSeries(line.documentIdentifier.series)
             }
@@ -74,7 +70,7 @@ public struct VoidedDocumentsValidator: Sendable {
             ) != nil else {
                 throw VoidedDocumentsValidationError.invalidDocumentNumber(line.documentIdentifier.number)
             }
-            let documentKey = "\(line.documentIdentifier.type.rawValue)-\(line.documentIdentifier.value)"
+            let documentKey = "\(line.documentType.rawValue)-\(line.documentIdentifier.value)"
             guard documents.insert(documentKey).inserted else {
                 throw VoidedDocumentsValidationError.duplicatedDocument(line.documentIdentifier.value)
             }

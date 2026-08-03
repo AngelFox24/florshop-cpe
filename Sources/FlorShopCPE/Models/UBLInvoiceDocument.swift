@@ -12,9 +12,9 @@ public protocol UBLInvoiceDocument: Sendable {
     var lines: [InvoiceLine] { get }
     var additionalNotes: [DocumentNote] { get }
 
-    /// Tipo que corresponde al modelo concreto, independientemente del valor
-    /// recibido en `identifier`.
-    var expectedDocumentType: ElectronicDocumentType { get }
+    /// Tipo determinado por el modelo concreto. No forma parte del
+    /// identificador para impedir combinaciones como `Boleta` + `factura`.
+    var documentType: ElectronicDocumentType { get }
 }
 
 public struct DocumentNote: Codable, Equatable, Sendable {

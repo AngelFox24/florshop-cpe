@@ -11,6 +11,7 @@ import Testing
     let xml = try DebitNoteXMLTransformer().transform(note)
 
     #expect(note.identifier.value == "FD01-200")
+    #expect(note.documentType == .notaDeDebito)
     #expect(note.affectedDocument.value == "F001-100")
     #expect(xml.contains("<DebitNote"))
     #expect(xml.contains("xmlns=\"urn:oasis:names:specification:ubl:schema:xsd:DebitNote-2\""))
@@ -41,7 +42,7 @@ import Testing
 
 @Test func debitNoteValidatorRequiresSeriesMatchingAffectedDocument() {
     let note = makeDebitNote(
-        identifier: DocumentIdentifier(series: "BD01", number: "200", type: .notaDeDebito)
+        identifier: DocumentIdentifier(series: "BD01", number: "200")
     )
 
     #expect(throws: DebitNoteValidationError.invalidSeries(expectedPrefix: "F")) {
@@ -198,8 +199,8 @@ struct SunatBetaDebitNoteIntegrationTests {
         try await Task.sleep(for: .seconds(2))
 
         let note = makeDebitNote(
-            identifier: DocumentIdentifier(series: "FD01", number: String(base + 1), type: .notaDeDebito),
-            affectedDocument: invoice.identifier,
+            identifier: DocumentIdentifier(series: "FD01", number: String(base + 1)),
+            affectedDocument: AffectedDocumentIdentifier(factura: invoice),
             issueDate: issueDate
         )
         let noteResult = try await signWriteAndSubmitDebitScenario(
@@ -230,8 +231,8 @@ struct OSEDebitNoteManualValidationTests {
         let base = max(1, Int(Date().timeIntervalSince1970) % 99_999_990)
         let invoice = makeDebitNotePrerequisiteInvoice(number: String(base), issueDate: issueDate)
         let note = makeDebitNote(
-            identifier: DocumentIdentifier(series: "FD01", number: String(base + 1), type: .notaDeDebito),
-            affectedDocument: invoice.identifier,
+            identifier: DocumentIdentifier(series: "FD01", number: String(base + 1)),
+            affectedDocument: AffectedDocumentIdentifier(factura: invoice),
             issueDate: issueDate
         )
         let signer = XMLSecCPESigner()
@@ -265,7 +266,7 @@ struct OSEDebitNoteManualValidationTests {
 
         """)
 
-        #expect(note.affectedDocument == invoice.identifier)
+        #expect(note.affectedDocument.identifier == invoice.identifier)
         #expect(signedInvoice.identity.fileBaseName == "10708255195-01-\(invoice.identifier.value)")
         #expect(signedNote.identity.fileBaseName == "10708255195-08-\(note.identifier.value)")
         #expect(try XMLSecSignatureVerifier().verify(signedInvoice.xml))
@@ -274,8 +275,12 @@ struct OSEDebitNoteManualValidationTests {
 }
 
 private func makeDebitNote(
-    identifier: DocumentIdentifier = DocumentIdentifier(series: "FD01", number: "200", type: .notaDeDebito),
-    affectedDocument: DocumentIdentifier = DocumentIdentifier(series: "F001", number: "100", type: .factura),
+    identifier: DocumentIdentifier = DocumentIdentifier(series: "FD01", number: "200"),
+    affectedDocument: AffectedDocumentIdentifier = AffectedDocumentIdentifier(
+        series: "F001",
+        number: "100",
+        type: .factura
+    ),
     supplier: Supplier = debitNoteSupplier(),
     customer: Customer = Customer(
         identifier: PartyIdentifier(value: "20109072177", documentType: .ruc),
@@ -305,8 +310,12 @@ private func makeDebitNote(
 
 private func makeDebitNoteForBoleta() -> NotaDebito {
     makeDebitNote(
-        identifier: DocumentIdentifier(series: "BD01", number: "200", type: .notaDeDebito),
-        affectedDocument: DocumentIdentifier(series: "B001", number: "100", type: .boleta),
+        identifier: DocumentIdentifier(series: "BD01", number: "200"),
+        affectedDocument: AffectedDocumentIdentifier(
+            series: "B001",
+            number: "100",
+            type: .boleta
+        ),
         customer: Customer(
             identifier: PartyIdentifier(value: "46237547", documentType: .dni),
             legalName: "CLIENTE"
@@ -333,9 +342,9 @@ private func debitNoteSupplier() -> Supplier {
 private func debitNoteValues(
     includeQuantityAndPrice: Bool = true
 ) -> (taxTotal: TaxTotal, payable: MonetaryAmount, line: DebitNoteLine) {
-    let taxable = MonetaryAmount(value: 10, currency: .pen)
-    let tax = MonetaryAmount(value: 1.80, currency: .pen)
-    let payable = MonetaryAmount(value: 11.80, currency: .pen)
+    let taxable = MonetaryAmount(value: 10)
+    let tax = MonetaryAmount(value: 1.80)
+    let payable = MonetaryAmount(value: 11.80)
     let category = TaxCategory(percent: 18, exemptionReasonCode: .gravadoOperacionOnerosa, scheme: .igv)
     let taxTotal = TaxTotal(
         amount: tax,
@@ -359,9 +368,9 @@ private func debitNoteValues(
 }
 
 private func makeDebitNotePrerequisiteInvoice(number: String, issueDate: IssueDate) -> Factura {
-    let taxable = MonetaryAmount(value: 100, currency: .pen)
-    let tax = MonetaryAmount(value: 18, currency: .pen)
-    let payable = MonetaryAmount(value: 118, currency: .pen)
+    let taxable = MonetaryAmount(value: 100)
+    let tax = MonetaryAmount(value: 18)
+    let payable = MonetaryAmount(value: 118)
     let category = TaxCategory(percent: 18, exemptionReasonCode: .gravadoOperacionOnerosa, scheme: .igv)
     let taxTotal = TaxTotal(
         amount: tax,
@@ -380,7 +389,7 @@ private func makeDebitNotePrerequisiteInvoice(number: String, issueDate: IssueDa
         price: taxable
     )
     return Factura(
-        identifier: DocumentIdentifier(series: "F001", number: number, type: .factura),
+        identifier: DocumentIdentifier(series: "F001", number: number),
         issueDate: issueDate,
         issueTime: IssueTime(hour: 12, minute: 0),
         currency: .pen,
@@ -396,7 +405,7 @@ private func makeDebitNotePrerequisiteInvoice(number: String, issueDate: IssueDa
             payableAmount: payable
         ),
         lines: [line],
-        paymentTerms: [PaymentTerm(paymentMeansID: "Contado")]
+        paymentCondition: .cash
     )
 }
 

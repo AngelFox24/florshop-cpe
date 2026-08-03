@@ -21,6 +21,14 @@ public enum DailySummaryCondition: String, Codable, Sendable {
     case void = "3"
 }
 
+/// Tipos de comprobante que pueden informarse en un Resumen Diario.
+/// La restricción en el tipo evita construir líneas de facturas (`01`).
+public enum DailySummaryDocumentType: String, Codable, Sendable {
+    case boleta = "03"
+    case notaDeCredito = "07"
+    case notaDeDebito = "08"
+}
+
 /// Clasificación de importes de venta del catálogo 11 de SUNAT.
 public enum DailySummarySaleType: String, Codable, Sendable {
     case taxable = "01"
@@ -61,7 +69,7 @@ public struct DailySummarySale: Codable, Equatable, Sendable {
 /// Una línea agregada del Resumen Diario. No contiene el detalle de productos.
 public struct DailySummaryLine: Codable, Equatable, Sendable {
     public let lineID: Int
-    public let documentType: ElectronicDocumentType
+    public let documentType: DailySummaryDocumentType
     public let documentIdentifier: DocumentIdentifier
     public let customerIdentifier: PartyIdentifier
     public let customerLegalName: String?
@@ -75,7 +83,7 @@ public struct DailySummaryLine: Codable, Equatable, Sendable {
 
     public init(
         lineID: Int,
-        documentType: ElectronicDocumentType,
+        documentType: DailySummaryDocumentType,
         documentIdentifier: DocumentIdentifier,
         customerIdentifier: PartyIdentifier,
         customerLegalName: String? = nil,
@@ -100,7 +108,14 @@ public struct DailySummaryLine: Codable, Equatable, Sendable {
     }
 
     /// Deriva de una boleta los importes exigidos por `SummaryDocumentsLine`.
-    public init(lineID: Int, boleta: Boleta, condition: DailySummaryCondition = .add) {
+    public init(
+        lineID: Int,
+        boleta: Boleta,
+        condition: DailySummaryCondition = .add
+    ) throws {
+        guard boleta.currency == .pen else {
+            throw DailySummaryValidationError.sourceDocumentMustUsePEN
+        }
         self.init(
             lineID: lineID,
             documentType: .boleta,
@@ -127,6 +142,9 @@ public struct DailySummaryLine: Codable, Equatable, Sendable {
         guard creditNote.affectedDocument.type == .boleta else {
             throw DailySummaryValidationError.invalidAffectedDocument(lineID)
         }
+        guard creditNote.currency == .pen else {
+            throw DailySummaryValidationError.sourceDocumentMustUsePEN
+        }
         try CreditNoteValidator().validate(creditNote)
         self.init(
             lineID: lineID,
@@ -134,7 +152,7 @@ public struct DailySummaryLine: Codable, Equatable, Sendable {
             documentIdentifier: creditNote.identifier,
             customerIdentifier: creditNote.customer.identifier,
             customerLegalName: creditNote.customer.legalName,
-            affectedDocument: creditNote.affectedDocument,
+            affectedDocument: creditNote.affectedDocument.identifier,
             condition: condition,
             totalAmount: creditNote.monetaryTotal.payableAmount,
             sales: Self.sales(from: creditNote),
@@ -154,6 +172,9 @@ public struct DailySummaryLine: Codable, Equatable, Sendable {
         guard debitNote.affectedDocument.type == .boleta else {
             throw DailySummaryValidationError.invalidAffectedDocument(lineID)
         }
+        guard debitNote.currency == .pen else {
+            throw DailySummaryValidationError.sourceDocumentMustUsePEN
+        }
         try DebitNoteValidator().validate(debitNote)
         self.init(
             lineID: lineID,
@@ -161,7 +182,7 @@ public struct DailySummaryLine: Codable, Equatable, Sendable {
             documentIdentifier: debitNote.identifier,
             customerIdentifier: debitNote.customer.identifier,
             customerLegalName: debitNote.customer.legalName,
-            affectedDocument: debitNote.affectedDocument,
+            affectedDocument: debitNote.affectedDocument.identifier,
             condition: condition,
             totalAmount: debitNote.monetaryTotal.payableAmount,
             sales: Self.sales(from: debitNote),
@@ -183,7 +204,7 @@ public struct DailySummaryLine: Codable, Equatable, Sendable {
             guard isMandatory || totals[type] != nil else { return nil }
             return DailySummarySale(
                 type: type,
-                amount: MonetaryAmount(value: totals[type, default: 0], currency: boleta.currency)
+                amount: MonetaryAmount(value: totals[type, default: 0])
             )
         }
     }
@@ -201,7 +222,7 @@ public struct DailySummaryLine: Codable, Equatable, Sendable {
             guard isMandatory || totals[type] != nil else { return nil }
             return DailySummarySale(
                 type: type,
-                amount: MonetaryAmount(value: totals[type, default: 0], currency: note.currency)
+                amount: MonetaryAmount(value: totals[type, default: 0])
             )
         }
     }
@@ -219,7 +240,7 @@ public struct DailySummaryLine: Codable, Equatable, Sendable {
             guard isMandatory || totals[type] != nil else { return nil }
             return DailySummarySale(
                 type: type,
-                amount: MonetaryAmount(value: totals[type, default: 0], currency: note.currency)
+                amount: MonetaryAmount(value: totals[type, default: 0])
             )
         }
     }
@@ -318,8 +339,8 @@ public struct ResumenDiarioBoletas: Codable, Equatable, Sendable {
             issueDate: issueDate,
             referenceDate: first.issueDate,
             supplier: first.supplier,
-            lines: boletas.enumerated().map {
-                DailySummaryLine(lineID: $0.offset + 1, boleta: $0.element)
+            lines: try boletas.enumerated().map {
+                try DailySummaryLine(lineID: $0.offset + 1, boleta: $0.element)
             }
         )
     }

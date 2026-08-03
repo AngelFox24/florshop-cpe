@@ -84,7 +84,7 @@ public struct VoidedDocumentsXMLTransformer: VoidedDocumentsXMLTransforming, Sen
     private func write(_ line: VoidedDocumentLine, to writer: inout XMLWriter) {
         writer.open("sac:VoidedDocumentsLine")
         writer.element("cbc:LineID", text: String(line.lineID))
-        writer.element("cbc:DocumentTypeCode", text: line.documentIdentifier.type.rawValue)
+        writer.element("cbc:DocumentTypeCode", text: line.documentType.rawValue)
         writer.element("sac:DocumentSerialID", text: line.documentIdentifier.series)
         writer.element("sac:DocumentNumberID", text: line.documentIdentifier.number)
         writer.element("sac:VoidReasonDescription", text: line.reason)

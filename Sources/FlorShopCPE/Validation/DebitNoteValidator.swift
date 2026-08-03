@@ -1,8 +1,6 @@
 import Foundation
 
 public enum DebitNoteValidationError: Error, Equatable, Sendable {
-    case unexpectedDocumentType
-    case invalidAffectedDocumentType
     case invalidSeries(expectedPrefix: String)
     case invalidAffectedDocumentSeries(expectedPrefix: String)
     case invalidNumber
@@ -23,7 +21,6 @@ public enum DebitNoteValidationError: Error, Equatable, Sendable {
     case nonPositiveChargeTotalAmount
     case nonPositivePayableAmount
     case invalidPayableRoundingAmount
-    case inconsistentCurrency
 }
 
 /// Verifica las invariantes locales exigibles antes de serializar o firmar una
@@ -33,12 +30,6 @@ public struct DebitNoteValidator: Sendable {
     public init() {}
 
     public func validate(_ note: NotaDebito) throws {
-        guard note.identifier.type == .notaDeDebito else {
-            throw DebitNoteValidationError.unexpectedDocumentType
-        }
-        guard [.factura, .boleta].contains(note.affectedDocument.type) else {
-            throw DebitNoteValidationError.invalidAffectedDocumentType
-        }
         let expectedPrefix = note.affectedDocument.type == .factura ? "F" : "B"
         try validateSeries(note.identifier.series, prefix: expectedPrefix, affected: false)
         try validateSeries(note.affectedDocument.series, prefix: expectedPrefix, affected: true)
@@ -106,9 +97,6 @@ public struct DebitNoteValidator: Sendable {
            abs(rounding.value) > 1 {
             throw DebitNoteValidationError.invalidPayableRoundingAmount
         }
-        guard currencies(in: note).allSatisfy({ $0 == note.currency }) else {
-            throw DebitNoteValidationError.inconsistentCurrency
-        }
     }
 
     private func validateSeries(_ series: String, prefix: String, affected: Bool) throws {
@@ -129,24 +117,4 @@ public struct DebitNoteValidator: Sendable {
         value.range(of: #"^\d{11}$"#, options: .regularExpression) != nil
     }
 
-    private func currencies(in note: NotaDebito) -> [CurrencyCode] {
-        var result = [note.taxTotal.amount.currency, note.monetaryTotal.payableAmount.currency]
-        result.append(contentsOf: [
-            note.monetaryTotal.chargeTotalAmount?.currency,
-            note.monetaryTotal.payableRoundingAmount?.currency
-        ].compactMap { $0 })
-        result.append(contentsOf: note.taxTotal.subtotals.flatMap {
-            [$0.taxableAmount.currency, $0.taxAmount.currency]
-        })
-        for line in note.lines {
-            result.append(line.lineExtensionAmount.currency)
-            result.append(line.taxTotal.amount.currency)
-            if let price = line.price { result.append(price.currency) }
-            result.append(contentsOf: line.alternativePrices.map(\.amount.currency))
-            result.append(contentsOf: line.taxTotal.subtotals.flatMap {
-                [$0.taxableAmount.currency, $0.taxAmount.currency]
-            })
-        }
-        return result
-    }
 }

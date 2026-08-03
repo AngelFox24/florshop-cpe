@@ -16,25 +16,27 @@ public struct DocumentReference: Codable, Equatable, Sendable {
     }
 }
 
-/// Condición de pago de una factura. Permite representar tanto la condición
-/// principal (`Contado` o `Credito`) como sus cuotas.
-public struct PaymentTerm: Codable, Equatable, Sendable {
-    public let identifier: String
-    public let paymentMeansID: String
-    public let amount: MonetaryAmount?
-    public let dueDate: IssueDate?
+/// Pago futuro que forma parte de una factura emitida al crédito.
+///
+/// SUNAT identifica las cuotas como `Cuota001`, `Cuota002`, etc. La librería
+/// genera esos identificadores según la posición de cada elemento en el arreglo.
+public struct PaymentInstallment: Codable, Equatable, Sendable {
+    public let amount: MonetaryAmount
+    public let dueDate: IssueDate
 
-    public init(
-        identifier: String = "FormaPago",
-        paymentMeansID: String,
-        amount: MonetaryAmount? = nil,
-        dueDate: IssueDate? = nil
-    ) {
-        self.identifier = identifier
-        self.paymentMeansID = paymentMeansID
+    public init(amount: MonetaryAmount, dueDate: IssueDate) {
         self.amount = amount
         self.dueDate = dueDate
     }
+}
+
+/// Condición de pago de una factura electrónica.
+public enum PaymentCondition: Codable, Equatable, Sendable {
+    /// El importe total se paga en la fecha de emisión.
+    case cash
+
+    /// Una parte o la totalidad se pagará después de la fecha de emisión.
+    case credit(pendingAmount: MonetaryAmount, installments: [PaymentInstallment])
 }
 
 /// Cargo o descuento global de una factura.

@@ -7,7 +7,7 @@ import ZIPFoundation
     let factura = makeFactura()
 
     #expect(factura.identifier.value == "F001-1137")
-    #expect(factura.identifier.type == .factura)
+    #expect(factura.documentType == .factura)
     #expect(factura.customer.identifier.documentType == .ruc)
     #expect(factura.customer.address?.district == "ATE")
     #expect(factura.lines.count == 1)
@@ -39,22 +39,61 @@ import ZIPFoundation
     #expect(xml.hasSuffix("</Invoice>"))
 }
 
-@Test func facturaValidatorRequiresFacturaDocumentType() {
-    let factura = makeFactura(
-        identifier: DocumentIdentifier(series: "F001", number: "1137", type: .boleta)
+@Test func facturaPropagatesItsCurrencyToEveryMonetaryAmount() throws {
+    let xml = try UBLInvoiceXMLTransformer().transform(makeFactura(currency: .usd))
+
+    #expect(xml.contains("<cbc:DocumentCurrencyCode>USD</cbc:DocumentCurrencyCode>"))
+    #expect(xml.contains("currencyID=\"USD\""))
+    #expect(!xml.contains("currencyID=\"PEN\""))
+    #expect(!xml.contains("currencyID=\"EUR\""))
+}
+
+@Test func facturaGeneratesSequentialSUNATInstallmentIdentifiers() throws {
+    let condition = PaymentCondition.credit(
+        pendingAmount: MonetaryAmount(value: 100),
+        installments: [
+            PaymentInstallment(
+                amount: MonetaryAmount(value: 40),
+                dueDate: IssueDate(year: 2026, month: 8, day: 10)
+            ),
+            PaymentInstallment(
+                amount: MonetaryAmount(value: 60),
+                dueDate: IssueDate(year: 2026, month: 9, day: 10)
+            )
+        ]
     )
 
-    #expect(throws: UBLInvoiceDocumentValidationError.unexpectedDocumentType(
-        expected: .factura,
-        actual: .boleta
-    )) {
-        try UBLInvoiceDocumentValidator().validate(factura)
+    let xml = try UBLInvoiceXMLTransformer().transform(
+        makeFactura(paymentCondition: condition)
+    )
+
+    #expect(xml.contains("<cbc:PaymentMeansID>Credito</cbc:PaymentMeansID>"))
+    #expect(xml.contains("<cbc:PaymentMeansID>Cuota001</cbc:PaymentMeansID>"))
+    #expect(xml.contains("<cbc:PaymentMeansID>Cuota002</cbc:PaymentMeansID>"))
+    #expect(!xml.contains("<cbc:PaymentMeansID>Cuota003</cbc:PaymentMeansID>"))
+}
+
+@Test func facturaRejectsInstallmentsThatDoNotMatchThePendingAmount() {
+    let condition = PaymentCondition.credit(
+        pendingAmount: MonetaryAmount(value: 100),
+        installments: [
+            PaymentInstallment(
+                amount: MonetaryAmount(value: 90),
+                dueDate: IssueDate(year: 2026, month: 8, day: 10)
+            )
+        ]
+    )
+
+    #expect(throws: UBLInvoiceDocumentValidationError.paymentInstallmentsTotalMismatch) {
+        try UBLInvoiceDocumentValidator().validate(
+            makeFactura(paymentCondition: condition)
+        )
     }
 }
 
 @Test func facturaValidatorRequiresFSeries() {
     let factura = makeFactura(
-        identifier: DocumentIdentifier(series: "B001", number: "1137", type: .factura)
+        identifier: DocumentIdentifier(series: "B001", number: "1137")
     )
 
     #expect(throws: UBLInvoiceDocumentValidationError.invalidSeries(expectedPrefix: "F")) {
@@ -215,8 +254,7 @@ struct SunatBetaFacturaIntegrationTests {
 private func makeFactura(
     identifier: DocumentIdentifier = DocumentIdentifier(
         series: "F001",
-        number: "1137",
-        type: .factura
+        number: "1137"
     ),
     customer: Customer = Customer(
         identifier: PartyIdentifier(value: "20109072177", documentType: .ruc),
@@ -230,15 +268,15 @@ private func makeFactura(
         )
     ),
     issueDate: IssueDate = IssueDate(year: 2026, month: 7, day: 21),
+    currency: CurrencyCode = .pen,
     includeCommercialTerms: Bool = true,
     emitterRUC: String = "20566331030",
-    paymentTerms: [PaymentTerm]? = nil,
+    paymentCondition: PaymentCondition? = nil,
     allowanceCharges: [AllowanceCharge]? = nil
 ) -> Factura {
-    let currency = CurrencyCode.pen
-    let taxableAmount = MonetaryAmount(value: Decimal(string: "1126.05")!, currency: currency)
-    let taxAmount = MonetaryAmount(value: Decimal(string: "202.69")!, currency: currency)
-    let payableAmount = MonetaryAmount(value: Decimal(string: "1328.74")!, currency: currency)
+    let taxableAmount = MonetaryAmount(value: Decimal(string: "1126.05")!)
+    let taxAmount = MonetaryAmount(value: Decimal(string: "202.69")!)
+    let payableAmount = MonetaryAmount(value: Decimal(string: "1328.74")!)
     let category = TaxCategory(
         percent: 18,
         exemptionReasonCode: .gravadoOperacionOnerosa,
@@ -285,10 +323,7 @@ private func makeFactura(
                 lineExtensionAmount: taxableAmount,
                 alternativePrices: [
                     AlternativePrice(
-                        amount: MonetaryAmount(
-                            value: Decimal(string: "88.5826")!,
-                            currency: currency
-                        ),
+                        amount: MonetaryAmount(value: Decimal(string: "88.5826")!),
                         type: .unitPriceIncludingTaxes
                     )
                 ],
@@ -303,7 +338,7 @@ private func makeFactura(
                     ]
                 ),
                 item: Item(description: "COLA ENTOMOLÓGICA K-GLUE X 1 LT"),
-                price: MonetaryAmount(value: Decimal(string: "75.07")!, currency: currency)
+                price: MonetaryAmount(value: Decimal(string: "75.07")!)
             )
         ],
         orderReference: includeCommercialTerms ? "4301113494" : nil,
@@ -321,20 +356,21 @@ private func makeFactura(
             district: "MIRAFLORES",
             line: "CAL. AUGUSTO ANGULO 130"
         ) : nil,
-        paymentTerms: paymentTerms ?? (includeCommercialTerms ? [
-            PaymentTerm(paymentMeansID: "Credito", amount: payableAmount),
-            PaymentTerm(
-                paymentMeansID: "Cuota001",
-                amount: payableAmount,
-                dueDate: IssueDate(year: 2026, month: 8, day: 10)
-            )
-        ] : []),
+        paymentCondition: paymentCondition ?? (includeCommercialTerms ? .credit(
+            pendingAmount: payableAmount,
+            installments: [
+                PaymentInstallment(
+                    amount: payableAmount,
+                    dueDate: IssueDate(year: 2026, month: 8, day: 10)
+                )
+            ]
+        ) : .cash),
         allowanceCharges: allowanceCharges ?? (includeCommercialTerms ? [
             AllowanceCharge(
                 isCharge: false,
                 reasonCode: "62",
                 multiplierFactor: Decimal(string: "0.03")!,
-                amount: MonetaryAmount(value: Decimal(string: "39.86")!, currency: currency),
+                amount: MonetaryAmount(value: Decimal(string: "39.86")!),
                 baseAmount: payableAmount
             )
         ] : [])
@@ -345,42 +381,35 @@ private func makeFacturaForSunatBeta() -> Factura {
     return makeFactura(
         identifier: DocumentIdentifier(
             series: "F001",
-            number: facturaBetaCorrelative(offset: 0),
-            type: .factura
+            number: facturaBetaCorrelative(offset: 0)
         ),
         issueDate: limaIssueDate(),
         includeCommercialTerms: false,
         emitterRUC: "10708255195",
-        paymentTerms: [
-            PaymentTerm(paymentMeansID: "Contado")
-        ]
+        paymentCondition: .cash
     )
 }
 
 private func makeReferenceFacturaForSunatBeta() -> Factura {
-    let currency = CurrencyCode.pen
-    let netPendingAmount = MonetaryAmount(
-        value: Decimal(string: "1328.74")!,
-        currency: currency
-    )
+    let netPendingAmount = MonetaryAmount(value: Decimal(string: "1328.74")!)
 
     return makeFactura(
         identifier: DocumentIdentifier(
             series: "F001",
-            number: facturaBetaCorrelative(offset: 1),
-            type: .factura
+            number: facturaBetaCorrelative(offset: 1)
         ),
         issueDate: limaIssueDate(),
         includeCommercialTerms: true,
         emitterRUC: "10708255195",
-        paymentTerms: [
-            PaymentTerm(paymentMeansID: "Credito", amount: netPendingAmount),
-            PaymentTerm(
-                paymentMeansID: "Cuota001",
-                amount: netPendingAmount,
-                dueDate: limaIssueDate(daysFromToday: 16)
-            )
-        ],
+        paymentCondition: .credit(
+            pendingAmount: netPendingAmount,
+            installments: [
+                PaymentInstallment(
+                    amount: netPendingAmount,
+                    dueDate: limaIssueDate(daysFromToday: 16)
+                )
+            ]
+        ),
         allowanceCharges: []
     )
 }
@@ -463,7 +492,7 @@ private func signAndSubmitFacturaToSunatBeta(
     Archivo XML: \(document.signedXMLURL.lastPathComponent)
     Archivo ZIP: \(document.zipURL.lastPathComponent)
     Tipo de operación esperado: 0101
-    Tipo de documento esperado: \(factura.identifier.type.rawValue)
+    Tipo de documento esperado: \(factura.documentType.rawValue)
     \(signedXML)
     ===== FIN SUNAT BETA FACTURA \(scenario): XML FIRMADO =====
 

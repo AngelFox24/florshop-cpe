@@ -18,10 +18,10 @@ public struct Factura: Codable, Equatable, Sendable, UBLInvoiceDocument {
     public let orderReference: String?
     public let despatchDocumentReferences: [DocumentReference]
     public let buyerAddress: Address?
-    public let paymentTerms: [PaymentTerm]
+    public let paymentCondition: PaymentCondition
     public let allowanceCharges: [AllowanceCharge]
 
-    public var expectedDocumentType: ElectronicDocumentType { .factura }
+    public var documentType: ElectronicDocumentType { .factura }
 
     public init(
         identifier: DocumentIdentifier,
@@ -37,7 +37,7 @@ public struct Factura: Codable, Equatable, Sendable, UBLInvoiceDocument {
         orderReference: String? = nil,
         despatchDocumentReferences: [DocumentReference] = [],
         buyerAddress: Address? = nil,
-        paymentTerms: [PaymentTerm] = [],
+        paymentCondition: PaymentCondition,
         allowanceCharges: [AllowanceCharge] = []
     ) {
         self.identifier = identifier
@@ -53,7 +53,7 @@ public struct Factura: Codable, Equatable, Sendable, UBLInvoiceDocument {
         self.orderReference = orderReference
         self.despatchDocumentReferences = despatchDocumentReferences
         self.buyerAddress = buyerAddress
-        self.paymentTerms = paymentTerms
+        self.paymentCondition = paymentCondition
         self.allowanceCharges = allowanceCharges
     }
 }

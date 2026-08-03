@@ -24,6 +24,28 @@ El envío individual de este ejemplo sirve para validar la integración en el
 ambiente beta. El flujo operativo de las boletas que deben informarse mediante
 Resumen Diario se modela por separado con `ResumenDiarioBoletas`.
 
+## Ejemplos ejecutables
+
+Cada documento soportado tiene un ejemplo completo y compilable dentro del
+target de tests. Todos construyen el modelo sin funciones auxiliares, firman el
+XML, crean y leen el ZIP, envían a SUNAT beta y leen la respuesta disponible.
+Los documentos asíncronos muestran además el ticket y una consulta de estado:
+
+- [`FacturaExampleTest.swift`](Tests/FlorShopCPETests/FacturaExampleTest.swift):
+  `FLORSHOP_CPE_RUN_FACTURA_EXAMPLE=true`.
+- [`NotaCreditoExampleTest.swift`](Tests/FlorShopCPETests/NotaCreditoExampleTest.swift):
+  `FLORSHOP_CPE_RUN_NOTA_CREDITO_EXAMPLE=true`.
+- [`NotaDebitoExampleTest.swift`](Tests/FlorShopCPETests/NotaDebitoExampleTest.swift):
+  `FLORSHOP_CPE_RUN_NOTA_DEBITO_EXAMPLE=true`.
+- [`ResumenDiarioExampleTest.swift`](Tests/FlorShopCPETests/ResumenDiarioExampleTest.swift):
+  `FLORSHOP_CPE_RUN_RESUMEN_DIARIO_EXAMPLE=true`.
+- [`ComunicacionBajaExampleTest.swift`](Tests/FlorShopCPETests/ComunicacionBajaExampleTest.swift):
+  `FLORSHOP_CPE_RUN_COMUNICACION_BAJA_EXAMPLE=true`.
+
+El beta público puede entregar el ticket de un documento UBL 2.0 y no tener
+disponible temporalmente `getStatus`. Los ejemplos imprimen esa condición. En
+producción, el POS debe conservar el ticket y programar una nueva consulta.
+
 ## Notas de crédito
 
 La API pública incluye `NotaCredito`, `CreditNoteLine`,

@@ -10,15 +10,13 @@ public enum DailySummaryValidationError: Error, Equatable, Sendable {
     case invalidLineIdentifier(Int)
     case duplicatedLineIdentifier(Int)
     case duplicatedDocument(String)
-    case unsupportedDocumentType(ElectronicDocumentType)
-    case inconsistentDocumentType
     case invalidBoletaSeries
     case invalidDocumentNumber
     case missingAffectedBoleta(Int)
     case invalidAffectedDocument(Int)
     case inconsistentSupplier
     case inconsistentReferenceDate
-    case inconsistentCurrency
+    case sourceDocumentMustUsePEN
     case emptySales(Int)
     case emptyTaxes(Int)
     case duplicatedSaleType(lineID: Int, type: DailySummarySaleType)
@@ -48,10 +46,6 @@ public struct DailySummaryValidator: Sendable {
             guard documents.insert(line.documentIdentifier.value).inserted else {
                 throw DailySummaryValidationError.duplicatedDocument(line.documentIdentifier.value)
             }
-            guard [.boleta, .notaDeCredito, .notaDeDebito].contains(line.documentType) else {
-                throw DailySummaryValidationError.unsupportedDocumentType(line.documentType)
-            }
-            guard line.documentIdentifier.type == line.documentType else { throw DailySummaryValidationError.inconsistentDocumentType }
             guard line.documentIdentifier.series.range(of: #"^B[A-Za-z0-9]{3}$"#, options: .regularExpression) != nil else {
                 throw DailySummaryValidationError.invalidBoletaSeries
             }
@@ -62,8 +56,7 @@ public struct DailySummaryValidator: Sendable {
                 guard let affected = line.affectedDocument else {
                     throw DailySummaryValidationError.missingAffectedBoleta(line.lineID)
                 }
-                guard affected.type == .boleta,
-                      affected.series.range(of: #"^B[A-Za-z0-9]{3}$"#, options: .regularExpression) != nil,
+                guard affected.series.range(of: #"^B[A-Za-z0-9]{3}$"#, options: .regularExpression) != nil,
                       affected.number.range(of: #"^[1-9]\d{0,7}$"#, options: .regularExpression) != nil else {
                     throw DailySummaryValidationError.invalidAffectedDocument(line.lineID)
                 }
@@ -83,9 +76,6 @@ public struct DailySummaryValidator: Sendable {
                     type: mandatoryType
                 )
             }
-            guard currencies(in: line).allSatisfy({ $0 == .pen }) else {
-                throw DailySummaryValidationError.inconsistentCurrency
-            }
         }
     }
 
@@ -93,17 +83,12 @@ public struct DailySummaryValidator: Sendable {
         guard let first = boletas.first else { throw DailySummaryValidationError.emptyLines }
         for boleta in boletas {
             try UBLInvoiceDocumentValidator().validate(boleta)
+            guard boleta.currency == .pen else {
+                throw DailySummaryValidationError.sourceDocumentMustUsePEN
+            }
             guard boleta.supplier == first.supplier else { throw DailySummaryValidationError.inconsistentSupplier }
             guard boleta.issueDate == first.issueDate else { throw DailySummaryValidationError.inconsistentReferenceDate }
         }
-    }
-
-    private func currencies(in line: DailySummaryLine) -> [CurrencyCode] {
-        var result = [line.totalAmount.currency]
-        result.append(contentsOf: line.sales.map(\.amount.currency))
-        result.append(contentsOf: line.taxes.map(\.amount.currency))
-        if let charge = line.chargeTotalAmount { result.append(charge.currency) }
-        return result
     }
 
     private func dateKey(_ date: IssueDate) -> Int {

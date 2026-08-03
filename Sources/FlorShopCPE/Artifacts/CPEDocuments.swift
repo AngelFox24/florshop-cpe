@@ -20,7 +20,7 @@ public struct CPEIdentity: Sendable, Equatable {
     public init(document: any UBLInvoiceDocument) {
         self.init(
             emitterRUC: document.supplier.taxIdentifier.value,
-            documentType: document.identifier.type,
+            documentType: document.documentType,
             documentIdentifier: document.identifier.value
         )
     }
@@ -28,7 +28,7 @@ public struct CPEIdentity: Sendable, Equatable {
     public init(note: NotaCredito) {
         self.init(
             emitterRUC: note.supplier.taxIdentifier.value,
-            documentType: .notaDeCredito,
+            documentType: note.documentType,
             documentIdentifier: note.identifier.value
         )
     }
@@ -36,7 +36,7 @@ public struct CPEIdentity: Sendable, Equatable {
     public init(debitNote: NotaDebito) {
         self.init(
             emitterRUC: debitNote.supplier.taxIdentifier.value,
-            documentType: .notaDeDebito,
+            documentType: debitNote.documentType,
             documentIdentifier: debitNote.identifier.value
         )
     }

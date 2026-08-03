@@ -3,6 +3,10 @@ import Testing
 import ZIPFoundation
 @testable import FlorShopCPE
 
+@Test func dailySummaryDocumentTypeCannotRepresentFactura() {
+    #expect(DailySummaryDocumentType(rawValue: "01") == nil)
+}
+
 @Test func dailySummaryIsBuiltFromBoletasWithoutProductLines() throws {
     let summary = try makeDailySummary(boletas: [makeSummaryBoleta(number: "1"), makeSummaryBoleta(number: "2")])
 
@@ -12,12 +16,12 @@ import ZIPFoundation
     #expect(summary.lines[0].documentIdentifier.value == "B001-1")
     #expect(summary.lines[0].condition == .add)
     #expect(summary.lines[0].sales == [
-        DailySummarySale(type: .taxable, amount: MonetaryAmount(value: 100, currency: .pen)),
-        DailySummarySale(type: .exempt, amount: MonetaryAmount(value: 0, currency: .pen)),
-        DailySummarySale(type: .unaffected, amount: MonetaryAmount(value: 0, currency: .pen))
+        DailySummarySale(type: .taxable, amount: MonetaryAmount(value: 100)),
+        DailySummarySale(type: .exempt, amount: MonetaryAmount(value: 0)),
+        DailySummarySale(type: .unaffected, amount: MonetaryAmount(value: 0))
     ])
     #expect(summary.lines[0].taxes == [
-        DailySummaryTax(amount: MonetaryAmount(value: 18, currency: .pen), percent: 18, scheme: .igv)
+        DailySummaryTax(amount: MonetaryAmount(value: 18), percent: 18, scheme: .igv)
     ])
 }
 
@@ -29,6 +33,14 @@ import ZIPFoundation
 
     #expect(throws: DailySummaryValidationError.inconsistentReferenceDate) {
         _ = try makeDailySummary(boletas: boletas)
+    }
+}
+
+@Test func dailySummaryRejectsForeignCurrencySourceDocuments() {
+    let boleta = makeSummaryBoleta(number: "200", currency: .usd)
+
+    #expect(throws: DailySummaryValidationError.sourceDocumentMustUsePEN) {
+        _ = try DailySummaryLine(lineID: 1, boleta: boleta)
     }
 }
 
@@ -49,15 +61,15 @@ import ZIPFoundation
         customerIdentifier: base.customer.identifier,
         customerLegalName: base.customer.legalName,
         condition: .add,
-        totalAmount: MonetaryAmount(value: 0, currency: .pen),
+        totalAmount: MonetaryAmount(value: 0),
         sales: [
-            DailySummarySale(type: .taxable, amount: MonetaryAmount(value: 0, currency: .pen)),
-            DailySummarySale(type: .exempt, amount: MonetaryAmount(value: 0, currency: .pen)),
-            DailySummarySale(type: .unaffected, amount: MonetaryAmount(value: 0, currency: .pen)),
-            DailySummarySale(type: .freeUnaffected, amount: MonetaryAmount(value: 4.80, currency: .pen))
+            DailySummarySale(type: .taxable, amount: MonetaryAmount(value: 0)),
+            DailySummarySale(type: .exempt, amount: MonetaryAmount(value: 0)),
+            DailySummarySale(type: .unaffected, amount: MonetaryAmount(value: 0)),
+            DailySummarySale(type: .freeUnaffected, amount: MonetaryAmount(value: 4.80))
         ],
         taxes: [DailySummaryTax(
-            amount: MonetaryAmount(value: 0, currency: .pen),
+            amount: MonetaryAmount(value: 0),
             percent: 18,
             scheme: .gratuito
         )]
@@ -112,7 +124,7 @@ import ZIPFoundation
         referenceDate: boleta.issueDate,
         supplier: boleta.supplier,
         lines: [
-            DailySummaryLine(lineID: 1, boleta: boleta),
+            try DailySummaryLine(lineID: 1, boleta: boleta),
             try DailySummaryLine(lineID: 2, creditNote: creditNote)
         ]
     )
@@ -284,7 +296,7 @@ struct SunatBetaDailySummaryIntegrationTests {
             referenceDate: date,
             supplier: boleta.supplier,
             lines: [
-                DailySummaryLine(lineID: 1, boleta: boleta),
+                try DailySummaryLine(lineID: 1, boleta: boleta),
                 try DailySummaryLine(lineID: 2, creditNote: creditNote)
             ]
         )
@@ -354,12 +366,12 @@ private func makeDailySummary(boletas: [Boleta]? = nil) throws -> ResumenDiarioB
 private func makeSummaryBoleta(
     number: String,
     issueDate: IssueDate = IssueDate(year: 2026, month: 8, day: 2),
-    emitterRUC: String = "20123456789"
+    emitterRUC: String = "20123456789",
+    currency: CurrencyCode = .pen
 ) -> Boleta {
-    let currency = CurrencyCode.pen
     let taxCategory = TaxCategory(percent: 18, exemptionReasonCode: .gravadoOperacionOnerosa, scheme: .igv)
     return Boleta(
-        identifier: DocumentIdentifier(series: "B001", number: number, type: .boleta),
+        identifier: DocumentIdentifier(series: "B001", number: number),
         issueDate: issueDate,
         currency: currency,
         supplier: Supplier(
@@ -372,48 +384,48 @@ private func makeSummaryBoleta(
             legalName: "CLIENTE"
         ),
         taxTotal: TaxTotal(
-            amount: MonetaryAmount(value: 18, currency: currency),
+            amount: MonetaryAmount(value: 18),
             subtotals: [TaxSubtotal(
-                taxableAmount: MonetaryAmount(value: 100, currency: currency),
-                taxAmount: MonetaryAmount(value: 18, currency: currency),
+                taxableAmount: MonetaryAmount(value: 100),
+                taxAmount: MonetaryAmount(value: 18),
                 scheme: .igv
             )]
         ),
         monetaryTotal: MonetaryTotal(
-            lineExtensionAmount: MonetaryAmount(value: 100, currency: currency),
-            taxInclusiveAmount: MonetaryAmount(value: 118, currency: currency),
-            payableAmount: MonetaryAmount(value: 118, currency: currency)
+            lineExtensionAmount: MonetaryAmount(value: 100),
+            taxInclusiveAmount: MonetaryAmount(value: 118),
+            payableAmount: MonetaryAmount(value: 118)
         ),
         lines: [InvoiceLine(
             id: "1",
             quantity: Quantity(value: 1, unitCode: .unit),
-            lineExtensionAmount: MonetaryAmount(value: 100, currency: currency),
+            lineExtensionAmount: MonetaryAmount(value: 100),
             alternativePrices: [AlternativePrice(
-                amount: MonetaryAmount(value: 118, currency: currency),
+                amount: MonetaryAmount(value: 118),
                 type: .unitPriceIncludingTaxes
             )],
             taxTotal: LineTaxTotal(
-                amount: MonetaryAmount(value: 18, currency: currency),
+                amount: MonetaryAmount(value: 18),
                 subtotals: [LineTaxSubtotal(
-                    taxableAmount: MonetaryAmount(value: 100, currency: currency),
-                    taxAmount: MonetaryAmount(value: 18, currency: currency),
+                    taxableAmount: MonetaryAmount(value: 100),
+                    taxAmount: MonetaryAmount(value: 18),
                     category: taxCategory
                 )]
             ),
             item: Item(description: "PRODUCTO"),
-            price: MonetaryAmount(value: 100, currency: currency)
+            price: MonetaryAmount(value: 100)
         )]
     )
 }
 
 private func makeSummaryCreditNote(number: String, affectedBoleta: Boleta) -> NotaCredito {
     NotaCredito(
-        identifier: DocumentIdentifier(series: "BC01", number: number, type: .notaDeCredito),
+        identifier: DocumentIdentifier(series: "BC01", number: number),
         issueDate: affectedBoleta.issueDate,
         currency: affectedBoleta.currency,
         supplier: affectedBoleta.supplier,
         customer: affectedBoleta.customer,
-        affectedDocument: affectedBoleta.identifier,
+        affectedDocument: AffectedDocumentIdentifier(boleta: affectedBoleta),
         reasonCode: .devolucionTotal,
         reasonDescription: "DEVOLUCIÓN TOTAL DE LA VENTA",
         taxTotal: affectedBoleta.taxTotal,

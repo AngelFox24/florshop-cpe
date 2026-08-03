@@ -2,11 +2,10 @@ import Foundation
 
 public struct MonetaryAmount: Codable, Equatable, Sendable {
     public let value: Decimal
-    public let currency: CurrencyCode
 
-    public init(value: Decimal, currency: CurrencyCode) {
+    /// Importe expresado en la moneda declarada por el documento raíz.
+    public init(value: Decimal) {
         self.value = value
-        self.currency = currency
     }
 }
 

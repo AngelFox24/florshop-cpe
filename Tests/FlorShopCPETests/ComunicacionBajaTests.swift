@@ -2,16 +2,22 @@ import Foundation
 import Testing
 @testable import FlorShopCPE
 
+@Test func voidedDocumentTypeCannotRepresentBoleta() {
+    #expect(VoidedDocumentType(rawValue: "03") == nil)
+}
+
 @Test func voidedDocumentsModelAndTransformerGenerateSUNATUBL20() throws {
     let communication = try makeVoidedDocuments(lines: [
         VoidedDocumentLine(
             lineID: 1,
-            documentIdentifier: DocumentIdentifier(series: "F001", number: "100", type: .factura),
+            documentType: .factura,
+            documentIdentifier: DocumentIdentifier(series: "F001", number: "100"),
             reason: "ERROR EN LA NUMERACIÓN"
         ),
         VoidedDocumentLine(
             lineID: 2,
-            documentIdentifier: DocumentIdentifier(series: "FC01", number: "101", type: .notaDeCredito),
+            documentType: .notaDeCredito,
+            documentIdentifier: DocumentIdentifier(series: "FC01", number: "101"),
             reason: "DOCUMENTO NO OTORGADO"
         )
     ])
@@ -35,21 +41,12 @@ import Testing
     #expect(xml.hasSuffix("</VoidedDocuments>"))
 }
 
-@Test func voidedDocumentsValidatorRejectsBoletaBecauseItUsesDailySummary() {
-    #expect(throws: VoidedDocumentsValidationError.unsupportedDocumentType(.boleta)) {
-        _ = try makeVoidedDocuments(lines: [VoidedDocumentLine(
-            lineID: 1,
-            documentIdentifier: DocumentIdentifier(series: "B001", number: "100", type: .boleta),
-            reason: "DOCUMENTO NO OTORGADO"
-        )])
-    }
-}
-
 @Test func voidedDocumentsValidatorRejectsBSeriesForNotes() {
     #expect(throws: VoidedDocumentsValidationError.invalidDocumentSeries("BC01")) {
         _ = try makeVoidedDocuments(lines: [VoidedDocumentLine(
             lineID: 1,
-            documentIdentifier: DocumentIdentifier(series: "BC01", number: "100", type: .notaDeCredito),
+            documentType: .notaDeCredito,
+            documentIdentifier: DocumentIdentifier(series: "BC01", number: "100"),
             reason: "DOCUMENTO NO OTORGADO"
         )])
     }
@@ -58,7 +55,8 @@ import Testing
 @Test func voidedDocumentsValidatorAcceptsLegacyNumericSeries() throws {
     let communication = try makeVoidedDocuments(lines: [VoidedDocumentLine(
         lineID: 1,
-        documentIdentifier: DocumentIdentifier(series: "1234", number: "100", type: .factura),
+        documentType: .factura,
+        documentIdentifier: DocumentIdentifier(series: "1234", number: "100"),
         reason: "DOCUMENTO NO OTORGADO"
     )])
 
@@ -80,11 +78,21 @@ import Testing
 }
 
 @Test func voidedDocumentsValidatorRejectsDuplicatedDocuments() {
-    let identifier = DocumentIdentifier(series: "F001", number: "100", type: .factura)
+    let identifier = DocumentIdentifier(series: "F001", number: "100")
     #expect(throws: VoidedDocumentsValidationError.duplicatedDocument("F001-100")) {
         _ = try makeVoidedDocuments(lines: [
-            VoidedDocumentLine(lineID: 1, documentIdentifier: identifier, reason: "DOCUMENTO NO OTORGADO"),
-            VoidedDocumentLine(lineID: 2, documentIdentifier: identifier, reason: "ERROR EN LA NUMERACIÓN")
+            VoidedDocumentLine(
+                lineID: 1,
+                documentType: .factura,
+                documentIdentifier: identifier,
+                reason: "DOCUMENTO NO OTORGADO"
+            ),
+            VoidedDocumentLine(
+                lineID: 2,
+                documentType: .factura,
+                documentIdentifier: identifier,
+                reason: "ERROR EN LA NUMERACIÓN"
+            )
         ])
     }
 }
@@ -93,14 +101,16 @@ import Testing
     #expect(throws: VoidedDocumentsValidationError.invalidReason(lineID: 1)) {
         _ = try makeVoidedDocuments(lines: [VoidedDocumentLine(
             lineID: 1,
-            documentIdentifier: DocumentIdentifier(series: "F001", number: "100", type: .factura),
+            documentType: .factura,
+            documentIdentifier: DocumentIdentifier(series: "F001", number: "100"),
             reason: "NO"
         )])
     }
     #expect(throws: VoidedDocumentsValidationError.invalidReason(lineID: 1)) {
         _ = try makeVoidedDocuments(lines: [VoidedDocumentLine(
             lineID: 1,
-            documentIdentifier: DocumentIdentifier(series: "F001", number: "100", type: .factura),
+            documentType: .factura,
+            documentIdentifier: DocumentIdentifier(series: "F001", number: "100"),
             reason: "DOCUMENTO\nNO OTORGADO"
         )])
     }
@@ -229,6 +239,7 @@ struct SunatBetaVoidedDocumentsIntegrationTests {
             supplier: invoice.supplier,
             lines: [VoidedDocumentLine(
                 lineID: 1,
+                documentType: .factura,
                 documentIdentifier: invoice.identifier,
                 reason: "DOCUMENTO NO OTORGADO"
             )]
@@ -279,6 +290,7 @@ struct OSEVoidedDocumentsManualValidationTests {
             supplier: invoice.supplier,
             lines: [VoidedDocumentLine(
                 lineID: 1,
+                documentType: .factura,
                 documentIdentifier: invoice.identifier,
                 reason: "DOCUMENTO NO OTORGADO"
             )]
@@ -329,7 +341,8 @@ private func makeVoidedDocuments(
     supplier: Supplier = voidedSupplier(),
     lines: [VoidedDocumentLine] = [VoidedDocumentLine(
         lineID: 1,
-        documentIdentifier: DocumentIdentifier(series: "F001", number: "100", type: .factura),
+        documentType: .factura,
+        documentIdentifier: DocumentIdentifier(series: "F001", number: "100"),
         reason: "DOCUMENTO NO OTORGADO"
     )]
 ) throws -> ComunicacionBaja {
@@ -352,16 +365,16 @@ private func voidedSupplier(ruc: String = "20123456789") -> Supplier {
 }
 
 private func makeVoidedPrerequisiteInvoice(number: String, issueDate: IssueDate) -> Factura {
-    let taxable = MonetaryAmount(value: 100, currency: .pen)
-    let tax = MonetaryAmount(value: 18, currency: .pen)
-    let payable = MonetaryAmount(value: 118, currency: .pen)
+    let taxable = MonetaryAmount(value: 100)
+    let tax = MonetaryAmount(value: 18)
+    let payable = MonetaryAmount(value: 118)
     let category = TaxCategory(percent: 18, exemptionReasonCode: .gravadoOperacionOnerosa, scheme: .igv)
     let taxTotal = TaxTotal(
         amount: tax,
         subtotals: [TaxSubtotal(taxableAmount: taxable, taxAmount: tax, scheme: .igv)]
     )
     return Factura(
-        identifier: DocumentIdentifier(series: "F001", number: number, type: .factura),
+        identifier: DocumentIdentifier(series: "F001", number: number),
         issueDate: issueDate,
         issueTime: IssueTime(hour: 12, minute: 0),
         currency: .pen,
@@ -392,7 +405,7 @@ private func makeVoidedPrerequisiteInvoice(number: String, issueDate: IssueDate)
             item: Item(description: "PRODUCTO", sellerItemIdentifier: "P001"),
             price: taxable
         )],
-        paymentTerms: [PaymentTerm(paymentMeansID: "Contado")]
+        paymentCondition: .cash
     )
 }
 

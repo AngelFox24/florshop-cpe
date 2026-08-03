@@ -8,6 +8,7 @@ import ZIPFoundation
     let xml = try CreditNoteXMLTransformer().transform(note)
 
     #expect(note.identifier.value == "FC01-200")
+    #expect(note.documentType == .notaDeCredito)
     #expect(note.affectedDocument.value == "F001-100")
     #expect(xml.contains("<CreditNote"))
     #expect(xml.contains("xmlns=\"urn:oasis:names:specification:ubl:schema:xsd:CreditNote-2\""))
@@ -25,9 +26,14 @@ import ZIPFoundation
     #expect(xml.hasSuffix("</CreditNote>"))
 }
 
+@Test func affectedDocumentTypeCannotRepresentAnotherNote() {
+    #expect(AffectedInvoiceDocumentType(rawValue: "07") == nil)
+    #expect(AffectedInvoiceDocumentType(rawValue: "08") == nil)
+}
+
 @Test func creditNoteValidatorRequiresSeriesMatchingAffectedDocument() {
     let note = makeCreditNote(
-        identifier: DocumentIdentifier(series: "BC01", number: "200", type: .notaDeCredito)
+        identifier: DocumentIdentifier(series: "BC01", number: "200")
     )
 
     #expect(throws: CreditNoteValidationError.invalidSeries(expectedPrefix: "F")) {
@@ -156,8 +162,8 @@ struct SunatBetaCreditNoteIntegrationTests {
         try await Task.sleep(for: .seconds(2))
 
         let note = makeCreditNote(
-            identifier: DocumentIdentifier(series: "FC01", number: String(base + 1), type: .notaDeCredito),
-            affectedDocument: invoice.identifier,
+            identifier: DocumentIdentifier(series: "FC01", number: String(base + 1)),
+            affectedDocument: AffectedDocumentIdentifier(factura: invoice),
             issueDate: issueDate
         )
         let noteResult = try await signWriteAndSubmit(
@@ -188,8 +194,8 @@ struct OSECreditNoteManualValidationTests {
         let base = max(1, Int(Date().timeIntervalSince1970) % 99_999_990)
         let invoice = makeCreditNotePrerequisiteInvoice(number: String(base), issueDate: issueDate)
         let note = makeCreditNote(
-            identifier: DocumentIdentifier(series: "FC01", number: String(base + 1), type: .notaDeCredito),
-            affectedDocument: invoice.identifier,
+            identifier: DocumentIdentifier(series: "FC01", number: String(base + 1)),
+            affectedDocument: AffectedDocumentIdentifier(factura: invoice),
             issueDate: issueDate
         )
         let signer = XMLSecCPESigner()
@@ -224,7 +230,7 @@ struct OSECreditNoteManualValidationTests {
 
         """)
 
-        #expect(note.affectedDocument == invoice.identifier)
+        #expect(note.affectedDocument.identifier == invoice.identifier)
         #expect(signedInvoice.identity.fileBaseName == "10708255195-01-\(invoice.identifier.value)")
         #expect(signedNote.identity.fileBaseName == "10708255195-07-\(note.identifier.value)")
         #expect(try XMLSecSignatureVerifier().verify(signedInvoice.xml))
@@ -233,8 +239,12 @@ struct OSECreditNoteManualValidationTests {
 }
 
 private func makeCreditNote(
-    identifier: DocumentIdentifier = DocumentIdentifier(series: "FC01", number: "200", type: .notaDeCredito),
-    affectedDocument: DocumentIdentifier = DocumentIdentifier(series: "F001", number: "100", type: .factura),
+    identifier: DocumentIdentifier = DocumentIdentifier(series: "FC01", number: "200"),
+    affectedDocument: AffectedDocumentIdentifier = AffectedDocumentIdentifier(
+        series: "F001",
+        number: "100",
+        type: .factura
+    ),
     customer: Customer = Customer(
         identifier: PartyIdentifier(value: "20109072177", documentType: .ruc),
         legalName: "CLIENTE S.A.C."
@@ -261,8 +271,12 @@ private func makeCreditNote(
 
 private func makeCreditNoteForBoleta(reason: CreditNoteReasonCode = .devolucionTotal) -> NotaCredito {
     makeCreditNote(
-        identifier: DocumentIdentifier(series: "BC01", number: "200", type: .notaDeCredito),
-        affectedDocument: DocumentIdentifier(series: "B001", number: "100", type: .boleta),
+        identifier: DocumentIdentifier(series: "BC01", number: "200"),
+        affectedDocument: AffectedDocumentIdentifier(
+            series: "B001",
+            number: "100",
+            type: .boleta
+        ),
         customer: Customer(
             identifier: PartyIdentifier(value: "46237547", documentType: .dni),
             legalName: "CLIENTE"
@@ -288,9 +302,9 @@ private func creditNoteSupplier() -> Supplier {
 }
 
 private func creditNoteValues() -> (taxTotal: TaxTotal, payable: MonetaryAmount, line: InvoiceLine) {
-    let taxable = MonetaryAmount(value: 100, currency: .pen)
-    let tax = MonetaryAmount(value: 18, currency: .pen)
-    let payable = MonetaryAmount(value: 118, currency: .pen)
+    let taxable = MonetaryAmount(value: 100)
+    let tax = MonetaryAmount(value: 18)
+    let payable = MonetaryAmount(value: 118)
     let category = TaxCategory(percent: 18, exemptionReasonCode: .gravadoOperacionOnerosa, scheme: .igv)
     let taxTotal = TaxTotal(
         amount: tax,
@@ -314,7 +328,7 @@ private func creditNoteValues() -> (taxTotal: TaxTotal, payable: MonetaryAmount,
 private func makeCreditNotePrerequisiteInvoice(number: String, issueDate: IssueDate) -> Factura {
     let values = creditNoteValues()
     return Factura(
-        identifier: DocumentIdentifier(series: "F001", number: number, type: .factura),
+        identifier: DocumentIdentifier(series: "F001", number: number),
         issueDate: issueDate,
         issueTime: IssueTime(hour: 12, minute: 0),
         currency: .pen,
@@ -325,12 +339,12 @@ private func makeCreditNotePrerequisiteInvoice(number: String, issueDate: IssueD
         ),
         taxTotal: values.taxTotal,
         monetaryTotal: MonetaryTotal(
-            lineExtensionAmount: MonetaryAmount(value: 100, currency: .pen),
+            lineExtensionAmount: MonetaryAmount(value: 100),
             taxInclusiveAmount: values.payable,
             payableAmount: values.payable
         ),
         lines: [values.line],
-        paymentTerms: [PaymentTerm(paymentMeansID: "Contado")]
+        paymentCondition: .cash
     )
 }
 

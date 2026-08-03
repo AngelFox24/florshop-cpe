@@ -19,7 +19,7 @@ public struct DebitNoteXMLTransformer: DebitNoteXMLTransforming, Sendable {
             supplier: note.supplier
         )
 
-        var writer = XMLWriter()
+        var writer = XMLWriter(documentCurrency: note.currency)
         writer.declaration()
         writer.open("DebitNote", attributes: [
             "xmlns": "urn:oasis:names:specification:ubl:schema:xsd:DebitNote-2",
@@ -76,7 +76,7 @@ public struct DebitNoteXMLTransformer: DebitNoteXMLTransforming, Sendable {
         writer.close("cac:DiscrepancyResponse")
     }
 
-    private func writeBillingReference(_ affected: DocumentIdentifier, to writer: inout XMLWriter) {
+    private func writeBillingReference(_ affected: AffectedDocumentIdentifier, to writer: inout XMLWriter) {
         writer.open("cac:BillingReference")
         writer.open("cac:InvoiceDocumentReference")
         writer.element("cbc:ID", text: affected.value)
@@ -295,7 +295,7 @@ public struct DebitNoteXMLTransformer: DebitNoteXMLTransforming, Sendable {
     }
 
     private func write(_ name: String, amount: MonetaryAmount, to writer: inout XMLWriter) {
-        writer.element(name, text: formatMoney(amount.value), attributes: ["currencyID": amount.currency.rawValue])
+        writer.monetaryElement(name, amount: amount)
     }
 
     private func format(_ date: IssueDate) -> String {
@@ -316,13 +316,4 @@ public struct DebitNoteXMLTransformer: DebitNoteXMLTransforming, Sendable {
         return formatter.string(from: value as NSDecimalNumber) ?? NSDecimalNumber(decimal: value).stringValue
     }
 
-    private func formatMoney(_ value: Decimal) -> String {
-        let formatter = NumberFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.numberStyle = .decimal
-        formatter.usesGroupingSeparator = false
-        formatter.minimumFractionDigits = 2
-        formatter.maximumFractionDigits = 2
-        return formatter.string(from: value as NSDecimalNumber) ?? NSDecimalNumber(decimal: value).stringValue
-    }
 }

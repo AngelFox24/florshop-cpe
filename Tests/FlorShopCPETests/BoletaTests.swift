@@ -4,7 +4,7 @@ import ZIPFoundation
 @testable import FlorShopCPE
 
 @Test func boletaModelRetainsItsDomainData() {
-    let amount = MonetaryAmount(value: 118, currency: .pen)
+    let amount = MonetaryAmount(value: 118)
     let supplier = Supplier(
         taxIdentifier: PartyIdentifier(value: "20123456789", documentType: .ruc),
         legalName: "GREENTER S.A.C."
@@ -19,39 +19,39 @@ import ZIPFoundation
         scheme: .igv
     )
     let taxTotal = TaxTotal(
-        amount: MonetaryAmount(value: 18, currency: .pen),
+        amount: MonetaryAmount(value: 18),
         subtotals: [TaxSubtotal(
-            taxableAmount: MonetaryAmount(value: 100, currency: .pen),
-            taxAmount: MonetaryAmount(value: 18, currency: .pen),
+            taxableAmount: MonetaryAmount(value: 100),
+            taxAmount: MonetaryAmount(value: 18),
             scheme: .igv
         )]
     )
     let lineTaxTotal = LineTaxTotal(
-        amount: MonetaryAmount(value: 18, currency: .pen),
+        amount: MonetaryAmount(value: 18),
         subtotals: [LineTaxSubtotal(
-            taxableAmount: MonetaryAmount(value: 100, currency: .pen),
-            taxAmount: MonetaryAmount(value: 18, currency: .pen),
+            taxableAmount: MonetaryAmount(value: 100),
+            taxAmount: MonetaryAmount(value: 18),
             category: taxCategory
         )]
     )
     let line = InvoiceLine(
         id: "1",
         quantity: Quantity(value: 2, unitCode: .unit),
-        lineExtensionAmount: MonetaryAmount(value: 100, currency: .pen),
+        lineExtensionAmount: MonetaryAmount(value: 100),
         alternativePrices: [AlternativePrice(amount: amount, type: .unitPriceIncludingTaxes)],
         taxTotal: lineTaxTotal,
         item: Item(description: "PROD 1", sellerItemIdentifier: "C023"),
-        price: MonetaryAmount(value: 50, currency: .pen)
+        price: MonetaryAmount(value: 50)
     )
     let boleta = Boleta(
-        identifier: DocumentIdentifier(series: "B001", number: "1", type: .boleta),
+        identifier: DocumentIdentifier(series: "B001", number: "1"),
         issueDate: IssueDate(year: 2020, month: 8, day: 19),
         currency: .pen,
         supplier: supplier,
         customer: customer,
         taxTotal: taxTotal,
         monetaryTotal: MonetaryTotal(
-            lineExtensionAmount: MonetaryAmount(value: 100, currency: .pen),
+            lineExtensionAmount: MonetaryAmount(value: 100),
             taxInclusiveAmount: amount,
             payableAmount: amount
         ),
@@ -59,6 +59,7 @@ import ZIPFoundation
     )
     
     #expect(boleta.identifier.value == "B001-1")
+    #expect(boleta.documentType == .boleta)
     #expect(boleta.lines.count == 1)
     #expect(boleta.taxTotal.subtotals.first?.scheme == .igv)
 }
@@ -67,23 +68,23 @@ import ZIPFoundation
     let currency: CurrencyCode = .pen
     let taxCategory = TaxCategory(percent: 18, exemptionReasonCode: .gravadoOperacionOnerosa, scheme: .igv)
     let taxTotal = TaxTotal(
-        amount: MonetaryAmount(value: 18, currency: currency),
+        amount: MonetaryAmount(value: 18),
         subtotals: [TaxSubtotal(
-            taxableAmount: MonetaryAmount(value: 100, currency: currency),
-            taxAmount: MonetaryAmount(value: 18, currency: currency),
+            taxableAmount: MonetaryAmount(value: 100),
+            taxAmount: MonetaryAmount(value: 18),
             scheme: .igv
         )]
     )
     let lineTaxTotal = LineTaxTotal(
-        amount: MonetaryAmount(value: 18, currency: currency),
+        amount: MonetaryAmount(value: 18),
         subtotals: [LineTaxSubtotal(
-            taxableAmount: MonetaryAmount(value: 100, currency: currency),
-            taxAmount: MonetaryAmount(value: 18, currency: currency),
+            taxableAmount: MonetaryAmount(value: 100),
+            taxAmount: MonetaryAmount(value: 18),
             category: taxCategory
         )]
     )
     let boleta = Boleta(
-        identifier: DocumentIdentifier(series: "B001", number: "1", type: .boleta),
+        identifier: DocumentIdentifier(series: "B001", number: "1"),
         issueDate: IssueDate(year: 2020, month: 8, day: 19),
         issueTime: IssueTime(hour: 3, minute: 16, second: 38),
         currency: currency,
@@ -105,18 +106,18 @@ import ZIPFoundation
         customer: Customer(identifier: PartyIdentifier(value: "20203030", documentType: .dni), legalName: "PERSON 1"),
         taxTotal: taxTotal,
         monetaryTotal: MonetaryTotal(
-            lineExtensionAmount: MonetaryAmount(value: 100, currency: currency),
-            taxInclusiveAmount: MonetaryAmount(value: 118, currency: currency),
-            payableAmount: MonetaryAmount(value: 118, currency: currency)
+            lineExtensionAmount: MonetaryAmount(value: 100),
+            taxInclusiveAmount: MonetaryAmount(value: 118),
+            payableAmount: MonetaryAmount(value: 118)
         ),
         lines: [InvoiceLine(
             id: "1",
             quantity: Quantity(value: 2, unitCode: .unit),
-            lineExtensionAmount: MonetaryAmount(value: 100, currency: currency),
-            alternativePrices: [AlternativePrice(amount: MonetaryAmount(value: 59, currency: currency), type: .unitPriceIncludingTaxes)],
+            lineExtensionAmount: MonetaryAmount(value: 100),
+            alternativePrices: [AlternativePrice(amount: MonetaryAmount(value: 59), type: .unitPriceIncludingTaxes)],
             taxTotal: lineTaxTotal,
             item: Item(description: "PROD & SERVICIO", sellerItemIdentifier: "C023"),
-            price: MonetaryAmount(value: 50, currency: currency)
+            price: MonetaryAmount(value: 50)
         )]
     )
     
@@ -718,7 +719,7 @@ private func printSignedBoletaBetaXML(
     Archivo XML: \(document.signedXMLURL.lastPathComponent)
     Archivo ZIP: \(document.zipURL.lastPathComponent)
     Tipo de operación esperado: 0101
-    Tipo de documento esperado: \(boleta.identifier.type.rawValue)
+    Tipo de documento esperado: \(boleta.documentType.rawValue)
     \(String(decoding: signedCPE.xml, as: UTF8.self))
     ===== FIN SUNAT BETA \(scenario): XML FIRMADO =====
 
@@ -743,8 +744,7 @@ private func integrationSigningConfiguration() -> SigningConfiguration? {
 private func makeBoleta(
     identifier: DocumentIdentifier = DocumentIdentifier(
         series: "B001",
-        number: "1",
-        type: .boleta
+        number: "1"
     ),
     issueDate: IssueDate = IssueDate(year: 2020, month: 8, day: 19),
     emitterRUC: String = "20123456789",
@@ -753,10 +753,10 @@ private func makeBoleta(
     let currency: CurrencyCode = .pen
     let scheme = TaxScheme.igv
     let lineTaxTotal = LineTaxTotal(
-        amount: MonetaryAmount(value: 18, currency: currency),
+        amount: MonetaryAmount(value: 18),
         subtotals: [LineTaxSubtotal(
-            taxableAmount: MonetaryAmount(value: 100, currency: currency),
-            taxAmount: MonetaryAmount(value: 18, currency: currency),
+            taxableAmount: MonetaryAmount(value: 100),
+            taxAmount: MonetaryAmount(value: 18),
             category: TaxCategory(percent: 18, exemptionReasonCode: .gravadoOperacionOnerosa, scheme: scheme)
         )]
     )
@@ -771,21 +771,21 @@ private func makeBoleta(
         ),
         customer: Customer(identifier: PartyIdentifier(value: "20203030", documentType: .dni), legalName: "PERSON 1"),
         taxTotal: TaxTotal(
-            amount: MonetaryAmount(value: 18, currency: currency),
-            subtotals: [TaxSubtotal(taxableAmount: MonetaryAmount(value: 100, currency: currency), taxAmount: MonetaryAmount(value: 18, currency: currency), scheme: scheme)]
+            amount: MonetaryAmount(value: 18),
+            subtotals: [TaxSubtotal(taxableAmount: MonetaryAmount(value: 100), taxAmount: MonetaryAmount(value: 18), scheme: scheme)]
         ),
-        monetaryTotal: MonetaryTotal(lineExtensionAmount: MonetaryAmount(value: 100, currency: currency), taxInclusiveAmount: MonetaryAmount(value: 118, currency: currency), payableAmount: MonetaryAmount(value: 118, currency: currency)),
+        monetaryTotal: MonetaryTotal(lineExtensionAmount: MonetaryAmount(value: 100), taxInclusiveAmount: MonetaryAmount(value: 118), payableAmount: MonetaryAmount(value: 118)),
         lines: [InvoiceLine(
             id: "1",
             quantity: Quantity(value: 2, unitCode: .unit),
-            lineExtensionAmount: MonetaryAmount(value: 100, currency: currency),
+            lineExtensionAmount: MonetaryAmount(value: 100),
             alternativePrices: [AlternativePrice(
-                amount: MonetaryAmount(value: 59, currency: currency),
+                amount: MonetaryAmount(value: 59),
                 type: .unitPriceIncludingTaxes
             )],
             taxTotal: lineTaxTotal,
             item: Item(description: "PRODUCTO"),
-            price: MonetaryAmount(value: 50, currency: currency)
+            price: MonetaryAmount(value: 50)
         )]
     )
 }
@@ -794,8 +794,7 @@ private func makeBoletaForSunatBeta() -> Boleta {
     makeBoleta(
         identifier: DocumentIdentifier(
             series: "B001",
-            number: referenceBoletaCorrelative(offset: 0),
-            type: .boleta
+            number: referenceBoletaCorrelative(offset: 0)
         ),
         issueDate: currentLimaIssueDateForBoleta(),
         emitterRUC: "10708255195",
@@ -817,14 +816,13 @@ private func makeReferenceBoletaForSunatBeta() -> Boleta {
     )
 
     func amount(_ value: String) -> MonetaryAmount {
-        MonetaryAmount(value: Decimal(string: value)!, currency: currency)
+        MonetaryAmount(value: Decimal(string: value)!)
     }
 
     return Boleta(
         identifier: DocumentIdentifier(
             series: "BC01",
-            number: referenceBoletaCorrelative(),
-            type: .boleta
+            number: referenceBoletaCorrelative()
         ),
         issueDate: currentLimaIssueDateForBoleta(),
         issueTime: IssueTime(hour: 18, minute: 1, second: 29),
@@ -978,8 +976,7 @@ private func referenceBoletaCorrelative(offset: Int) -> String {
 private func makeBoletaWithMoreProducts(
     identifier: DocumentIdentifier = DocumentIdentifier(
         series: "B001",
-        number: "2",
-        type: .boleta
+        number: "2"
     ),
     issueDate: IssueDate = IssueDate(year: 2020, month: 8, day: 19),
     emitterRUC: String = "20123456789",
@@ -988,23 +985,23 @@ private func makeBoletaWithMoreProducts(
     let currency: CurrencyCode = .pen
     let scheme = TaxScheme.igv
     let firstLineTaxTotal = LineTaxTotal(
-        amount: MonetaryAmount(value: 18, currency: currency),
+        amount: MonetaryAmount(value: 18),
         subtotals: [LineTaxSubtotal(
-            taxableAmount: MonetaryAmount(value: 100, currency: currency),
-            taxAmount: MonetaryAmount(value: 18, currency: currency),
+            taxableAmount: MonetaryAmount(value: 100),
+            taxAmount: MonetaryAmount(value: 18),
             category: TaxCategory(percent: 18, exemptionReasonCode: .gravadoOperacionOnerosa, scheme: scheme)
         )]
     )
     let secondLineTaxTotal = LineTaxTotal(
-        amount: MonetaryAmount(value: 9, currency: currency),
+        amount: MonetaryAmount(value: 9),
         subtotals: [LineTaxSubtotal(
-            taxableAmount: MonetaryAmount(value: 50, currency: currency),
-            taxAmount: MonetaryAmount(value: 9, currency: currency),
+            taxableAmount: MonetaryAmount(value: 50),
+            taxAmount: MonetaryAmount(value: 9),
             category: TaxCategory(percent: 18, exemptionReasonCode: .gravadoOperacionOnerosa, scheme: scheme)
         )]
     )
     let priceIncludingTaxes = AlternativePrice(
-        amount: MonetaryAmount(value: 59, currency: currency),
+        amount: MonetaryAmount(value: 59),
         type: .unitPriceIncludingTaxes
     )
     
@@ -1019,36 +1016,36 @@ private func makeBoletaWithMoreProducts(
         ),
         customer: Customer(identifier: PartyIdentifier(value: "20203030", documentType: .dni), legalName: "PERSON 1"),
         taxTotal: TaxTotal(
-            amount: MonetaryAmount(value: 27, currency: currency),
+            amount: MonetaryAmount(value: 27),
             subtotals: [TaxSubtotal(
-                taxableAmount: MonetaryAmount(value: 150, currency: currency),
-                taxAmount: MonetaryAmount(value: 27, currency: currency),
+                taxableAmount: MonetaryAmount(value: 150),
+                taxAmount: MonetaryAmount(value: 27),
                 scheme: scheme
             )]
         ),
         monetaryTotal: MonetaryTotal(
-            lineExtensionAmount: MonetaryAmount(value: 150, currency: currency),
-            taxInclusiveAmount: MonetaryAmount(value: 177, currency: currency),
-            payableAmount: MonetaryAmount(value: 177, currency: currency)
+            lineExtensionAmount: MonetaryAmount(value: 150),
+            taxInclusiveAmount: MonetaryAmount(value: 177),
+            payableAmount: MonetaryAmount(value: 177)
         ),
         lines: [
             InvoiceLine(
                 id: "1",
                 quantity: Quantity(value: 2, unitCode: .unit),
-                lineExtensionAmount: MonetaryAmount(value: 100, currency: currency),
+                lineExtensionAmount: MonetaryAmount(value: 100),
                 alternativePrices: [priceIncludingTaxes],
                 taxTotal: firstLineTaxTotal,
                 item: Item(description: "PRODUCTO 1"),
-                price: MonetaryAmount(value: 50, currency: currency)
+                price: MonetaryAmount(value: 50)
             ),
             InvoiceLine(
                 id: "2",
                 quantity: Quantity(value: 1, unitCode: .unit),
-                lineExtensionAmount: MonetaryAmount(value: 50, currency: currency),
+                lineExtensionAmount: MonetaryAmount(value: 50),
                 alternativePrices: [priceIncludingTaxes],
                 taxTotal: secondLineTaxTotal,
                 item: Item(description: "PRODUCTO 2"),
-                price: MonetaryAmount(value: 50, currency: currency)
+                price: MonetaryAmount(value: 50)
             )
         ]
     )
@@ -1058,8 +1055,7 @@ private func makeMultiProductBoletaForSunatBeta() -> Boleta {
     makeBoletaWithMoreProducts(
         identifier: DocumentIdentifier(
             series: "B001",
-            number: referenceBoletaCorrelative(offset: 1),
-            type: .boleta
+            number: referenceBoletaCorrelative(offset: 1)
         ),
         issueDate: currentLimaIssueDateForBoleta(),
         emitterRUC: "10708255195",
