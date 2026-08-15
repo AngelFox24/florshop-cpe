@@ -15,6 +15,7 @@ public enum UBLInvoiceDocumentValidationError: Error, Equatable, Sendable {
     case nonPositivePaymentInstallment(Int)
     case invalidPaymentInstallmentDueDate(Int)
     case paymentInstallmentsTotalMismatch
+    case invalidPayableRoundingAmount
 }
 
 /// Verifica invariantes del dominio antes de generar o firmar el XML.
@@ -52,6 +53,11 @@ public struct UBLInvoiceDocumentValidator: Sendable {
             throw UBLInvoiceDocumentValidationError.emptyLines
         }
 
+        if let rounding = document.monetaryTotal.payableRoundingAmount,
+           abs(CPEPrecision.monetary(rounding.value)) > 1 {
+            throw UBLInvoiceDocumentValidationError.invalidPayableRoundingAmount
+        }
+
         var identifiers = Set<String>()
         for line in document.lines where !identifiers.insert(line.id).inserted {
             throw UBLInvoiceDocumentValidationError.duplicatedLineIdentifier(line.id)
@@ -77,9 +83,9 @@ public struct UBLInvoiceDocumentValidator: Sendable {
                 }
             }
             let installmentsTotal = installments.reduce(Decimal.zero) { partial, installment in
-                partial + installment.amount.value
+                partial + CPEPrecision.monetary(installment.amount.value)
             }
-            guard installmentsTotal == pendingAmount.value else {
+            guard CPEPrecision.monetary(installmentsTotal) == CPEPrecision.monetary(pendingAmount.value) else {
                 throw UBLInvoiceDocumentValidationError.paymentInstallmentsTotalMismatch
             }
         }

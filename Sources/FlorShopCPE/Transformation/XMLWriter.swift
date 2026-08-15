@@ -45,6 +45,25 @@ struct XMLWriter {
         )
     }
 
+    mutating func unitPriceElement(_ name: String, amount: MonetaryAmount) {
+        guard let documentCurrency else {
+            preconditionFailure("XMLWriter requires a document currency for monetary elements")
+        }
+        element(
+            name,
+            text: formatDecimal(amount.value, scale: CPEPrecision.unitValueScale),
+            attributes: ["currencyID": documentCurrency.rawValue]
+        )
+    }
+
+    func formatQuantity(_ value: Decimal) -> String {
+        formatDecimal(value, scale: CPEPrecision.unitValueScale)
+    }
+
+    func formatRate(_ value: Decimal) -> String {
+        formatDecimal(value, scale: CPEPrecision.rateScale)
+    }
+
     private mutating func append(_ line: String) {
         lines.append(String(repeating: "   ", count: indentationLevel) + line)
     }
@@ -65,13 +84,28 @@ struct XMLWriter {
     }
 
     private func formatMoney(_ value: Decimal) -> String {
+        let normalized = CPEPrecision.monetary(value)
         let formatter = NumberFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.numberStyle = .decimal
         formatter.usesGroupingSeparator = false
         formatter.minimumFractionDigits = 2
         formatter.maximumFractionDigits = 2
-        return formatter.string(from: value as NSDecimalNumber)
-            ?? NSDecimalNumber(decimal: value).stringValue
+        formatter.roundingMode = .halfUp
+        return formatter.string(from: normalized as NSDecimalNumber)
+            ?? NSDecimalNumber(decimal: normalized).stringValue
+    }
+
+    private func formatDecimal(_ value: Decimal, scale: Int) -> String {
+        let normalized = CPEPrecision.rounded(value, scale: scale)
+        let formatter = NumberFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.numberStyle = .decimal
+        formatter.usesGroupingSeparator = false
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = scale
+        formatter.roundingMode = .halfUp
+        return formatter.string(from: normalized as NSDecimalNumber)
+            ?? NSDecimalNumber(decimal: normalized).stringValue
     }
 }

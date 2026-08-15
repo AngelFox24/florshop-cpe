@@ -77,24 +77,25 @@ public struct DebitNoteValidator: Sendable {
             guard identifiers.insert(line.id).inserted else {
                 throw DebitNoteValidationError.duplicatedLineIdentifier(line.id)
             }
-            if let quantity = line.quantity, quantity.value <= 0 {
+            if let quantity = line.quantity, CPEPrecision.unitValue(quantity.value) <= 0 {
                 throw DebitNoteValidationError.nonPositiveQuantity(line.id)
             }
-            guard line.lineExtensionAmount.value > 0 else {
+            guard CPEPrecision.monetary(line.lineExtensionAmount.value) > 0 else {
                 throw DebitNoteValidationError.nonPositiveLineExtensionAmount(line.id)
             }
-            if let price = line.price, price.value <= 0 {
+            if let price = line.price, CPEPrecision.unitValue(price.value) <= 0 {
                 throw DebitNoteValidationError.nonPositivePrice(line.id)
             }
         }
-        if let charge = note.monetaryTotal.chargeTotalAmount, charge.value <= 0 {
+        if let charge = note.monetaryTotal.chargeTotalAmount,
+           CPEPrecision.monetary(charge.value) <= 0 {
             throw DebitNoteValidationError.nonPositiveChargeTotalAmount
         }
-        guard note.monetaryTotal.payableAmount.value > 0 else {
+        guard CPEPrecision.monetary(note.monetaryTotal.payableAmount.value) > 0 else {
             throw DebitNoteValidationError.nonPositivePayableAmount
         }
         if let rounding = note.monetaryTotal.payableRoundingAmount,
-           abs(rounding.value) > 1 {
+           abs(CPEPrecision.monetary(rounding.value)) > 1 {
             throw DebitNoteValidationError.invalidPayableRoundingAmount
         }
     }

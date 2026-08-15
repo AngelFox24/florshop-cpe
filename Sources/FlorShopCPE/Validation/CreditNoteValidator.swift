@@ -13,6 +13,7 @@ public enum CreditNoteValidationError: Error, Equatable, Sendable {
     case invalidSupplierAddressTypeCode
     case emptyLines
     case duplicatedLineIdentifier(String)
+    case invalidPayableRoundingAmount
 }
 
 /// Verifica las invariantes de una Nota de Crédito antes de serializarla o firmarla.
@@ -58,6 +59,10 @@ public struct CreditNoteValidator: Sendable {
         var identifiers = Set<String>()
         for line in note.lines where !identifiers.insert(line.id).inserted {
             throw CreditNoteValidationError.duplicatedLineIdentifier(line.id)
+        }
+        if let rounding = note.monetaryTotal.payableRoundingAmount,
+           abs(CPEPrecision.monetary(rounding.value)) > 1 {
+            throw CreditNoteValidationError.invalidPayableRoundingAmount
         }
     }
 

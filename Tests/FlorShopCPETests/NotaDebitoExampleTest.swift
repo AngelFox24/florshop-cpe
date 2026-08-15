@@ -65,13 +65,13 @@ import FlorShopCPE
         )
     )
     let taxCategory = TaxCategory(
-        percent: Decimal(string: "18")!,                  // Opcional
+        percent: 18,                                      // Opcional
         exemptionReasonCode: .gravadoOperacionOnerosa,    // Opcional
         scheme: .igv
     )
-    let debitTaxable = MonetaryAmount(value: Decimal(string: "10.00")!)
-    let debitTax = MonetaryAmount(value: Decimal(string: "1.80")!)
-    let debitPayable = MonetaryAmount(value: Decimal(string: "11.80")!)
+    let debitTaxable = MonetaryAmount(value: 10.00)
+    let debitTax = MonetaryAmount(value: 1.80)
+    let debitPayable = MonetaryAmount(value: 11.80)
     let notaDebito = NotaDebito(
         identifier: DocumentIdentifier(
             series: "FD01",

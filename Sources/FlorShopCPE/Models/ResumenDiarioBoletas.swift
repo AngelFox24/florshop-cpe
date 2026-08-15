@@ -124,9 +124,9 @@ public struct DailySummaryLine: Codable, Equatable, Sendable {
             customerLegalName: boleta.customer.legalName,
             affectedDocument: nil,
             condition: condition,
-            totalAmount: boleta.monetaryTotal.taxInclusiveAmount,
+            totalAmount: boleta.monetaryTotal.taxInclusiveAmount.normalized,
             sales: Self.sales(from: boleta),
-            chargeTotalAmount: boleta.monetaryTotal.chargeTotalAmount,
+            chargeTotalAmount: boleta.monetaryTotal.chargeTotalAmount?.normalized,
             taxes: Self.taxes(from: boleta)
         )
     }
@@ -154,9 +154,9 @@ public struct DailySummaryLine: Codable, Equatable, Sendable {
             customerLegalName: creditNote.customer.legalName,
             affectedDocument: creditNote.affectedDocument.identifier,
             condition: condition,
-            totalAmount: creditNote.monetaryTotal.payableAmount,
+            totalAmount: creditNote.monetaryTotal.payableAmount.normalized,
             sales: Self.sales(from: creditNote),
-            chargeTotalAmount: creditNote.monetaryTotal.chargeTotalAmount,
+            chargeTotalAmount: creditNote.monetaryTotal.chargeTotalAmount?.normalized,
             taxes: Self.taxes(from: creditNote)
         )
     }
@@ -184,9 +184,9 @@ public struct DailySummaryLine: Codable, Equatable, Sendable {
             customerLegalName: debitNote.customer.legalName,
             affectedDocument: debitNote.affectedDocument.identifier,
             condition: condition,
-            totalAmount: debitNote.monetaryTotal.payableAmount,
+            totalAmount: debitNote.monetaryTotal.payableAmount.normalized,
             sales: Self.sales(from: debitNote),
-            chargeTotalAmount: debitNote.monetaryTotal.chargeTotalAmount,
+            chargeTotalAmount: debitNote.monetaryTotal.chargeTotalAmount?.normalized,
             taxes: Self.taxes(from: debitNote)
         )
     }
@@ -196,7 +196,7 @@ public struct DailySummaryLine: Codable, Equatable, Sendable {
         for line in boleta.lines {
             for subtotal in line.taxTotal.subtotals {
                 let type = saleType(for: subtotal.category)
-                totals[type, default: 0] += subtotal.taxableAmount.value
+                totals[type, default: 0] += CPEPrecision.monetary(subtotal.taxableAmount.value)
             }
         }
         return DailySummarySaleType.sunatOrder.compactMap { type in
@@ -204,7 +204,7 @@ public struct DailySummaryLine: Codable, Equatable, Sendable {
             guard isMandatory || totals[type] != nil else { return nil }
             return DailySummarySale(
                 type: type,
-                amount: MonetaryAmount(value: totals[type, default: 0])
+                amount: MonetaryAmount(value: CPEPrecision.monetary(totals[type, default: 0]))
             )
         }
     }
@@ -214,7 +214,7 @@ public struct DailySummaryLine: Codable, Equatable, Sendable {
         for line in note.lines {
             for subtotal in line.taxTotal.subtotals {
                 let type = saleType(for: subtotal.category)
-                totals[type, default: 0] += subtotal.taxableAmount.value
+                totals[type, default: 0] += CPEPrecision.monetary(subtotal.taxableAmount.value)
             }
         }
         return DailySummarySaleType.sunatOrder.compactMap { type in
@@ -222,7 +222,7 @@ public struct DailySummaryLine: Codable, Equatable, Sendable {
             guard isMandatory || totals[type] != nil else { return nil }
             return DailySummarySale(
                 type: type,
-                amount: MonetaryAmount(value: totals[type, default: 0])
+                amount: MonetaryAmount(value: CPEPrecision.monetary(totals[type, default: 0]))
             )
         }
     }
@@ -232,7 +232,7 @@ public struct DailySummaryLine: Codable, Equatable, Sendable {
         for line in note.lines {
             for subtotal in line.taxTotal.subtotals {
                 let type = saleType(for: subtotal.category)
-                totals[type, default: 0] += subtotal.taxableAmount.value
+                totals[type, default: 0] += CPEPrecision.monetary(subtotal.taxableAmount.value)
             }
         }
         return DailySummarySaleType.sunatOrder.compactMap { type in
@@ -240,7 +240,7 @@ public struct DailySummaryLine: Codable, Equatable, Sendable {
             guard isMandatory || totals[type] != nil else { return nil }
             return DailySummarySale(
                 type: type,
-                amount: MonetaryAmount(value: totals[type, default: 0])
+                amount: MonetaryAmount(value: CPEPrecision.monetary(totals[type, default: 0]))
             )
         }
     }
@@ -266,7 +266,7 @@ public struct DailySummaryLine: Codable, Equatable, Sendable {
                 .first(where: { $0.category.scheme.identifier == subtotal.scheme.identifier })?
                 .category.percent
             return DailySummaryTax(
-                amount: subtotal.taxAmount,
+                amount: subtotal.taxAmount.normalized,
                 percent: percent,
                 scheme: subtotal.scheme
             )
@@ -280,7 +280,7 @@ public struct DailySummaryLine: Codable, Equatable, Sendable {
                 .flatMap(\.taxTotal.subtotals)
                 .first(where: { $0.category.scheme.identifier == subtotal.scheme.identifier })?
                 .category.percent
-            return DailySummaryTax(amount: subtotal.taxAmount, percent: percent, scheme: subtotal.scheme)
+            return DailySummaryTax(amount: subtotal.taxAmount.normalized, percent: percent, scheme: subtotal.scheme)
         }
     }
 
@@ -291,7 +291,7 @@ public struct DailySummaryLine: Codable, Equatable, Sendable {
                 .flatMap(\.taxTotal.subtotals)
                 .first(where: { $0.category.scheme.identifier == subtotal.scheme.identifier })?
                 .category.percent
-            return DailySummaryTax(amount: subtotal.taxAmount, percent: percent, scheme: subtotal.scheme)
+            return DailySummaryTax(amount: subtotal.taxAmount.normalized, percent: percent, scheme: subtotal.scheme)
         }
     }
 }

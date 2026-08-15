@@ -14,6 +14,7 @@ public struct DailySummaryXMLTransformer: DailySummaryXMLTransforming, Sendable 
 
     public func transform(_ summary: ResumenDiarioBoletas) throws -> String {
         try validator.validate(summary)
+        try CPEAmountConsistencyValidator().validate(summary)
         let signature = SignatureInformation(
             identifier: summary.identifier.value,
             supplier: summary.supplier
@@ -135,7 +136,7 @@ public struct DailySummaryXMLTransformer: DailySummaryXMLTransforming, Sendable 
         write("cbc:TaxAmount", amount: tax.amount, to: &writer)
         writer.open("cac:TaxCategory")
         if let percent = tax.percent {
-            writer.element("cbc:Percent", text: formatDecimal(percent))
+            writer.element("cbc:Percent", text: writer.formatRate(percent))
         }
         writer.open("cac:TaxScheme")
         writer.element("cbc:ID", text: tax.scheme.identifier)
@@ -155,7 +156,4 @@ public struct DailySummaryXMLTransformer: DailySummaryXMLTransforming, Sendable 
         String(format: "%04d-%02d-%02d", date.year, date.month, date.day)
     }
 
-    private func formatDecimal(_ value: Decimal) -> String {
-        NSDecimalNumber(decimal: value).stringValue
-    }
 }

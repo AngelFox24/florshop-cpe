@@ -81,48 +81,48 @@ import FlorShopCPE
             )
         ),
         taxTotal: TaxTotal(
-            amount: MonetaryAmount(value: Decimal(string: "266.65")!),
+            amount: MonetaryAmount(value: 266.65),
             subtotals: [
                 TaxSubtotal(
-                    taxableAmount: MonetaryAmount(value: Decimal(string: "1481.35")!),
-                    taxAmount: MonetaryAmount(value: Decimal(string: "266.65")!),
+                    taxableAmount: MonetaryAmount(value: 1481.35),
+                    taxAmount: MonetaryAmount(value: 266.65),
                     scheme: .igv
                 )
             ]
         ),
         monetaryTotal: MonetaryTotal(
-            lineExtensionAmount: MonetaryAmount(value: Decimal(string: "1481.35")!),
-            taxInclusiveAmount: MonetaryAmount(value: Decimal(string: "1748.00")!),
+            lineExtensionAmount: MonetaryAmount(value: 1481.35),
+            taxInclusiveAmount: MonetaryAmount(value: 1748.00),
             allowanceTotalAmount: MonetaryAmount(              // Opcional
-                value: Decimal(string: "0.00")!
+                value: 0.00
             ),
             chargeTotalAmount: MonetaryAmount(                 // Opcional
-                value: Decimal(string: "0.00")!
+                value: 0.00
             ),
             prepaidAmount: MonetaryAmount(                     // Opcional
-                value: Decimal(string: "0.00")!
+                value: 0.00
             ),
-            payableAmount: MonetaryAmount(value: Decimal(string: "1748.00")!)
+            payableAmount: MonetaryAmount(value: 1748.00)
         ),
         lines: [
             InvoiceLine(
                 id: "1",
                 quantity: Quantity(value: 1, unitCode: .unit),
-                lineExtensionAmount: MonetaryAmount(value: Decimal(string: "845.76")!),
+                lineExtensionAmount: MonetaryAmount(value: 845.76),
                 alternativePrices: [
                     AlternativePrice(
-                        amount: MonetaryAmount(value: Decimal(string: "998.00")!),
+                        amount: MonetaryAmount(value: 998.00),
                         type: .unitPriceIncludingTaxes
                     )
                 ],
                 taxTotal: LineTaxTotal(
-                    amount: MonetaryAmount(value: Decimal(string: "152.24")!),
+                    amount: MonetaryAmount(value: 152.24),
                     subtotals: [
                         LineTaxSubtotal(
-                            taxableAmount: MonetaryAmount(value: Decimal(string: "845.76")!),
-                            taxAmount: MonetaryAmount(value: Decimal(string: "152.24")!),
+                            taxableAmount: MonetaryAmount(value: 845.76),
+                            taxAmount: MonetaryAmount(value: 152.24),
                             category: TaxCategory(
-                                percent: Decimal(string: "18")!,                  // Opcional
+                                percent: 18,                                      // Opcional
                                 exemptionReasonCode: .gravadoOperacionOnerosa,    // Opcional
                                 scheme: .igv
                             )
@@ -134,27 +134,27 @@ import FlorShopCPE
                     sellerItemIdentifier: "REF564",             // Opcional
                     commodityClassificationCode: "52141501"     // Opcional
                 ),
-                price: MonetaryAmount(value: Decimal(string: "845.76")!),
+                price: MonetaryAmount(value: 845.76),
                 isFreeOfCharge: false                            // Opcional
             ),
             InvoiceLine(
                 id: "2",
                 quantity: Quantity(value: 1, unitCode: .unit),
-                lineExtensionAmount: MonetaryAmount(value: Decimal(string: "635.59")!),
+                lineExtensionAmount: MonetaryAmount(value: 635.59),
                 alternativePrices: [
                     AlternativePrice(
-                        amount: MonetaryAmount(value: Decimal(string: "750.00")!),
+                        amount: MonetaryAmount(value: 750.00),
                         type: .unitPriceIncludingTaxes
                     )
                 ],
                 taxTotal: LineTaxTotal(
-                    amount: MonetaryAmount(value: Decimal(string: "114.41")!),
+                    amount: MonetaryAmount(value: 114.41),
                     subtotals: [
                         LineTaxSubtotal(
-                            taxableAmount: MonetaryAmount(value: Decimal(string: "635.59")!),
-                            taxAmount: MonetaryAmount(value: Decimal(string: "114.41")!),
+                            taxableAmount: MonetaryAmount(value: 635.59),
+                            taxAmount: MonetaryAmount(value: 114.41),
                             category: TaxCategory(
-                                percent: Decimal(string: "18")!,                  // Opcional
+                                percent: 18,                                      // Opcional
                                 exemptionReasonCode: .gravadoOperacionOnerosa,    // Opcional
                                 scheme: .igv
                             )
@@ -166,7 +166,7 @@ import FlorShopCPE
                     sellerItemIdentifier: "COC124",             // Opcional
                     commodityClassificationCode: "52141504"     // Opcional
                 ),
-                price: MonetaryAmount(value: Decimal(string: "635.59")!),
+                price: MonetaryAmount(value: 635.59),
                 isFreeOfCharge: false                            // Opcional
             )
         ],

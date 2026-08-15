@@ -147,10 +147,65 @@ import ZIPFoundation
 @Test func amountInWordsFormatterGeneratesSpanishSUNATLegend() throws {
     let formatter = SpanishAmountInWordsFormatter()
     
-    #expect(try formatter.format(Decimal(string: "0.00")!, currency: .pen) == "SON CERO CON 00/100 SOLES")
-    #expect(try formatter.format(Decimal(string: "1.01")!, currency: .pen) == "SON UN CON 01/100 SOLES")
-    #expect(try formatter.format(Decimal(string: "118.00")!, currency: .pen) == "SON CIENTO DIECIOCHO CON 00/100 SOLES")
-    #expect(try formatter.format(Decimal(string: "1000000.50")!, currency: .usd) == "SON UN MILLÓN CON 50/100 DÓLARES AMERICANOS")
+    #expect(try formatter.format(0.00, currency: .pen) == "SON CERO CON 00/100 SOLES")
+    #expect(try formatter.format(1.01, currency: .pen) == "SON UN CON 01/100 SOLES")
+    #expect(try formatter.format(118.00, currency: .pen) == "SON CIENTO DIECIOCHO CON 00/100 SOLES")
+    #expect(try formatter.format(1000000.50, currency: .usd) == "SON UN MILLÓN CON 50/100 DÓLARES AMERICANOS")
+}
+
+@Test func cpePrecisionPreservesInputsAndUsesPlainRounding() {
+    let exactHalf = Decimal(1_005) / Decimal(1_000)
+    let exactUnitValue = Decimal(1_212_345_678_905) / Decimal(100_000_000_000)
+    let exactRate = Decimal(18_123_455) / Decimal(1_000_000)
+    let amount = MonetaryAmount(value: exactHalf)
+
+    #expect(amount.value == exactHalf)
+    #expect(amount.normalized.value == Decimal(101) / Decimal(100))
+    #expect(
+        CPEPrecision.lineAmount(unitPrice: Decimal(335) / Decimal(1_000), quantity: 3)
+            == Decimal(101) / Decimal(100)
+    )
+    #expect(CPEPrecision.monetarySum([exactHalf, exactHalf + 1]) == Decimal(302) / Decimal(100))
+    #expect(CPEPrecision.unitValue(exactUnitValue) == Decimal(121_234_567_891) / Decimal(10_000_000_000))
+    #expect(CPEPrecision.rate(exactRate) == Decimal(1_812_346) / Decimal(100_000))
+}
+
+@Test func xmlWriterUsesThePrecisionOfEachNumericField() {
+    var writer = XMLWriter(documentCurrency: .pen)
+    writer.monetaryElement(
+        "cbc:Amount",
+        amount: MonetaryAmount(value: Decimal(1_005) / Decimal(1_000))
+    )
+    writer.unitPriceElement("cbc:PriceAmount", amount: MonetaryAmount(value: 75.07891234567))
+    let quantity = writer.formatQuantity(Decimal(312_345_678_905) / Decimal(100_000_000_000))
+    let rate = writer.formatRate(Decimal(18_123_455) / Decimal(1_000_000))
+    writer.element("cbc:Quantity", text: quantity)
+    writer.element("cbc:Percent", text: rate)
+
+    #expect(writer.result.contains(">1.01</cbc:Amount>"))
+    #expect(writer.result.contains(">75.0789123457</cbc:PriceAmount>"))
+    #expect(writer.result.contains(">3.1234567891</cbc:Quantity>"))
+    #expect(writer.result.contains(">18.12346</cbc:Percent>"))
+}
+
+@Test func transformerNormalizesPayableRoundingAndAmountInWords() throws {
+    let exactHalfCent = Decimal(5) / Decimal(1_000)
+    let xml = try UBLInvoiceXMLTransformer().transform(
+        makeBoleta(
+            payableAmount: Decimal(118) + exactHalfCent,
+            payableRoundingAmount: exactHalfCent
+        )
+    )
+
+    #expect(xml.contains("<cbc:PayableRoundingAmount currencyID=\"PEN\">0.01</cbc:PayableRoundingAmount>"))
+    #expect(xml.contains("<cbc:PayableAmount currencyID=\"PEN\">118.01</cbc:PayableAmount>"))
+    #expect(xml.contains("SON CIENTO DIECIOCHO CON 01/100 SOLES"))
+}
+
+@Test func transformerRejectsUserAmountsThatDifferAfterNormalization() {
+    #expect(throws: CPEAmountConsistencyValidationError.payableAmountMismatch) {
+        try UBLInvoiceXMLTransformer().transform(makeBoleta(payableAmount: 118.02))
+    }
 }
 
 @Test func transformerInfersBoletaSignatureMetadata() throws {
@@ -748,7 +803,9 @@ private func makeBoleta(
     ),
     issueDate: IssueDate = IssueDate(year: 2020, month: 8, day: 19),
     emitterRUC: String = "20123456789",
-    supplierAddress: Address? = nil
+    supplierAddress: Address? = nil,
+    payableAmount: Decimal = 118,
+    payableRoundingAmount: Decimal? = nil
 ) -> Boleta {
     let currency: CurrencyCode = .pen
     let scheme = TaxScheme.igv
@@ -774,7 +831,12 @@ private func makeBoleta(
             amount: MonetaryAmount(value: 18),
             subtotals: [TaxSubtotal(taxableAmount: MonetaryAmount(value: 100), taxAmount: MonetaryAmount(value: 18), scheme: scheme)]
         ),
-        monetaryTotal: MonetaryTotal(lineExtensionAmount: MonetaryAmount(value: 100), taxInclusiveAmount: MonetaryAmount(value: 118), payableAmount: MonetaryAmount(value: 118)),
+        monetaryTotal: MonetaryTotal(
+            lineExtensionAmount: MonetaryAmount(value: 100),
+            taxInclusiveAmount: MonetaryAmount(value: 118),
+            payableRoundingAmount: payableRoundingAmount.map(MonetaryAmount.init(value:)),
+            payableAmount: MonetaryAmount(value: payableAmount)
+        ),
         lines: [InvoiceLine(
             id: "1",
             quantity: Quantity(value: 2, unitCode: .unit),
@@ -815,8 +877,8 @@ private func makeReferenceBoletaForSunatBeta() -> Boleta {
         scheme: .gratuito
     )
 
-    func amount(_ value: String) -> MonetaryAmount {
-        MonetaryAmount(value: Decimal(string: value)!)
+    func amount(_ value: Decimal) -> MonetaryAmount {
+        MonetaryAmount(value: value)
     }
 
     return Boleta(
@@ -845,43 +907,43 @@ private func makeReferenceBoletaForSunatBeta() -> Boleta {
             legalName: "Pazos Atoche Luana Karina"
         ),
         taxTotal: TaxTotal(
-            amount: amount("266.65"),
+            amount: amount(266.65),
             subtotals: [
                 TaxSubtotal(
-                    taxableAmount: amount("1481.35"),
-                    taxAmount: amount("266.65"),
+                    taxableAmount: amount(1481.35),
+                    taxAmount: amount(266.65),
                     scheme: .igv
                 ),
                 TaxSubtotal(
-                    taxableAmount: amount("4.80"),
-                    taxAmount: amount("0.00"),
+                    taxableAmount: amount(4.80),
+                    taxAmount: amount(0.00),
                     scheme: .gratuito
                 )
             ]
         ),
         monetaryTotal: MonetaryTotal(
-            lineExtensionAmount: amount("1481.35"),
-            taxInclusiveAmount: amount("1748.00"),
-            allowanceTotalAmount: amount("0.00"),
-            payableAmount: amount("1748.00")
+            lineExtensionAmount: amount(1481.35),
+            taxInclusiveAmount: amount(1748.00),
+            allowanceTotalAmount: amount(0.00),
+            payableAmount: amount(1748.00)
         ),
         lines: [
             InvoiceLine(
                 id: "1",
                 quantity: Quantity(value: 1, unitCode: .unit),
-                lineExtensionAmount: amount("845.76"),
+                lineExtensionAmount: amount(845.76),
                 alternativePrices: [
                     AlternativePrice(
-                        amount: amount("998.00"),
+                        amount: amount(998.00),
                         type: .unitPriceIncludingTaxes
                     )
                 ],
                 taxTotal: LineTaxTotal(
-                    amount: amount("152.24"),
+                    amount: amount(152.24),
                     subtotals: [
                         LineTaxSubtotal(
-                            taxableAmount: amount("845.76"),
-                            taxAmount: amount("152.24"),
+                            taxableAmount: amount(845.76),
+                            taxAmount: amount(152.24),
                             category: igvCategory
                         )
                     ]
@@ -891,24 +953,24 @@ private func makeReferenceBoletaForSunatBeta() -> Boleta {
                     sellerItemIdentifier: "REF564",
                     commodityClassificationCode: "52141501"
                 ),
-                price: amount("845.76")
+                price: amount(845.76)
             ),
             InvoiceLine(
                 id: "2",
                 quantity: Quantity(value: 1, unitCode: .unit),
-                lineExtensionAmount: amount("635.59"),
+                lineExtensionAmount: amount(635.59),
                 alternativePrices: [
                     AlternativePrice(
-                        amount: amount("750.00"),
+                        amount: amount(750.00),
                         type: .unitPriceIncludingTaxes
                     )
                 ],
                 taxTotal: LineTaxTotal(
-                    amount: amount("114.41"),
+                    amount: amount(114.41),
                     subtotals: [
                         LineTaxSubtotal(
-                            taxableAmount: amount("635.59"),
-                            taxAmount: amount("114.41"),
+                            taxableAmount: amount(635.59),
+                            taxAmount: amount(114.41),
                             category: igvCategory
                         )
                     ]
@@ -918,24 +980,24 @@ private func makeReferenceBoletaForSunatBeta() -> Boleta {
                     sellerItemIdentifier: "COC124",
                     commodityClassificationCode: "95141606"
                 ),
-                price: amount("635.59")
+                price: amount(635.59)
             ),
             InvoiceLine(
                 id: "3",
                 quantity: Quantity(value: 1, unitCode: .unit),
-                lineExtensionAmount: amount("4.80"),
+                lineExtensionAmount: amount(4.80),
                 alternativePrices: [
                     AlternativePrice(
-                        amount: amount("4.80"),
+                        amount: amount(4.80),
                         type: .referenceValue
                     )
                 ],
                 taxTotal: LineTaxTotal(
-                    amount: amount("0.00"),
+                    amount: amount(0.00),
                     subtotals: [
                         LineTaxSubtotal(
-                            taxableAmount: amount("4.80"),
-                            taxAmount: amount("0.00"),
+                            taxableAmount: amount(4.80),
+                            taxAmount: amount(0.00),
                             category: freeCategory
                         )
                     ]
@@ -945,7 +1007,7 @@ private func makeReferenceBoletaForSunatBeta() -> Boleta {
                     sellerItemIdentifier: "NOB012",
                     commodityClassificationCode: "24121803"
                 ),
-                price: amount("0.00"),
+                price: amount(0.00),
                 isFreeOfCharge: true
             )
         ]

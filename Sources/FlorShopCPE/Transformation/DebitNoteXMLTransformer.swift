@@ -14,6 +14,7 @@ public struct DebitNoteXMLTransformer: DebitNoteXMLTransforming, Sendable {
 
     public func transform(_ note: NotaDebito) throws -> String {
         try validator.validate(note)
+        try CPEAmountConsistencyValidator().validate(note)
         let signature = SignatureInformation(
             identifier: note.identifier.value,
             supplier: note.supplier
@@ -190,7 +191,7 @@ public struct DebitNoteXMLTransformer: DebitNoteXMLTransforming, Sendable {
             writer.open("cac:TaxCategory")
             writeTaxCategoryIdentifier(for: subtotal.category.scheme, to: &writer)
             if let percent = subtotal.category.percent {
-                writer.element("cbc:Percent", text: formatDecimal(percent))
+                writer.element("cbc:Percent", text: writer.formatRate(percent))
             }
             if let code = subtotal.category.exemptionReasonCode {
                 writer.element("cbc:TaxExemptionReasonCode", text: code.rawValue)
@@ -249,7 +250,7 @@ public struct DebitNoteXMLTransformer: DebitNoteXMLTransforming, Sendable {
         if let quantity = line.quantity {
             writer.element(
                 "cbc:DebitedQuantity",
-                text: formatDecimal(quantity.value),
+                text: writer.formatQuantity(quantity.value),
                 attributes: [
                     "unitCode": quantity.unitCode.rawValue,
                     "unitCodeListAgencyName": "United Nations Economic Commission for Europe",
@@ -262,7 +263,7 @@ public struct DebitNoteXMLTransformer: DebitNoteXMLTransforming, Sendable {
             writer.open("cac:PricingReference")
             line.alternativePrices.forEach { alternative in
                 writer.open("cac:AlternativeConditionPrice")
-                write("cbc:PriceAmount", amount: alternative.amount, to: &writer)
+                writer.unitPriceElement("cbc:PriceAmount", amount: alternative.amount)
                 writer.element("cbc:PriceTypeCode", text: alternative.type.rawValue)
                 writer.close("cac:AlternativeConditionPrice")
             }
@@ -288,7 +289,7 @@ public struct DebitNoteXMLTransformer: DebitNoteXMLTransforming, Sendable {
         writer.close("cac:Item")
         if let price = line.price {
             writer.open("cac:Price")
-            write("cbc:PriceAmount", amount: price, to: &writer)
+            writer.unitPriceElement("cbc:PriceAmount", amount: price)
             writer.close("cac:Price")
         }
         writer.close("cac:DebitNoteLine")
@@ -304,16 +305,6 @@ public struct DebitNoteXMLTransformer: DebitNoteXMLTransforming, Sendable {
 
     private func format(_ time: IssueTime) -> String {
         String(format: "%02d:%02d:%02d", time.hour, time.minute, time.second)
-    }
-
-    private func formatDecimal(_ value: Decimal) -> String {
-        let formatter = NumberFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.numberStyle = .decimal
-        formatter.usesGroupingSeparator = false
-        formatter.minimumFractionDigits = 0
-        formatter.maximumFractionDigits = 10
-        return formatter.string(from: value as NSDecimalNumber) ?? NSDecimalNumber(decimal: value).stringValue
     }
 
 }

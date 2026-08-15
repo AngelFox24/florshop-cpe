@@ -85,48 +85,48 @@ import FlorShopCPE
             )
         ),
         taxTotal: TaxTotal(
-            amount: MonetaryAmount(value: Decimal(string: "202.69")!),
+            amount: MonetaryAmount(value: 202.69),
             subtotals: [
                 TaxSubtotal(
-                    taxableAmount: MonetaryAmount(value: Decimal(string: "1126.05")!),
-                    taxAmount: MonetaryAmount(value: Decimal(string: "202.69")!),
+                    taxableAmount: MonetaryAmount(value: 1126.05),
+                    taxAmount: MonetaryAmount(value: 202.69),
                     scheme: .igv
                 )
             ]
         ),
         monetaryTotal: MonetaryTotal(
-            lineExtensionAmount: MonetaryAmount(value: Decimal(string: "1126.05")!),
-            taxInclusiveAmount: MonetaryAmount(value: Decimal(string: "1328.74")!),
+            lineExtensionAmount: MonetaryAmount(value: 1126.05),
+            taxInclusiveAmount: MonetaryAmount(value: 1328.74),
             allowanceTotalAmount: MonetaryAmount(          // Opcional
-                value: Decimal(string: "0.00")!
+                value: 0.00
             ),
             chargeTotalAmount: MonetaryAmount(             // Opcional
-                value: Decimal(string: "0.00")!
+                value: 0.00
             ),
             prepaidAmount: MonetaryAmount(                 // Opcional
-                value: Decimal(string: "0.00")!
+                value: 0.00
             ),
-            payableAmount: MonetaryAmount(value: Decimal(string: "1328.74")!)
+            payableAmount: MonetaryAmount(value: 1328.74)
         ),
         lines: [
             InvoiceLine(
                 id: "1",
                 quantity: Quantity(value: 15, unitCode: .unit),
-                lineExtensionAmount: MonetaryAmount(value: Decimal(string: "1126.05")!),
+                lineExtensionAmount: MonetaryAmount(value: 1126.05),
                 alternativePrices: [
                     AlternativePrice(
-                        amount: MonetaryAmount(value: Decimal(string: "88.58")!),
+                        amount: MonetaryAmount(value: 88.58),
                         type: .unitPriceIncludingTaxes
                     )
                 ],
                 taxTotal: LineTaxTotal(
-                    amount: MonetaryAmount(value: Decimal(string: "202.69")!),
+                    amount: MonetaryAmount(value: 202.69),
                     subtotals: [
                         LineTaxSubtotal(
-                            taxableAmount: MonetaryAmount(value: Decimal(string: "1126.05")!),
-                            taxAmount: MonetaryAmount(value: Decimal(string: "202.69")!),
+                            taxableAmount: MonetaryAmount(value: 1126.05),
+                            taxAmount: MonetaryAmount(value: 202.69),
                             category: TaxCategory(
-                                percent: Decimal(string: "18")!,               // Opcional
+                                percent: 18,                                   // Opcional
                                 exemptionReasonCode: .gravadoOperacionOnerosa, // Opcional
                                 scheme: .igv
                             )
@@ -138,7 +138,7 @@ import FlorShopCPE
                     sellerItemIdentifier: "KGLUE-1L",      // Opcional
                     commodityClassificationCode: "12161902" // Opcional
                 ),
-                price: MonetaryAmount(value: Decimal(string: "75.07")!),
+                price: MonetaryAmount(value: 75.07),
                 isFreeOfCharge: false                       // Opcional
             )
         ],
@@ -167,10 +167,10 @@ import FlorShopCPE
             countryCode: "PE"
         ),
         paymentCondition: .credit(
-            pendingAmount: MonetaryAmount(value: Decimal(string: "1328.74")!),
+            pendingAmount: MonetaryAmount(value: 1328.74),
             installments: [
                 PaymentInstallment(
-                    amount: MonetaryAmount(value: Decimal(string: "1328.74")!),
+                    amount: MonetaryAmount(value: 1328.74),
                     dueDate: dueDate
                 )
             ]

@@ -15,6 +15,7 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
 
     public func transform(_ document: any UBLInvoiceDocument) throws -> String {
         try validator.validate(document)
+        try CPEAmountConsistencyValidator().validate(document)
         let signature = SignatureInformation(
             identifier: document.identifier.value,
             supplier: document.supplier
@@ -60,7 +61,7 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
             ]
         )
         let note = try amountInWordsFormatter.format(
-            document.monetaryTotal.payableAmount.value,
+            CPEPrecision.monetary(document.monetaryTotal.payableAmount.value),
             currency: document.currency
         )
         writer.element("cbc:Note", text: note, attributes: ["languageLocaleID": "1000"])
@@ -125,7 +126,7 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
                 writer.element("cbc:AllowanceChargeReasonCode", text: reasonCode)
             }
             if let multiplierFactor = allowance.multiplierFactor {
-                writer.element("cbc:MultiplierFactorNumeric", text: format(multiplierFactor))
+                writer.element("cbc:MultiplierFactorNumeric", text: writer.formatRate(multiplierFactor))
             }
             write("cbc:Amount", amount: allowance.amount, to: &writer)
             if let baseAmount = allowance.baseAmount {
@@ -286,7 +287,9 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
             write("cbc:TaxAmount", amount: subtotal.taxAmount, to: &writer)
             writer.open("cac:TaxCategory")
             writeTaxCategoryIdentifier(for: subtotal.category.scheme, to: &writer)
-            if let percent = subtotal.category.percent { writer.element("cbc:Percent", text: format(percent)) }
+            if let percent = subtotal.category.percent {
+                writer.element("cbc:Percent", text: writer.formatRate(percent))
+            }
             if let code = subtotal.category.exemptionReasonCode { writer.element("cbc:TaxExemptionReasonCode", text: code.rawValue) }
             write(subtotal.category.scheme, to: &writer)
             writer.close("cac:TaxCategory")
@@ -346,6 +349,9 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
         if let amount = total.prepaidAmount {
             write("cbc:PrepaidAmount", amount: amount, to: &writer)
         }
+        if let amount = total.payableRoundingAmount {
+            write("cbc:PayableRoundingAmount", amount: amount, to: &writer)
+        }
         write("cbc:PayableAmount", amount: total.payableAmount, to: &writer)
         writer.close("cac:LegalMonetaryTotal")
     }
@@ -355,7 +361,7 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
         writer.element("cbc:ID", text: line.id)
         writer.element(
             "cbc:InvoicedQuantity",
-            text: format(line.quantity.value),
+            text: writer.formatQuantity(line.quantity.value),
             attributes: ["unitCode": line.quantity.unitCode.rawValue]
         )
         write("cbc:LineExtensionAmount", amount: line.lineExtensionAmount, to: &writer)
@@ -369,7 +375,7 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
             writer.open("cac:PricingReference")
             line.alternativePrices.forEach { alternativePrice in
                 writer.open("cac:AlternativeConditionPrice")
-                write("cbc:PriceAmount", amount: alternativePrice.amount, to: &writer)
+                writer.unitPriceElement("cbc:PriceAmount", amount: alternativePrice.amount)
                 writer.element("cbc:PriceTypeCode", text: alternativePrice.type.rawValue)
                 writer.close("cac:AlternativeConditionPrice")
             }
@@ -398,7 +404,7 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
         }
         writer.close("cac:Item")
         writer.open("cac:Price")
-        write("cbc:PriceAmount", amount: line.price, to: &writer)
+        writer.unitPriceElement("cbc:PriceAmount", amount: line.price)
         writer.close("cac:Price")
         writer.close("cac:InvoiceLine")
     }
@@ -413,16 +419,6 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
 
     private func format(_ time: IssueTime) -> String {
         String(format: "%02d:%02d:%02d", time.hour, time.minute, time.second)
-    }
-
-    private func format(_ value: Decimal) -> String {
-        let formatter = NumberFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.numberStyle = .decimal
-        formatter.usesGroupingSeparator = false
-        formatter.minimumFractionDigits = 0
-        formatter.maximumFractionDigits = 6
-        return formatter.string(from: value as NSDecimalNumber) ?? NSDecimalNumber(decimal: value).stringValue
     }
 
 }

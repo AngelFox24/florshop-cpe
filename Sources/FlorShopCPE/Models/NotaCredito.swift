@@ -22,17 +22,20 @@ public struct CreditNoteMonetaryTotal: Codable, Equatable, Sendable {
     public let allowanceTotalAmount: MonetaryAmount?
     public let chargeTotalAmount: MonetaryAmount?
     public let prepaidAmount: MonetaryAmount?
+    public let payableRoundingAmount: MonetaryAmount?
     public let payableAmount: MonetaryAmount
 
     public init(
         allowanceTotalAmount: MonetaryAmount? = nil,
         chargeTotalAmount: MonetaryAmount? = nil,
         prepaidAmount: MonetaryAmount? = nil,
+        payableRoundingAmount: MonetaryAmount? = nil,
         payableAmount: MonetaryAmount
     ) {
         self.allowanceTotalAmount = allowanceTotalAmount
         self.chargeTotalAmount = chargeTotalAmount
         self.prepaidAmount = prepaidAmount
+        self.payableRoundingAmount = payableRoundingAmount
         self.payableAmount = payableAmount
     }
 }

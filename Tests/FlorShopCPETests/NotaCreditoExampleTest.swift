@@ -64,11 +64,11 @@ import FlorShopCPE
             countryCode: "PE"
         )
     )
-    let taxable = MonetaryAmount(value: Decimal(string: "100.00")!)
-    let tax = MonetaryAmount(value: Decimal(string: "18.00")!)
-    let payable = MonetaryAmount(value: Decimal(string: "118.00")!)
+    let taxable = MonetaryAmount(value: 100.00)
+    let tax = MonetaryAmount(value: 18.00)
+    let payable = MonetaryAmount(value: 118.00)
     let taxCategory = TaxCategory(
-        percent: Decimal(string: "18")!,                  // Opcional
+        percent: 18,                                      // Opcional
         exemptionReasonCode: .gravadoOperacionOnerosa,    // Opcional
         scheme: .igv
     )

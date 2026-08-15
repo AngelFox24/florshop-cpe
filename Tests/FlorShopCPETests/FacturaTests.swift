@@ -274,9 +274,9 @@ private func makeFactura(
     paymentCondition: PaymentCondition? = nil,
     allowanceCharges: [AllowanceCharge]? = nil
 ) -> Factura {
-    let taxableAmount = MonetaryAmount(value: Decimal(string: "1126.05")!)
-    let taxAmount = MonetaryAmount(value: Decimal(string: "202.69")!)
-    let payableAmount = MonetaryAmount(value: Decimal(string: "1328.74")!)
+    let taxableAmount = MonetaryAmount(value: 1126.05)
+    let taxAmount = MonetaryAmount(value: 202.69)
+    let payableAmount = MonetaryAmount(value: 1328.74)
     let category = TaxCategory(
         percent: 18,
         exemptionReasonCode: .gravadoOperacionOnerosa,
@@ -323,7 +323,7 @@ private func makeFactura(
                 lineExtensionAmount: taxableAmount,
                 alternativePrices: [
                     AlternativePrice(
-                        amount: MonetaryAmount(value: Decimal(string: "88.5826")!),
+                        amount: MonetaryAmount(value: 88.5826),
                         type: .unitPriceIncludingTaxes
                     )
                 ],
@@ -338,7 +338,7 @@ private func makeFactura(
                     ]
                 ),
                 item: Item(description: "COLA ENTOMOLÓGICA K-GLUE X 1 LT"),
-                price: MonetaryAmount(value: Decimal(string: "75.07")!)
+                price: MonetaryAmount(value: 75.07)
             )
         ],
         orderReference: includeCommercialTerms ? "4301113494" : nil,
@@ -369,8 +369,8 @@ private func makeFactura(
             AllowanceCharge(
                 isCharge: false,
                 reasonCode: "62",
-                multiplierFactor: Decimal(string: "0.03")!,
-                amount: MonetaryAmount(value: Decimal(string: "39.86")!),
+                multiplierFactor: 0.03,
+                amount: MonetaryAmount(value: 39.86),
                 baseAmount: payableAmount
             )
         ] : [])
@@ -391,7 +391,7 @@ private func makeFacturaForSunatBeta() -> Factura {
 }
 
 private func makeReferenceFacturaForSunatBeta() -> Factura {
-    let netPendingAmount = MonetaryAmount(value: Decimal(string: "1328.74")!)
+    let netPendingAmount = MonetaryAmount(value: 1328.74)
 
     return makeFactura(
         identifier: DocumentIdentifier(

@@ -55,11 +55,11 @@ import FlorShopCPE
         customerIdentifier: PartyIdentifier(value: "46237547", documentType: .dni),
         customerLegalName: "Pazos Atoche Luana Karina",   // Opcional
         condition: .add,
-        totalAmount: MonetaryAmount(value: Decimal(string: "118.00")!),
+        totalAmount: MonetaryAmount(value: 118.00),
         sales: [
             DailySummarySale(
                 type: .taxable,
-                amount: MonetaryAmount(value: Decimal(string: "100.00")!)
+                amount: MonetaryAmount(value: 100.00)
             ),
             DailySummarySale(
                 type: .exempt,
@@ -73,8 +73,8 @@ import FlorShopCPE
         chargeTotalAmount: MonetaryAmount(value: 0), // Opcional
         taxes: [
             DailySummaryTax(
-                amount: MonetaryAmount(value: Decimal(string: "18.00")!),
-                percent: Decimal(string: "18")!,            // Opcional
+                amount: MonetaryAmount(value: 18.00),
+                percent: 18,                                // Opcional
                 scheme: .igv
             )
         ]
