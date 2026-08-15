@@ -87,7 +87,7 @@ import FlorShopCPE
         lines: [
             InvoiceLine(
                 id: "1",
-                quantity: Quantity(value: 15, unitCode: .unit),
+                quantity: .units(15),
                 pricing: .taxed(75.07, basis: .excludingTaxes),
                 item: Item(
                     description: "COLA ENTOMOLÓGICA K-GLUE X 1 LT",

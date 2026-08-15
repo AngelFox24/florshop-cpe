@@ -369,7 +369,7 @@ private func makeSummaryBoleta(
         ),
         lines: [InvoiceLine(
             id: "1",
-            quantity: Quantity(value: 1, unitCode: .unit),
+            quantity: .units(1),
             pricing: pricing,
             item: Item(description: "PRODUCTO")
         )]

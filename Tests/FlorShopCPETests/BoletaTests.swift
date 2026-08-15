@@ -14,7 +14,7 @@ import ZIPFoundation
     )
     let line = InvoiceLine(
         id: "1",
-        quantity: Quantity(value: 2, unitCode: .unit),
+        quantity: .units(2),
         pricing: .taxed(50, basis: .excludingTaxes),
         item: Item(description: "PROD 1", sellerItemIdentifier: "C023")
     )
@@ -61,7 +61,7 @@ import ZIPFoundation
         customer: Customer(identifier: PartyIdentifier(value: "20203030", documentType: .dni), legalName: "PERSON 1"),
         lines: [InvoiceLine(
             id: "1",
-            quantity: Quantity(value: 2, unitCode: .unit),
+            quantity: .units(2),
             pricing: .taxed(50, basis: .excludingTaxes),
             item: Item(description: "PROD & SERVICIO", sellerItemIdentifier: "C023")
         )]
@@ -154,7 +154,7 @@ import ZIPFoundation
 }
 
 @Test func explicitPriceModesProduceTheSameCalculatedSale() {
-    let quantity = Quantity(value: 2, unitCode: .unit)
+    let quantity = Quantity.units(2)
     let item = Item(description: "PRODUCTO")
     let included = InvoiceLine(
         id: "1",
@@ -180,8 +180,26 @@ import ZIPFoundation
     #expect(included.taxTotal == excluded.taxTotal)
 }
 
+@Test func quantityFactoriesPreserveDiscreteAndContinuousUnits() {
+    let units = Quantity.units(2)
+    let kilograms = Quantity.kilograms(1.06)
+    let grams = Quantity.grams(250.5)
+    let liters = Quantity.liters(0.75)
+    let meters = Quantity.meters(2.75)
+    let serviceUnits = Quantity.serviceUnits(1.5)
+
+    #expect(units.value == 2)
+    #expect(units.unitCode == .unit)
+    #expect(kilograms.value == 1.06)
+    #expect(kilograms.unitCode == .kilogram)
+    #expect(grams.unitCode == .gram)
+    #expect(liters.unitCode == .liter)
+    #expect(meters.unitCode == .meter)
+    #expect(serviceUnits.unitCode == .serviceUnit)
+}
+
 @Test func taxTreatmentsDeriveTheSUNATTaxCategory() {
-    let quantity = Quantity(value: 1, unitCode: .unit)
+    let quantity = Quantity.units(1)
     let item = Item(description: "PRODUCTO")
     let exempt = InvoiceLine(
         id: "1",
@@ -835,7 +853,7 @@ private func makeBoleta(
         customer: Customer(identifier: PartyIdentifier(value: "20203030", documentType: .dni), legalName: "PERSON 1"),
         lines: [InvoiceLine(
             id: "1",
-            quantity: Quantity(value: 2, unitCode: .unit),
+            quantity: .units(2),
             pricing: .taxed(50, basis: .excludingTaxes),
             item: Item(description: "PRODUCTO")
         )],
@@ -885,7 +903,7 @@ private func makeReferenceBoletaForSunatBeta() -> Boleta {
         lines: [
             InvoiceLine(
                 id: "1",
-                quantity: Quantity(value: 1, unitCode: .unit),
+                quantity: .units(1),
                 pricing: .taxed(998.00),
                 item: Item(
                     description: "Refrigeradora marca “AXM” no frost de 200 ltrs.",
@@ -895,7 +913,7 @@ private func makeReferenceBoletaForSunatBeta() -> Boleta {
             ),
             InvoiceLine(
                 id: "2",
-                quantity: Quantity(value: 1, unitCode: .unit),
+                quantity: .units(1),
                 pricing: .taxed(750.00),
                 item: Item(
                     description: "Cocina a gas GLP, marca “AXM” de 5 hornillas",
@@ -905,7 +923,7 @@ private func makeReferenceBoletaForSunatBeta() -> Boleta {
             ),
             InvoiceLine(
                 id: "3",
-                quantity: Quantity(value: 1, unitCode: .unit),
+                quantity: .units(1),
                 pricing: .free(referenceValue: 4.80),
                 item: Item(
                     description: "Sixpack de gaseosa “Guerené” de 400 ml",
@@ -962,13 +980,13 @@ private func makeBoletaWithMoreProducts(
         lines: [
             InvoiceLine(
                 id: "1",
-                quantity: Quantity(value: 2, unitCode: .unit),
+                quantity: .units(2),
                 pricing: .taxed(50, basis: .excludingTaxes),
                 item: Item(description: "PRODUCTO 1")
             ),
             InvoiceLine(
                 id: "2",
-                quantity: Quantity(value: 1, unitCode: .unit),
+                quantity: .units(1),
                 pricing: .taxed(50, basis: .excludingTaxes),
                 item: Item(description: "PRODUCTO 2")
             )

@@ -85,7 +85,7 @@ import FlorShopCPE
         lines: [
             CreditNoteLine(
                 id: "1",
-                quantity: Quantity(value: 1, unitCode: .unit),
+                quantity: .units(1),
                 pricing: .taxed(100.00, basis: .excludingTaxes),
                 item: Item(
                     description: "PRODUCTO DEVUELTO",

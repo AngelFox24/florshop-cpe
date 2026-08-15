@@ -83,7 +83,7 @@ import FlorShopCPE
         lines: [
             InvoiceLine(
                 id: "1",
-                quantity: Quantity(value: 1, unitCode: .unit),
+                quantity: .units(1),
                 pricing: .taxed(998.00),
                 item: Item(
                     description: "Refrigeradora marca AXM no frost de 200 ltrs.",
@@ -93,7 +93,7 @@ import FlorShopCPE
             ),
             InvoiceLine(
                 id: "2",
-                quantity: Quantity(value: 1, unitCode: .unit),
+                quantity: .units(1),
                 pricing: .taxed(750.00),
                 item: Item(
                     description: "Cocina a gas GLP, marca AXM de 5 hornillas",

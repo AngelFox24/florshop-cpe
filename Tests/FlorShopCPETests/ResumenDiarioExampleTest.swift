@@ -56,7 +56,7 @@ import FlorShopCPE
         ),
         lines: [InvoiceLine(
             id: "1",
-            quantity: Quantity(value: 1, unitCode: .unit),
+            quantity: .units(1),
             pricing: .taxed(100, basis: .excludingTaxes),
             item: Item(description: "PRODUCTO")
         )]

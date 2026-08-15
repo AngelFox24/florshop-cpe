@@ -303,7 +303,7 @@ private func creditNoteValues() -> (payable: MonetaryAmount, line: InvoiceLine) 
     let payable = MonetaryAmount(value: 118)
     let line = InvoiceLine(
         id: "1",
-        quantity: Quantity(value: 1, unitCode: .unit),
+        quantity: .units(1),
         pricing: .taxed(100, basis: .excludingTaxes),
         item: Item(description: "PRODUCTO", sellerItemIdentifier: "P001")
     )

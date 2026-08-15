@@ -85,7 +85,7 @@ import FlorShopCPE
         lines: [
             DebitNoteLine(
                 id: "1",
-                quantity: Quantity(value: 1, unitCode: .unit), // Opcional
+                quantity: .units(1), // Opcional
                 pricing: .taxed(10.00, basis: .excludingTaxes),
                 item: Item(
                     description: "AUMENTO EN EL VALOR DEL PRODUCTO",

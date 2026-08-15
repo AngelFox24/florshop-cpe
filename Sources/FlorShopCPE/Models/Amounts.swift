@@ -57,13 +57,42 @@ public struct MonetaryAmount: Codable, Equatable, Sendable {
     }
 }
 
-public struct Quantity: Codable, Equatable, Sendable {
+/// Cantidad comercial cuya unidad determina si admite fracciones.
+///
+/// Las unidades individuales reciben `Int`; las medidas continuas conservan
+/// un `Decimal`. No existe un inicializador público que permita combinarlas
+/// arbitrariamente.
+public struct Quantity: Equatable, Sendable {
     public let value: Decimal
     public let unitCode: UnitCode
 
-    public init(value: Decimal, unitCode: UnitCode) {
+    private init(value: Decimal, unitCode: UnitCode) {
         self.value = value
         self.unitCode = unitCode
+    }
+
+    public static func units(_ count: Int) -> Quantity {
+        Quantity(value: Decimal(count), unitCode: .unit)
+    }
+
+    public static func kilograms(_ value: Decimal) -> Quantity {
+        Quantity(value: value, unitCode: .kilogram)
+    }
+
+    public static func grams(_ value: Decimal) -> Quantity {
+        Quantity(value: value, unitCode: .gram)
+    }
+
+    public static func liters(_ value: Decimal) -> Quantity {
+        Quantity(value: value, unitCode: .liter)
+    }
+
+    public static func meters(_ value: Decimal) -> Quantity {
+        Quantity(value: value, unitCode: .meter)
+    }
+
+    public static func serviceUnits(_ value: Decimal) -> Quantity {
+        Quantity(value: value, unitCode: .serviceUnit)
     }
 }
 

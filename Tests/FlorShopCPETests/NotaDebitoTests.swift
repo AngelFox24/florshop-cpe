@@ -345,7 +345,7 @@ private func debitNoteValues(
     let line = includeQuantityAndPrice
         ? DebitNoteLine(
             id: "1",
-            quantity: Quantity(value: 1, unitCode: .unit),
+            quantity: .units(1),
             pricing: .taxed(10, basis: .excludingTaxes),
             item: item
         )
@@ -356,7 +356,7 @@ private func debitNoteValues(
 private func makeDebitNotePrerequisiteInvoice(number: String, issueDate: IssueDate) -> Factura {
     let line = InvoiceLine(
         id: "1",
-        quantity: Quantity(value: 1, unitCode: .unit),
+        quantity: .units(1),
         pricing: .taxed(100, basis: .excludingTaxes),
         item: Item(description: "PRODUCTO", sellerItemIdentifier: "P001")
     )
