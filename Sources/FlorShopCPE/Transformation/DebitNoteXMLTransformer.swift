@@ -215,7 +215,7 @@ public struct DebitNoteXMLTransformer: DebitNoteXMLTransforming, Sendable {
         let identifier: String
         switch scheme.identifier {
         case TaxScheme.igv.identifier: identifier = "S"
-        case "9995": identifier = "G"
+        case TaxScheme.exportacion.identifier: identifier = "G"
         case TaxScheme.gratuito.identifier: identifier = "Z"
         case "9997": identifier = "E"
         case TaxScheme.inafecto.identifier: identifier = "O"

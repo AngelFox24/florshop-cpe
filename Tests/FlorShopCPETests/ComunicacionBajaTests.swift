@@ -365,14 +365,6 @@ private func voidedSupplier(ruc: String = "20123456789") -> Supplier {
 }
 
 private func makeVoidedPrerequisiteInvoice(number: String, issueDate: IssueDate) -> Factura {
-    let taxable = MonetaryAmount(value: 100)
-    let tax = MonetaryAmount(value: 18)
-    let payable = MonetaryAmount(value: 118)
-    let category = TaxCategory(percent: 18, exemptionReasonCode: .gravadoOperacionOnerosa, scheme: .igv)
-    let taxTotal = TaxTotal(
-        amount: tax,
-        subtotals: [TaxSubtotal(taxableAmount: taxable, taxAmount: tax, scheme: .igv)]
-    )
     return Factura(
         identifier: DocumentIdentifier(series: "F001", number: number),
         issueDate: issueDate,
@@ -383,27 +375,11 @@ private func makeVoidedPrerequisiteInvoice(number: String, issueDate: IssueDate)
             identifier: PartyIdentifier(value: "20109072177", documentType: .ruc),
             legalName: "CLIENTE S.A.C."
         ),
-        taxTotal: taxTotal,
-        monetaryTotal: MonetaryTotal(
-            lineExtensionAmount: taxable,
-            taxInclusiveAmount: payable,
-            payableAmount: payable
-        ),
         lines: [InvoiceLine(
             id: "1",
             quantity: Quantity(value: 1, unitCode: .unit),
-            lineExtensionAmount: taxable,
-            alternativePrices: [AlternativePrice(amount: payable, type: .unitPriceIncludingTaxes)],
-            taxTotal: LineTaxTotal(
-                amount: tax,
-                subtotals: [LineTaxSubtotal(
-                    taxableAmount: taxable,
-                    taxAmount: tax,
-                    category: category
-                )]
-            ),
-            item: Item(description: "PRODUCTO", sellerItemIdentifier: "P001"),
-            price: taxable
+            pricing: .taxed(100, basis: .excludingTaxes),
+            item: Item(description: "PRODUCTO", sellerItemIdentifier: "P001")
         )],
         paymentCondition: .cash
     )

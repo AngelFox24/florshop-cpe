@@ -80,98 +80,31 @@ import FlorShopCPE
                 countryCode: "PE"
             )
         ),
-        taxTotal: TaxTotal(
-            amount: MonetaryAmount(value: 266.65),
-            subtotals: [
-                TaxSubtotal(
-                    taxableAmount: MonetaryAmount(value: 1481.35),
-                    taxAmount: MonetaryAmount(value: 266.65),
-                    scheme: .igv
-                )
-            ]
-        ),
-        monetaryTotal: MonetaryTotal(
-            lineExtensionAmount: MonetaryAmount(value: 1481.35),
-            taxInclusiveAmount: MonetaryAmount(value: 1748.00),
-            allowanceTotalAmount: MonetaryAmount(              // Opcional
-                value: 0.00
-            ),
-            chargeTotalAmount: MonetaryAmount(                 // Opcional
-                value: 0.00
-            ),
-            prepaidAmount: MonetaryAmount(                     // Opcional
-                value: 0.00
-            ),
-            payableAmount: MonetaryAmount(value: 1748.00)
-        ),
         lines: [
             InvoiceLine(
                 id: "1",
                 quantity: Quantity(value: 1, unitCode: .unit),
-                lineExtensionAmount: MonetaryAmount(value: 845.76),
-                alternativePrices: [
-                    AlternativePrice(
-                        amount: MonetaryAmount(value: 998.00),
-                        type: .unitPriceIncludingTaxes
-                    )
-                ],
-                taxTotal: LineTaxTotal(
-                    amount: MonetaryAmount(value: 152.24),
-                    subtotals: [
-                        LineTaxSubtotal(
-                            taxableAmount: MonetaryAmount(value: 845.76),
-                            taxAmount: MonetaryAmount(value: 152.24),
-                            category: TaxCategory(
-                                percent: 18,                                      // Opcional
-                                exemptionReasonCode: .gravadoOperacionOnerosa,    // Opcional
-                                scheme: .igv
-                            )
-                        )
-                    ]
-                ),
+                pricing: .taxed(998.00),
                 item: Item(
                     description: "Refrigeradora marca AXM no frost de 200 ltrs.",
                     sellerItemIdentifier: "REF564",             // Opcional
                     commodityClassificationCode: "52141501"     // Opcional
-                ),
-                price: MonetaryAmount(value: 845.76),
-                isFreeOfCharge: false                            // Opcional
+                )
             ),
             InvoiceLine(
                 id: "2",
                 quantity: Quantity(value: 1, unitCode: .unit),
-                lineExtensionAmount: MonetaryAmount(value: 635.59),
-                alternativePrices: [
-                    AlternativePrice(
-                        amount: MonetaryAmount(value: 750.00),
-                        type: .unitPriceIncludingTaxes
-                    )
-                ],
-                taxTotal: LineTaxTotal(
-                    amount: MonetaryAmount(value: 114.41),
-                    subtotals: [
-                        LineTaxSubtotal(
-                            taxableAmount: MonetaryAmount(value: 635.59),
-                            taxAmount: MonetaryAmount(value: 114.41),
-                            category: TaxCategory(
-                                percent: 18,                                      // Opcional
-                                exemptionReasonCode: .gravadoOperacionOnerosa,    // Opcional
-                                scheme: .igv
-                            )
-                        )
-                    ]
-                ),
+                pricing: .taxed(750.00),
                 item: Item(
                     description: "Cocina a gas GLP, marca AXM de 5 hornillas",
                     sellerItemIdentifier: "COC124",             // Opcional
                     commodityClassificationCode: "52141504"     // Opcional
-                ),
-                price: MonetaryAmount(value: 635.59),
-                isFreeOfCharge: false                            // Opcional
+                )
             )
         ],
         additionalNotes: []                                     // Opcional
     )
+    #expect(boleta.totalAmount == 1748.00)
     //MARK: SING
     let signingConfiguration = SigningConfiguration(
         credentials: .pkcs12(

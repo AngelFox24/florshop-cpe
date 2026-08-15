@@ -4,7 +4,7 @@ import Foundation
 ///
 /// No contiene lógica de serialización ni de comunicación con SUNAT. Es la
 /// entrada que utilizará un transformador UBL en una capa posterior.
-public struct Boleta: Codable, Equatable, Sendable, UBLInvoiceDocument {
+public struct Boleta: Equatable, Sendable, UBLInvoiceDocument {
     public let identifier: DocumentIdentifier
     public let issueDate: IssueDate
     public let issueTime: IssueTime?
@@ -25,9 +25,8 @@ public struct Boleta: Codable, Equatable, Sendable, UBLInvoiceDocument {
         currency: CurrencyCode,
         supplier: Supplier,
         customer: Customer,
-        taxTotal: TaxTotal,
-        monetaryTotal: MonetaryTotal,
         lines: [InvoiceLine],
+        payableRoundingAmount: Decimal? = nil,
         additionalNotes: [DocumentNote] = []
     ) {
         self.identifier = identifier
@@ -36,11 +35,19 @@ public struct Boleta: Codable, Equatable, Sendable, UBLInvoiceDocument {
         self.currency = currency
         self.supplier = supplier
         self.customer = customer
-        self.taxTotal = taxTotal
-        self.monetaryTotal = monetaryTotal
         self.lines = lines
+        self.taxTotal = CPECalculation.taxTotal(from: lines, taxTotal: \.taxTotal)
+        self.monetaryTotal = CPECalculation.monetaryTotal(
+            lineAmounts: lines.map(\.lineExtensionAmount),
+            taxTotal: self.taxTotal,
+            payableRoundingAmount: payableRoundingAmount.map(MonetaryAmount.init(value:))
+        )
         self.additionalNotes = additionalNotes
     }
+
+    public var netAmount: Decimal { monetaryTotal.lineExtensionAmount.value }
+    public var taxAmount: Decimal { taxTotal.amount.value }
+    public var totalAmount: Decimal { monetaryTotal.payableAmount.value }
 }
 
 public struct DocumentIdentifier: Codable, Equatable, Sendable {

@@ -18,14 +18,14 @@ public enum CreditNoteReasonCode: String, Codable, CaseIterable, Sendable {
 }
 
 /// Totales monetarios permitidos por SUNAT dentro de una Nota de Crédito.
-public struct CreditNoteMonetaryTotal: Codable, Equatable, Sendable {
+public struct CreditNoteMonetaryTotal: Equatable, Sendable {
     public let allowanceTotalAmount: MonetaryAmount?
     public let chargeTotalAmount: MonetaryAmount?
     public let prepaidAmount: MonetaryAmount?
     public let payableRoundingAmount: MonetaryAmount?
     public let payableAmount: MonetaryAmount
 
-    public init(
+    init(
         allowanceTotalAmount: MonetaryAmount? = nil,
         chargeTotalAmount: MonetaryAmount? = nil,
         prepaidAmount: MonetaryAmount? = nil,
@@ -41,9 +41,12 @@ public struct CreditNoteMonetaryTotal: Codable, Equatable, Sendable {
 }
 
 /// Línea afectada por una Nota de Crédito UBL 2.1.
-public struct CreditNoteLine: Codable, Equatable, Sendable {
+public struct CreditNoteLine: Equatable, Sendable {
     public let id: String
     public let quantity: Quantity
+    public let pricing: LinePricing
+    public let taxTreatment: TaxTreatment
+    public let taxCategory: TaxCategory
     public let lineExtensionAmount: MonetaryAmount
     public let alternativePrices: [AlternativePrice]
     public let taxTotal: LineTaxTotal
@@ -53,19 +56,25 @@ public struct CreditNoteLine: Codable, Equatable, Sendable {
     public init(
         id: String,
         quantity: Quantity,
-        lineExtensionAmount: MonetaryAmount,
-        alternativePrices: [AlternativePrice],
-        taxTotal: LineTaxTotal,
-        item: Item,
-        price: MonetaryAmount
+        pricing: LinePricing,
+        item: Item
     ) {
+        let calculated = CPECalculation.line(
+            quantity: quantity.value,
+            pricing: pricing
+        )
+        let taxTreatment = pricing.taxTreatment
+        let taxCategory = taxTreatment.category
         self.id = id
         self.quantity = quantity
-        self.lineExtensionAmount = lineExtensionAmount
-        self.alternativePrices = alternativePrices
-        self.taxTotal = taxTotal
+        self.pricing = pricing
+        self.taxTreatment = taxTreatment
+        self.taxCategory = taxCategory
+        self.lineExtensionAmount = calculated.lineExtensionAmount
+        self.alternativePrices = calculated.alternativePrices
+        self.taxTotal = calculated.taxTotal
         self.item = item
-        self.price = price
+        self.price = calculated.price
     }
 
     /// Facilita reutilizar el detalle calculado del comprobante afectado.
@@ -73,11 +82,8 @@ public struct CreditNoteLine: Codable, Equatable, Sendable {
         self.init(
             id: invoiceLine.id,
             quantity: invoiceLine.quantity,
-            lineExtensionAmount: invoiceLine.lineExtensionAmount,
-            alternativePrices: invoiceLine.alternativePrices,
-            taxTotal: invoiceLine.taxTotal,
-            item: invoiceLine.item,
-            price: invoiceLine.price
+            pricing: invoiceLine.pricing,
+            item: invoiceLine.item
         )
     }
 }
@@ -86,7 +92,7 @@ public struct CreditNoteLine: Codable, Equatable, Sendable {
 ///
 /// El modelo no realiza persistencia, reintentos ni comunicación de red. Esos
 /// aspectos corresponden al sistema consumidor de la librería.
-public struct NotaCredito: Codable, Equatable, Sendable {
+public struct NotaCredito: Equatable, Sendable {
     public let identifier: DocumentIdentifier
     public let issueDate: IssueDate
     public let issueTime: IssueTime?
@@ -111,9 +117,8 @@ public struct NotaCredito: Codable, Equatable, Sendable {
         affectedDocument: AffectedDocumentIdentifier,
         reasonCode: CreditNoteReasonCode,
         reasonDescription: String,
-        taxTotal: TaxTotal,
-        monetaryTotal: CreditNoteMonetaryTotal,
         lines: [CreditNoteLine],
+        payableRoundingAmount: Decimal? = nil,
         additionalNotes: [DocumentNote] = []
     ) {
         self.identifier = identifier
@@ -125,11 +130,22 @@ public struct NotaCredito: Codable, Equatable, Sendable {
         self.affectedDocument = affectedDocument
         self.reasonCode = reasonCode
         self.reasonDescription = reasonDescription
-        self.taxTotal = taxTotal
-        self.monetaryTotal = monetaryTotal
         self.lines = lines
+        self.taxTotal = CPECalculation.taxTotal(from: lines, taxTotal: \.taxTotal)
+        let calculatedTotal = CPECalculation.monetaryTotal(
+            lineAmounts: lines.map(\.lineExtensionAmount),
+            taxTotal: self.taxTotal,
+            payableRoundingAmount: payableRoundingAmount.map(MonetaryAmount.init(value:))
+        )
+        self.monetaryTotal = CreditNoteMonetaryTotal(
+            payableRoundingAmount: calculatedTotal.payableRoundingAmount,
+            payableAmount: calculatedTotal.payableAmount
+        )
         self.additionalNotes = additionalNotes
     }
 
     public var documentType: ElectronicDocumentType { .notaDeCredito }
+    public var netAmount: Decimal { CPEPrecision.monetarySum(lines.map(\.lineExtensionAmount.value)) }
+    public var taxAmount: Decimal { taxTotal.amount.value }
+    public var totalAmount: Decimal { monetaryTotal.payableAmount.value }
 }

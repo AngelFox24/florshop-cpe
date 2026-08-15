@@ -84,62 +84,16 @@ import FlorShopCPE
                 countryCode: "PE"
             )
         ),
-        taxTotal: TaxTotal(
-            amount: MonetaryAmount(value: 202.69),
-            subtotals: [
-                TaxSubtotal(
-                    taxableAmount: MonetaryAmount(value: 1126.05),
-                    taxAmount: MonetaryAmount(value: 202.69),
-                    scheme: .igv
-                )
-            ]
-        ),
-        monetaryTotal: MonetaryTotal(
-            lineExtensionAmount: MonetaryAmount(value: 1126.05),
-            taxInclusiveAmount: MonetaryAmount(value: 1328.74),
-            allowanceTotalAmount: MonetaryAmount(          // Opcional
-                value: 0.00
-            ),
-            chargeTotalAmount: MonetaryAmount(             // Opcional
-                value: 0.00
-            ),
-            prepaidAmount: MonetaryAmount(                 // Opcional
-                value: 0.00
-            ),
-            payableAmount: MonetaryAmount(value: 1328.74)
-        ),
         lines: [
             InvoiceLine(
                 id: "1",
                 quantity: Quantity(value: 15, unitCode: .unit),
-                lineExtensionAmount: MonetaryAmount(value: 1126.05),
-                alternativePrices: [
-                    AlternativePrice(
-                        amount: MonetaryAmount(value: 88.58),
-                        type: .unitPriceIncludingTaxes
-                    )
-                ],
-                taxTotal: LineTaxTotal(
-                    amount: MonetaryAmount(value: 202.69),
-                    subtotals: [
-                        LineTaxSubtotal(
-                            taxableAmount: MonetaryAmount(value: 1126.05),
-                            taxAmount: MonetaryAmount(value: 202.69),
-                            category: TaxCategory(
-                                percent: 18,                                   // Opcional
-                                exemptionReasonCode: .gravadoOperacionOnerosa, // Opcional
-                                scheme: .igv
-                            )
-                        )
-                    ]
-                ),
+                pricing: .taxed(75.07, basis: .excludingTaxes),
                 item: Item(
                     description: "COLA ENTOMOLÓGICA K-GLUE X 1 LT",
                     sellerItemIdentifier: "KGLUE-1L",      // Opcional
                     commodityClassificationCode: "12161902" // Opcional
-                ),
-                price: MonetaryAmount(value: 75.07),
-                isFreeOfCharge: false                       // Opcional
+                )
             )
         ],
         additionalNotes: [                                  // Opcional
@@ -167,7 +121,6 @@ import FlorShopCPE
             countryCode: "PE"
         ),
         paymentCondition: .credit(
-            pendingAmount: MonetaryAmount(value: 1328.74),
             installments: [
                 PaymentInstallment(
                     amount: MonetaryAmount(value: 1328.74),
@@ -177,6 +130,7 @@ import FlorShopCPE
         ),
         allowanceCharges: []                               // Opcional; vacío porque no existe descuento/cargo real
     )
+    #expect(factura.totalAmount == 1328.74)
 
     let signingConfiguration = SigningConfiguration(
         credentials: .pkcs12(

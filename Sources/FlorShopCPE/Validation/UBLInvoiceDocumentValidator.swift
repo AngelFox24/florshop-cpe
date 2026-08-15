@@ -9,6 +9,9 @@ public enum UBLInvoiceDocumentValidationError: Error, Equatable, Sendable {
     case invalidSupplierAddressTypeCode
     case emptyLines
     case duplicatedLineIdentifier(String)
+    case nonPositiveQuantity(String)
+    case nonPositiveUnitPrice(String)
+    case invalidTaxPercent(String)
     case emptyPaymentInstallments
     case tooManyPaymentInstallments
     case nonPositivePendingPaymentAmount
@@ -59,12 +62,25 @@ public struct UBLInvoiceDocumentValidator: Sendable {
         }
 
         var identifiers = Set<String>()
-        for line in document.lines where !identifiers.insert(line.id).inserted {
-            throw UBLInvoiceDocumentValidationError.duplicatedLineIdentifier(line.id)
+        for line in document.lines {
+            guard identifiers.insert(line.id).inserted else {
+                throw UBLInvoiceDocumentValidationError.duplicatedLineIdentifier(line.id)
+            }
+            guard CPEPrecision.unitValue(line.quantity.value) > 0 else {
+                throw UBLInvoiceDocumentValidationError.nonPositiveQuantity(line.id)
+            }
+            guard CPEPrecision.unitValue(line.pricing.amount) > 0 else {
+                throw UBLInvoiceDocumentValidationError.nonPositiveUnitPrice(line.id)
+            }
+            if let percent = line.taxCategory.percent,
+               percent < 0 || percent > 100 {
+                throw UBLInvoiceDocumentValidationError.invalidTaxPercent(line.id)
+            }
         }
 
         if let factura = document as? Factura,
-           case let .credit(pendingAmount, installments) = factura.paymentCondition {
+           case let .credit(installments) = factura.paymentCondition {
+            let pendingAmount = factura.paymentCondition.pendingAmount ?? MonetaryAmount(value: .zero)
             guard pendingAmount.value > 0 else {
                 throw UBLInvoiceDocumentValidationError.nonPositivePendingPaymentAmount
             }
@@ -82,10 +98,8 @@ public struct UBLInvoiceDocumentValidator: Sendable {
                     throw UBLInvoiceDocumentValidationError.invalidPaymentInstallmentDueDate(index + 1)
                 }
             }
-            let installmentsTotal = installments.reduce(Decimal.zero) { partial, installment in
-                partial + CPEPrecision.monetary(installment.amount.value)
-            }
-            guard CPEPrecision.monetary(installmentsTotal) == CPEPrecision.monetary(pendingAmount.value) else {
+            guard CPEPrecision.monetary(pendingAmount.value)
+                    == CPEPrecision.monetary(factura.monetaryTotal.payableAmount.value) else {
                 throw UBLInvoiceDocumentValidationError.paymentInstallmentsTotalMismatch
             }
         }

@@ -13,6 +13,9 @@ public enum CreditNoteValidationError: Error, Equatable, Sendable {
     case invalidSupplierAddressTypeCode
     case emptyLines
     case duplicatedLineIdentifier(String)
+    case nonPositiveQuantity(String)
+    case nonPositiveUnitPrice(String)
+    case invalidTaxPercent(String)
     case invalidPayableRoundingAmount
 }
 
@@ -57,8 +60,20 @@ public struct CreditNoteValidator: Sendable {
 
         guard !note.lines.isEmpty else { throw CreditNoteValidationError.emptyLines }
         var identifiers = Set<String>()
-        for line in note.lines where !identifiers.insert(line.id).inserted {
-            throw CreditNoteValidationError.duplicatedLineIdentifier(line.id)
+        for line in note.lines {
+            guard identifiers.insert(line.id).inserted else {
+                throw CreditNoteValidationError.duplicatedLineIdentifier(line.id)
+            }
+            guard CPEPrecision.unitValue(line.quantity.value) > 0 else {
+                throw CreditNoteValidationError.nonPositiveQuantity(line.id)
+            }
+            guard CPEPrecision.unitValue(line.pricing.amount) > 0 else {
+                throw CreditNoteValidationError.nonPositiveUnitPrice(line.id)
+            }
+            if let percent = line.taxCategory.percent,
+               percent < 0 || percent > 100 {
+                throw CreditNoteValidationError.invalidTaxPercent(line.id)
+            }
         }
         if let rounding = note.monetaryTotal.payableRoundingAmount,
            abs(CPEPrecision.monetary(rounding.value)) > 1 {

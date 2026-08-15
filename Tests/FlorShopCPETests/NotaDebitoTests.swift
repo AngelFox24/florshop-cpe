@@ -302,8 +302,6 @@ private func makeDebitNote(
         affectedDocument: affectedDocument,
         reasonCode: reason,
         reasonDescription: reasonDescription,
-        taxTotal: values.taxTotal,
-        monetaryTotal: DebitNoteMonetaryTotal(payableAmount: values.payable),
         lines: [values.line]
     )
 }
@@ -341,52 +339,26 @@ private func debitNoteSupplier() -> Supplier {
 
 private func debitNoteValues(
     includeQuantityAndPrice: Bool = true
-) -> (taxTotal: TaxTotal, payable: MonetaryAmount, line: DebitNoteLine) {
-    let taxable = MonetaryAmount(value: 10)
-    let tax = MonetaryAmount(value: 1.80)
+) -> (payable: MonetaryAmount, line: DebitNoteLine) {
     let payable = MonetaryAmount(value: 11.80)
-    let category = TaxCategory(percent: 18, exemptionReasonCode: .gravadoOperacionOnerosa, scheme: .igv)
-    let taxTotal = TaxTotal(
-        amount: tax,
-        subtotals: [TaxSubtotal(taxableAmount: taxable, taxAmount: tax, scheme: .igv)]
-    )
-    let line = DebitNoteLine(
-        id: "1",
-        quantity: includeQuantityAndPrice ? Quantity(value: 1, unitCode: .unit) : nil,
-        lineExtensionAmount: taxable,
-        alternativePrices: includeQuantityAndPrice
-            ? [AlternativePrice(amount: payable, type: .unitPriceIncludingTaxes)]
-            : [],
-        taxTotal: LineTaxTotal(
-            amount: tax,
-            subtotals: [LineTaxSubtotal(taxableAmount: taxable, taxAmount: tax, category: category)]
-        ),
-        item: Item(description: "AUMENTO EN EL VALOR DEL PRODUCTO", sellerItemIdentifier: "P001"),
-        price: includeQuantityAndPrice ? taxable : nil
-    )
-    return (taxTotal, payable, line)
+    let item = Item(description: "AUMENTO EN EL VALOR DEL PRODUCTO", sellerItemIdentifier: "P001")
+    let line = includeQuantityAndPrice
+        ? DebitNoteLine(
+            id: "1",
+            quantity: Quantity(value: 1, unitCode: .unit),
+            pricing: .taxed(10, basis: .excludingTaxes),
+            item: item
+        )
+        : DebitNoteLine(id: "1", pricing: .taxed(10, basis: .excludingTaxes), item: item)
+    return (payable, line)
 }
 
 private func makeDebitNotePrerequisiteInvoice(number: String, issueDate: IssueDate) -> Factura {
-    let taxable = MonetaryAmount(value: 100)
-    let tax = MonetaryAmount(value: 18)
-    let payable = MonetaryAmount(value: 118)
-    let category = TaxCategory(percent: 18, exemptionReasonCode: .gravadoOperacionOnerosa, scheme: .igv)
-    let taxTotal = TaxTotal(
-        amount: tax,
-        subtotals: [TaxSubtotal(taxableAmount: taxable, taxAmount: tax, scheme: .igv)]
-    )
     let line = InvoiceLine(
         id: "1",
         quantity: Quantity(value: 1, unitCode: .unit),
-        lineExtensionAmount: taxable,
-        alternativePrices: [AlternativePrice(amount: payable, type: .unitPriceIncludingTaxes)],
-        taxTotal: LineTaxTotal(
-            amount: tax,
-            subtotals: [LineTaxSubtotal(taxableAmount: taxable, taxAmount: tax, category: category)]
-        ),
-        item: Item(description: "PRODUCTO", sellerItemIdentifier: "P001"),
-        price: taxable
+        pricing: .taxed(100, basis: .excludingTaxes),
+        item: Item(description: "PRODUCTO", sellerItemIdentifier: "P001")
     )
     return Factura(
         identifier: DocumentIdentifier(series: "F001", number: number),
@@ -397,12 +369,6 @@ private func makeDebitNotePrerequisiteInvoice(number: String, issueDate: IssueDa
         customer: Customer(
             identifier: PartyIdentifier(value: "20109072177", documentType: .ruc),
             legalName: "CLIENTE S.A.C."
-        ),
-        taxTotal: taxTotal,
-        monetaryTotal: MonetaryTotal(
-            lineExtensionAmount: taxable,
-            taxInclusiveAmount: payable,
-            payableAmount: payable
         ),
         lines: [line],
         paymentCondition: .cash

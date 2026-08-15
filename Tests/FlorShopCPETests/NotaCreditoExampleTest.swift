@@ -64,21 +64,6 @@ import FlorShopCPE
             countryCode: "PE"
         )
     )
-    let taxable = MonetaryAmount(value: 100.00)
-    let tax = MonetaryAmount(value: 18.00)
-    let payable = MonetaryAmount(value: 118.00)
-    let taxCategory = TaxCategory(
-        percent: 18,                                      // Opcional
-        exemptionReasonCode: .gravadoOperacionOnerosa,    // Opcional
-        scheme: .igv
-    )
-    let taxTotal = TaxTotal(
-        amount: tax,
-        subtotals: [
-            TaxSubtotal(taxableAmount: taxable, taxAmount: tax, scheme: .igv)
-        ]
-    )
-
     let notaCredito = NotaCredito(
         identifier: DocumentIdentifier(
             series: "FC01",
@@ -97,43 +82,23 @@ import FlorShopCPE
         ),
         reasonCode: .devolucionTotal,
         reasonDescription: "DEVOLUCIÓN TOTAL DEL PRODUCTO",
-        taxTotal: taxTotal,
-        monetaryTotal: CreditNoteMonetaryTotal(
-            allowanceTotalAmount: MonetaryAmount(value: 0), // Opcional
-            chargeTotalAmount: MonetaryAmount(value: 0),    // Opcional
-            prepaidAmount: MonetaryAmount(value: 0),        // Opcional
-            payableAmount: payable
-        ),
         lines: [
             CreditNoteLine(
                 id: "1",
                 quantity: Quantity(value: 1, unitCode: .unit),
-                lineExtensionAmount: taxable,
-                alternativePrices: [
-                    AlternativePrice(amount: payable, type: .unitPriceIncludingTaxes)
-                ],
-                taxTotal: LineTaxTotal(
-                    amount: tax,
-                    subtotals: [
-                        LineTaxSubtotal(
-                            taxableAmount: taxable,
-                            taxAmount: tax,
-                            category: taxCategory
-                        )
-                    ]
-                ),
+                pricing: .taxed(100.00, basis: .excludingTaxes),
                 item: Item(
                     description: "PRODUCTO DEVUELTO",
                     sellerItemIdentifier: "P001",         // Opcional
                     commodityClassificationCode: "52141501" // Opcional
-                ),
-                price: taxable
+                )
             )
         ],
         additionalNotes: [                                // Opcional
             DocumentNote(value: "DEVOLUCIÓN COORDINADA CON EL CLIENTE", languageLocaleID: "1002")
         ]
     )
+    #expect(notaCredito.totalAmount == 118.00)
 
     let signingConfiguration = SigningConfiguration(
         credentials: .pkcs12(

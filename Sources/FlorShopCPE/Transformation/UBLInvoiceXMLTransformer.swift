@@ -144,11 +144,13 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
             writer.element("cbc:PaymentMeansID", text: "Contado")
             writer.close("cac:PaymentTerms")
 
-        case let .credit(pendingAmount, installments):
+        case let .credit(installments):
             writer.open("cac:PaymentTerms")
             writer.element("cbc:ID", text: "FormaPago")
             writer.element("cbc:PaymentMeansID", text: "Credito")
-            write("cbc:Amount", amount: pendingAmount, to: &writer)
+            if let pendingAmount = condition.pendingAmount {
+                write("cbc:Amount", amount: pendingAmount, to: &writer)
+            }
             writer.close("cac:PaymentTerms")
 
             for (index, installment) in installments.enumerated() {
@@ -314,7 +316,7 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
         switch scheme.identifier {
         case TaxScheme.igv.identifier:
             identifier = "S"
-        case "9995":
+        case TaxScheme.exportacion.identifier:
             identifier = "G"
         case TaxScheme.gratuito.identifier:
             identifier = "Z"

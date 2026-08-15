@@ -76,7 +76,7 @@ public enum UnitCode: String, Codable, Sendable {
     case serviceUnit = "ZZ"
 }
 
-public struct MonetaryTotal: Codable, Equatable, Sendable {
+public struct MonetaryTotal: Equatable, Sendable {
     public let lineExtensionAmount: MonetaryAmount
     public let taxInclusiveAmount: MonetaryAmount
     public let allowanceTotalAmount: MonetaryAmount?
@@ -85,7 +85,7 @@ public struct MonetaryTotal: Codable, Equatable, Sendable {
     public let payableRoundingAmount: MonetaryAmount?
     public let payableAmount: MonetaryAmount
 
-    public init(
+    init(
         lineExtensionAmount: MonetaryAmount,
         taxInclusiveAmount: MonetaryAmount,
         allowanceTotalAmount: MonetaryAmount? = nil,

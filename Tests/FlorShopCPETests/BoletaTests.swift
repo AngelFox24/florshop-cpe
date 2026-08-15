@@ -4,7 +4,6 @@ import ZIPFoundation
 @testable import FlorShopCPE
 
 @Test func boletaModelRetainsItsDomainData() {
-    let amount = MonetaryAmount(value: 118)
     let supplier = Supplier(
         taxIdentifier: PartyIdentifier(value: "20123456789", documentType: .ruc),
         legalName: "GREENTER S.A.C."
@@ -13,35 +12,11 @@ import ZIPFoundation
         identifier: PartyIdentifier(value: "20203030", documentType: .dni),
         legalName: "PERSON 1"
     )
-    let taxCategory = TaxCategory(
-        percent: 18,
-        exemptionReasonCode: .gravadoOperacionOnerosa,
-        scheme: .igv
-    )
-    let taxTotal = TaxTotal(
-        amount: MonetaryAmount(value: 18),
-        subtotals: [TaxSubtotal(
-            taxableAmount: MonetaryAmount(value: 100),
-            taxAmount: MonetaryAmount(value: 18),
-            scheme: .igv
-        )]
-    )
-    let lineTaxTotal = LineTaxTotal(
-        amount: MonetaryAmount(value: 18),
-        subtotals: [LineTaxSubtotal(
-            taxableAmount: MonetaryAmount(value: 100),
-            taxAmount: MonetaryAmount(value: 18),
-            category: taxCategory
-        )]
-    )
     let line = InvoiceLine(
         id: "1",
         quantity: Quantity(value: 2, unitCode: .unit),
-        lineExtensionAmount: MonetaryAmount(value: 100),
-        alternativePrices: [AlternativePrice(amount: amount, type: .unitPriceIncludingTaxes)],
-        taxTotal: lineTaxTotal,
-        item: Item(description: "PROD 1", sellerItemIdentifier: "C023"),
-        price: MonetaryAmount(value: 50)
+        pricing: .taxed(50, basis: .excludingTaxes),
+        item: Item(description: "PROD 1", sellerItemIdentifier: "C023")
     )
     let boleta = Boleta(
         identifier: DocumentIdentifier(series: "B001", number: "1"),
@@ -49,12 +24,6 @@ import ZIPFoundation
         currency: .pen,
         supplier: supplier,
         customer: customer,
-        taxTotal: taxTotal,
-        monetaryTotal: MonetaryTotal(
-            lineExtensionAmount: MonetaryAmount(value: 100),
-            taxInclusiveAmount: amount,
-            payableAmount: amount
-        ),
         lines: [line]
     )
     
@@ -62,27 +31,13 @@ import ZIPFoundation
     #expect(boleta.documentType == .boleta)
     #expect(boleta.lines.count == 1)
     #expect(boleta.taxTotal.subtotals.first?.scheme == .igv)
+    #expect(boleta.netAmount == 100)
+    #expect(boleta.taxAmount == 18)
+    #expect(boleta.totalAmount == 118)
 }
 
 @Test func transformerGeneratesUBLInvoiceXML() {
     let currency: CurrencyCode = .pen
-    let taxCategory = TaxCategory(percent: 18, exemptionReasonCode: .gravadoOperacionOnerosa, scheme: .igv)
-    let taxTotal = TaxTotal(
-        amount: MonetaryAmount(value: 18),
-        subtotals: [TaxSubtotal(
-            taxableAmount: MonetaryAmount(value: 100),
-            taxAmount: MonetaryAmount(value: 18),
-            scheme: .igv
-        )]
-    )
-    let lineTaxTotal = LineTaxTotal(
-        amount: MonetaryAmount(value: 18),
-        subtotals: [LineTaxSubtotal(
-            taxableAmount: MonetaryAmount(value: 100),
-            taxAmount: MonetaryAmount(value: 18),
-            category: taxCategory
-        )]
-    )
     let boleta = Boleta(
         identifier: DocumentIdentifier(series: "B001", number: "1"),
         issueDate: IssueDate(year: 2020, month: 8, day: 19),
@@ -104,20 +59,11 @@ import ZIPFoundation
             contact: Contact(telephone: "01-234455", email: "admin@greenter.com")
         ),
         customer: Customer(identifier: PartyIdentifier(value: "20203030", documentType: .dni), legalName: "PERSON 1"),
-        taxTotal: taxTotal,
-        monetaryTotal: MonetaryTotal(
-            lineExtensionAmount: MonetaryAmount(value: 100),
-            taxInclusiveAmount: MonetaryAmount(value: 118),
-            payableAmount: MonetaryAmount(value: 118)
-        ),
         lines: [InvoiceLine(
             id: "1",
             quantity: Quantity(value: 2, unitCode: .unit),
-            lineExtensionAmount: MonetaryAmount(value: 100),
-            alternativePrices: [AlternativePrice(amount: MonetaryAmount(value: 59), type: .unitPriceIncludingTaxes)],
-            taxTotal: lineTaxTotal,
-            item: Item(description: "PROD & SERVICIO", sellerItemIdentifier: "C023"),
-            price: MonetaryAmount(value: 50)
+            pricing: .taxed(50, basis: .excludingTaxes),
+            item: Item(description: "PROD & SERVICIO", sellerItemIdentifier: "C023")
         )]
     )
     
@@ -191,10 +137,7 @@ import ZIPFoundation
 @Test func transformerNormalizesPayableRoundingAndAmountInWords() throws {
     let exactHalfCent = Decimal(5) / Decimal(1_000)
     let xml = try UBLInvoiceXMLTransformer().transform(
-        makeBoleta(
-            payableAmount: Decimal(118) + exactHalfCent,
-            payableRoundingAmount: exactHalfCent
-        )
+        makeBoleta(payableRoundingAmount: exactHalfCent)
     )
 
     #expect(xml.contains("<cbc:PayableRoundingAmount currencyID=\"PEN\">0.01</cbc:PayableRoundingAmount>"))
@@ -202,10 +145,82 @@ import ZIPFoundation
     #expect(xml.contains("SON CIENTO DIECIOCHO CON 01/100 SOLES"))
 }
 
-@Test func transformerRejectsUserAmountsThatDifferAfterNormalization() {
-    #expect(throws: CPEAmountConsistencyValidationError.payableAmountMismatch) {
-        try UBLInvoiceXMLTransformer().transform(makeBoleta(payableAmount: 118.02))
-    }
+@Test func documentExposesCalculatedAmountsBeforeSigning() {
+    let boleta = makeBoleta()
+
+    #expect(boleta.netAmount == 100)
+    #expect(boleta.taxAmount == 18)
+    #expect(boleta.totalAmount == 118)
+}
+
+@Test func explicitPriceModesProduceTheSameCalculatedSale() {
+    let quantity = Quantity(value: 2, unitCode: .unit)
+    let item = Item(description: "PRODUCTO")
+    let included = InvoiceLine(
+        id: "1",
+        quantity: quantity,
+        pricing: .taxed(118),
+        item: item
+    )
+    let excluded = InvoiceLine(
+        id: "2",
+        quantity: quantity,
+        pricing: .taxed(100, basis: .excludingTaxes),
+        item: item
+    )
+
+    #expect(included.pricing.amount == 118)
+    #expect(included.pricing.taxedPriceBasis == .includingTaxes)
+    #expect(included.taxTreatment == .taxed(rate: 18))
+    #expect(excluded.pricing == .taxed(100, basis: .excludingTaxes))
+    #expect(included.price.value == 100)
+    #expect(included.lineExtensionAmount.value == 200)
+    #expect(included.taxTotal.amount.value == 36)
+    #expect(included.lineExtensionAmount == excluded.lineExtensionAmount)
+    #expect(included.taxTotal == excluded.taxTotal)
+}
+
+@Test func taxTreatmentsDeriveTheSUNATTaxCategory() {
+    let quantity = Quantity(value: 1, unitCode: .unit)
+    let item = Item(description: "PRODUCTO")
+    let exempt = InvoiceLine(
+        id: "1",
+        quantity: quantity,
+        pricing: .exempt(100),
+        item: item
+    )
+    let unaffected = InvoiceLine(
+        id: "2",
+        quantity: quantity,
+        pricing: .unaffected(100),
+        item: item
+    )
+    let free = InvoiceLine(
+        id: "3",
+        quantity: quantity,
+        pricing: .free(referenceValue: 100),
+        item: item
+    )
+    let export = InvoiceLine(
+        id: "4",
+        quantity: quantity,
+        pricing: .export(100),
+        item: item
+    )
+
+    #expect(exempt.taxCategory.percent == 0)
+    #expect(exempt.taxCategory.exemptionReasonCode == .exonerado)
+    #expect(exempt.taxCategory.scheme == .exonerado)
+    #expect(unaffected.taxCategory.percent == 0)
+    #expect(unaffected.taxCategory.exemptionReasonCode == .inafecto)
+    #expect(unaffected.taxCategory.scheme == .inafecto)
+    #expect(free.taxCategory.percent == 18)
+    #expect(free.taxCategory.exemptionReasonCode == .inafectoRetiroPorBonificacion)
+    #expect(free.taxCategory.scheme == .gratuito)
+    #expect(export.taxCategory.percent == 0)
+    #expect(export.taxCategory.exemptionReasonCode == .exportacion)
+    #expect(export.taxCategory.scheme == .exportacion)
+    #expect(export.taxTotal.amount.value == 0)
 }
 
 @Test func transformerInfersBoletaSignatureMetadata() throws {
@@ -357,7 +372,8 @@ import ZIPFoundation
     #expect(xml.contains("<cbc:TaxTypeCode>FRE</cbc:TaxTypeCode>"))
     #expect(xml.contains("<cbc:TaxAmount currencyID=\"PEN\">266.65</cbc:TaxAmount>"))
     #expect(xml.contains("<cbc:LineExtensionAmount currencyID=\"PEN\">1481.35</cbc:LineExtensionAmount>"))
-    #expect(xml.contains("<cbc:LineExtensionAmount currencyID=\"PEN\">4.80</cbc:LineExtensionAmount>"))
+    #expect(xml.contains("<cbc:LineExtensionAmount currencyID=\"PEN\">0.00</cbc:LineExtensionAmount>"))
+    #expect(xml.contains("<cbc:TaxableAmount currencyID=\"PEN\">4.80</cbc:TaxableAmount>"))
     #expect(xml.contains("<cbc:PayableAmount currencyID=\"PEN\">1748.00</cbc:PayableAmount>"))
     #expect(xml.contains("<cbc:AddressTypeCode>0000</cbc:AddressTypeCode>"))
     #expect(!xml.contains("<cbc:AddressTypeCode>0014</cbc:AddressTypeCode>"))
@@ -804,19 +820,9 @@ private func makeBoleta(
     issueDate: IssueDate = IssueDate(year: 2020, month: 8, day: 19),
     emitterRUC: String = "20123456789",
     supplierAddress: Address? = nil,
-    payableAmount: Decimal = 118,
     payableRoundingAmount: Decimal? = nil
 ) -> Boleta {
     let currency: CurrencyCode = .pen
-    let scheme = TaxScheme.igv
-    let lineTaxTotal = LineTaxTotal(
-        amount: MonetaryAmount(value: 18),
-        subtotals: [LineTaxSubtotal(
-            taxableAmount: MonetaryAmount(value: 100),
-            taxAmount: MonetaryAmount(value: 18),
-            category: TaxCategory(percent: 18, exemptionReasonCode: .gravadoOperacionOnerosa, scheme: scheme)
-        )]
-    )
     return Boleta(
         identifier: identifier,
         issueDate: issueDate,
@@ -827,28 +833,13 @@ private func makeBoleta(
             address: supplierAddress
         ),
         customer: Customer(identifier: PartyIdentifier(value: "20203030", documentType: .dni), legalName: "PERSON 1"),
-        taxTotal: TaxTotal(
-            amount: MonetaryAmount(value: 18),
-            subtotals: [TaxSubtotal(taxableAmount: MonetaryAmount(value: 100), taxAmount: MonetaryAmount(value: 18), scheme: scheme)]
-        ),
-        monetaryTotal: MonetaryTotal(
-            lineExtensionAmount: MonetaryAmount(value: 100),
-            taxInclusiveAmount: MonetaryAmount(value: 118),
-            payableRoundingAmount: payableRoundingAmount.map(MonetaryAmount.init(value:)),
-            payableAmount: MonetaryAmount(value: payableAmount)
-        ),
         lines: [InvoiceLine(
             id: "1",
             quantity: Quantity(value: 2, unitCode: .unit),
-            lineExtensionAmount: MonetaryAmount(value: 100),
-            alternativePrices: [AlternativePrice(
-                amount: MonetaryAmount(value: 59),
-                type: .unitPriceIncludingTaxes
-            )],
-            taxTotal: lineTaxTotal,
-            item: Item(description: "PRODUCTO"),
-            price: MonetaryAmount(value: 50)
-        )]
+            pricing: .taxed(50, basis: .excludingTaxes),
+            item: Item(description: "PRODUCTO")
+        )],
+        payableRoundingAmount: payableRoundingAmount
     )
 }
 
@@ -866,21 +857,6 @@ private func makeBoletaForSunatBeta() -> Boleta {
 
 private func makeReferenceBoletaForSunatBeta() -> Boleta {
     let currency = CurrencyCode.pen
-    let igvCategory = TaxCategory(
-        percent: 18,
-        exemptionReasonCode: .gravadoOperacionOnerosa,
-        scheme: .igv
-    )
-    let freeCategory = TaxCategory(
-        percent: 18,
-        exemptionReasonCode: .inafectoRetiroPorBonificacion,
-        scheme: .gratuito
-    )
-
-    func amount(_ value: Decimal) -> MonetaryAmount {
-        MonetaryAmount(value: value)
-    }
-
     return Boleta(
         identifier: DocumentIdentifier(
             series: "BC01",
@@ -906,109 +882,36 @@ private func makeReferenceBoletaForSunatBeta() -> Boleta {
             identifier: PartyIdentifier(value: "46237547", documentType: .dni),
             legalName: "Pazos Atoche Luana Karina"
         ),
-        taxTotal: TaxTotal(
-            amount: amount(266.65),
-            subtotals: [
-                TaxSubtotal(
-                    taxableAmount: amount(1481.35),
-                    taxAmount: amount(266.65),
-                    scheme: .igv
-                ),
-                TaxSubtotal(
-                    taxableAmount: amount(4.80),
-                    taxAmount: amount(0.00),
-                    scheme: .gratuito
-                )
-            ]
-        ),
-        monetaryTotal: MonetaryTotal(
-            lineExtensionAmount: amount(1481.35),
-            taxInclusiveAmount: amount(1748.00),
-            allowanceTotalAmount: amount(0.00),
-            payableAmount: amount(1748.00)
-        ),
         lines: [
             InvoiceLine(
                 id: "1",
                 quantity: Quantity(value: 1, unitCode: .unit),
-                lineExtensionAmount: amount(845.76),
-                alternativePrices: [
-                    AlternativePrice(
-                        amount: amount(998.00),
-                        type: .unitPriceIncludingTaxes
-                    )
-                ],
-                taxTotal: LineTaxTotal(
-                    amount: amount(152.24),
-                    subtotals: [
-                        LineTaxSubtotal(
-                            taxableAmount: amount(845.76),
-                            taxAmount: amount(152.24),
-                            category: igvCategory
-                        )
-                    ]
-                ),
+                pricing: .taxed(998.00),
                 item: Item(
                     description: "Refrigeradora marca “AXM” no frost de 200 ltrs.",
                     sellerItemIdentifier: "REF564",
                     commodityClassificationCode: "52141501"
-                ),
-                price: amount(845.76)
+                )
             ),
             InvoiceLine(
                 id: "2",
                 quantity: Quantity(value: 1, unitCode: .unit),
-                lineExtensionAmount: amount(635.59),
-                alternativePrices: [
-                    AlternativePrice(
-                        amount: amount(750.00),
-                        type: .unitPriceIncludingTaxes
-                    )
-                ],
-                taxTotal: LineTaxTotal(
-                    amount: amount(114.41),
-                    subtotals: [
-                        LineTaxSubtotal(
-                            taxableAmount: amount(635.59),
-                            taxAmount: amount(114.41),
-                            category: igvCategory
-                        )
-                    ]
-                ),
+                pricing: .taxed(750.00),
                 item: Item(
                     description: "Cocina a gas GLP, marca “AXM” de 5 hornillas",
                     sellerItemIdentifier: "COC124",
                     commodityClassificationCode: "95141606"
-                ),
-                price: amount(635.59)
+                )
             ),
             InvoiceLine(
                 id: "3",
                 quantity: Quantity(value: 1, unitCode: .unit),
-                lineExtensionAmount: amount(4.80),
-                alternativePrices: [
-                    AlternativePrice(
-                        amount: amount(4.80),
-                        type: .referenceValue
-                    )
-                ],
-                taxTotal: LineTaxTotal(
-                    amount: amount(0.00),
-                    subtotals: [
-                        LineTaxSubtotal(
-                            taxableAmount: amount(4.80),
-                            taxAmount: amount(0.00),
-                            category: freeCategory
-                        )
-                    ]
-                ),
+                pricing: .free(referenceValue: 4.80),
                 item: Item(
                     description: "Sixpack de gaseosa “Guerené” de 400 ml",
                     sellerItemIdentifier: "NOB012",
                     commodityClassificationCode: "24121803"
-                ),
-                price: amount(0.00),
-                isFreeOfCharge: true
+                )
             )
         ]
     )
@@ -1045,27 +948,6 @@ private func makeBoletaWithMoreProducts(
     supplierAddress: Address? = nil
 ) -> Boleta {
     let currency: CurrencyCode = .pen
-    let scheme = TaxScheme.igv
-    let firstLineTaxTotal = LineTaxTotal(
-        amount: MonetaryAmount(value: 18),
-        subtotals: [LineTaxSubtotal(
-            taxableAmount: MonetaryAmount(value: 100),
-            taxAmount: MonetaryAmount(value: 18),
-            category: TaxCategory(percent: 18, exemptionReasonCode: .gravadoOperacionOnerosa, scheme: scheme)
-        )]
-    )
-    let secondLineTaxTotal = LineTaxTotal(
-        amount: MonetaryAmount(value: 9),
-        subtotals: [LineTaxSubtotal(
-            taxableAmount: MonetaryAmount(value: 50),
-            taxAmount: MonetaryAmount(value: 9),
-            category: TaxCategory(percent: 18, exemptionReasonCode: .gravadoOperacionOnerosa, scheme: scheme)
-        )]
-    )
-    let priceIncludingTaxes = AlternativePrice(
-        amount: MonetaryAmount(value: 59),
-        type: .unitPriceIncludingTaxes
-    )
     
     return Boleta(
         identifier: identifier,
@@ -1077,37 +959,18 @@ private func makeBoletaWithMoreProducts(
             address: supplierAddress
         ),
         customer: Customer(identifier: PartyIdentifier(value: "20203030", documentType: .dni), legalName: "PERSON 1"),
-        taxTotal: TaxTotal(
-            amount: MonetaryAmount(value: 27),
-            subtotals: [TaxSubtotal(
-                taxableAmount: MonetaryAmount(value: 150),
-                taxAmount: MonetaryAmount(value: 27),
-                scheme: scheme
-            )]
-        ),
-        monetaryTotal: MonetaryTotal(
-            lineExtensionAmount: MonetaryAmount(value: 150),
-            taxInclusiveAmount: MonetaryAmount(value: 177),
-            payableAmount: MonetaryAmount(value: 177)
-        ),
         lines: [
             InvoiceLine(
                 id: "1",
                 quantity: Quantity(value: 2, unitCode: .unit),
-                lineExtensionAmount: MonetaryAmount(value: 100),
-                alternativePrices: [priceIncludingTaxes],
-                taxTotal: firstLineTaxTotal,
-                item: Item(description: "PRODUCTO 1"),
-                price: MonetaryAmount(value: 50)
+                pricing: .taxed(50, basis: .excludingTaxes),
+                item: Item(description: "PRODUCTO 1")
             ),
             InvoiceLine(
                 id: "2",
                 quantity: Quantity(value: 1, unitCode: .unit),
-                lineExtensionAmount: MonetaryAmount(value: 50),
-                alternativePrices: [priceIncludingTaxes],
-                taxTotal: secondLineTaxTotal,
-                item: Item(description: "PRODUCTO 2"),
-                price: MonetaryAmount(value: 50)
+                pricing: .taxed(50, basis: .excludingTaxes),
+                item: Item(description: "PRODUCTO 2")
             )
         ]
     )

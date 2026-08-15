@@ -64,14 +64,6 @@ import FlorShopCPE
             countryCode: "PE"
         )
     )
-    let taxCategory = TaxCategory(
-        percent: 18,                                      // Opcional
-        exemptionReasonCode: .gravadoOperacionOnerosa,    // Opcional
-        scheme: .igv
-    )
-    let debitTaxable = MonetaryAmount(value: 10.00)
-    let debitTax = MonetaryAmount(value: 1.80)
-    let debitPayable = MonetaryAmount(value: 11.80)
     let notaDebito = NotaDebito(
         identifier: DocumentIdentifier(
             series: "FD01",
@@ -90,51 +82,23 @@ import FlorShopCPE
         ),
         reasonCode: .aumentoEnElValor,
         reasonDescription: "AUMENTO EN EL VALOR DEL PRODUCTO",
-        taxTotal: TaxTotal(
-            amount: debitTax,
-            subtotals: [
-                TaxSubtotal(
-                    taxableAmount: debitTaxable,
-                    taxAmount: debitTax,
-                    scheme: .igv
-                )
-            ]
-        ),
-        monetaryTotal: DebitNoteMonetaryTotal(
-            chargeTotalAmount: MonetaryAmount(value: 0),     // Opcional
-            payableRoundingAmount: MonetaryAmount(value: 0), // Opcional
-            payableAmount: debitPayable
-        ),
         lines: [
             DebitNoteLine(
                 id: "1",
                 quantity: Quantity(value: 1, unitCode: .unit), // Opcional
-                lineExtensionAmount: debitTaxable,
-                alternativePrices: [                         // Opcional
-                    AlternativePrice(amount: debitPayable, type: .unitPriceIncludingTaxes)
-                ],
-                taxTotal: LineTaxTotal(
-                    amount: debitTax,
-                    subtotals: [
-                        LineTaxSubtotal(
-                            taxableAmount: debitTaxable,
-                            taxAmount: debitTax,
-                            category: taxCategory
-                        )
-                    ]
-                ),
+                pricing: .taxed(10.00, basis: .excludingTaxes),
                 item: Item(
                     description: "AUMENTO EN EL VALOR DEL PRODUCTO",
                     sellerItemIdentifier: "P001",          // Opcional
                     commodityClassificationCode: "52141501" // Opcional
-                ),
-                price: debitTaxable                         // Opcional
+                )
             )
         ],
         additionalNotes: [                                 // Opcional
             DocumentNote(value: "AJUSTE COORDINADO CON EL CLIENTE", languageLocaleID: "1002")
         ]
     )
+    #expect(notaDebito.totalAmount == 11.80)
 
     let signingConfiguration = SigningConfiguration(
         credentials: .pkcs12(

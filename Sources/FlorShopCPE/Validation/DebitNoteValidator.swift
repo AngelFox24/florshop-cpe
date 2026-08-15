@@ -18,6 +18,7 @@ public enum DebitNoteValidationError: Error, Equatable, Sendable {
     case nonPositiveQuantity(String)
     case nonPositiveLineExtensionAmount(String)
     case nonPositivePrice(String)
+    case invalidTaxPercent(String)
     case nonPositiveChargeTotalAmount
     case nonPositivePayableAmount
     case invalidPayableRoundingAmount
@@ -85,6 +86,10 @@ public struct DebitNoteValidator: Sendable {
             }
             if let price = line.price, CPEPrecision.unitValue(price.value) <= 0 {
                 throw DebitNoteValidationError.nonPositivePrice(line.id)
+            }
+            if let percent = line.taxCategory.percent,
+               percent < 0 || percent > 100 {
+                throw DebitNoteValidationError.invalidTaxPercent(line.id)
             }
         }
         if let charge = note.monetaryTotal.chargeTotalAmount,

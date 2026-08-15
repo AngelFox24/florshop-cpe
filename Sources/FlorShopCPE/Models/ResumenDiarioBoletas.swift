@@ -44,30 +44,30 @@ public enum DailySummarySaleType: String, Codable, Sendable {
 /// Tributo agregado de una línea del Resumen Diario.
 ///
 /// La tasa se conserva porque SUNAT la exige también para operaciones gratuitas.
-public struct DailySummaryTax: Codable, Equatable, Sendable {
+public struct DailySummaryTax: Equatable, Sendable {
     public let amount: MonetaryAmount
     public let percent: Decimal?
     public let scheme: TaxScheme
 
-    public init(amount: MonetaryAmount, percent: Decimal? = nil, scheme: TaxScheme) {
+    init(amount: MonetaryAmount, percent: Decimal? = nil, scheme: TaxScheme) {
         self.amount = amount
         self.percent = percent
         self.scheme = scheme
     }
 }
 
-public struct DailySummarySale: Codable, Equatable, Sendable {
+public struct DailySummarySale: Equatable, Sendable {
     public let type: DailySummarySaleType
     public let amount: MonetaryAmount
 
-    public init(type: DailySummarySaleType, amount: MonetaryAmount) {
+    init(type: DailySummarySaleType, amount: MonetaryAmount) {
         self.type = type
         self.amount = amount
     }
 }
 
 /// Una línea agregada del Resumen Diario. No contiene el detalle de productos.
-public struct DailySummaryLine: Codable, Equatable, Sendable {
+public struct DailySummaryLine: Equatable, Sendable {
     public let lineID: Int
     public let documentType: DailySummaryDocumentType
     public let documentIdentifier: DocumentIdentifier
@@ -81,7 +81,7 @@ public struct DailySummaryLine: Codable, Equatable, Sendable {
     public let chargeTotalAmount: MonetaryAmount?
     public let taxes: [DailySummaryTax]
 
-    public init(
+    init(
         lineID: Int,
         documentType: DailySummaryDocumentType,
         documentIdentifier: DocumentIdentifier,
@@ -304,7 +304,7 @@ private extension DailySummarySaleType {
 }
 
 /// Resumen Diario representado por la raíz SUNAT `SummaryDocuments` (UBL 2.0).
-public struct ResumenDiarioBoletas: Codable, Equatable, Sendable {
+public struct ResumenDiarioBoletas: Equatable, Sendable {
     public let identifier: DailySummaryIdentifier
     public let issueDate: IssueDate
     public let referenceDate: IssueDate

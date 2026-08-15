@@ -45,51 +45,29 @@ import FlorShopCPE
             email: "ventas@ejemplo.pe"                    // Opcional
         )
     )
-    let summaryLine = DailySummaryLine(
-        lineID: 1,
-        documentType: .boleta,
-        documentIdentifier: DocumentIdentifier(
-            series: "BC01",
-            number: correlative
+    let boleta = Boleta(
+        identifier: DocumentIdentifier(series: "BC01", number: correlative),
+        issueDate: issueDate,
+        currency: .pen,
+        supplier: supplier,
+        customer: Customer(
+            identifier: PartyIdentifier(value: "46237547", documentType: .dni),
+            legalName: "Pazos Atoche Luana Karina"
         ),
-        customerIdentifier: PartyIdentifier(value: "46237547", documentType: .dni),
-        customerLegalName: "Pazos Atoche Luana Karina",   // Opcional
-        condition: .add,
-        totalAmount: MonetaryAmount(value: 118.00),
-        sales: [
-            DailySummarySale(
-                type: .taxable,
-                amount: MonetaryAmount(value: 100.00)
-            ),
-            DailySummarySale(
-                type: .exempt,
-                amount: MonetaryAmount(value: 0)
-            ),
-            DailySummarySale(
-                type: .unaffected,
-                amount: MonetaryAmount(value: 0)
-            )
-        ],
-        chargeTotalAmount: MonetaryAmount(value: 0), // Opcional
-        taxes: [
-            DailySummaryTax(
-                amount: MonetaryAmount(value: 18.00),
-                percent: 18,                                // Opcional
-                scheme: .igv
-            )
-        ]
+        lines: [InvoiceLine(
+            id: "1",
+            quantity: Quantity(value: 1, unitCode: .unit),
+            pricing: .taxed(100, basis: .excludingTaxes),
+            item: Item(description: "PRODUCTO")
+        )]
     )
-    // `affectedDocument` queda ausente por regla SUNAT: solo se usa para
-    // líneas 07/08 de notas que modifican una boleta.
     let resumen = try ResumenDiarioBoletas(
         identifier: DailySummaryIdentifier(
             date: issueDate,
             sequence: sequence
         ),
         issueDate: issueDate,
-        referenceDate: issueDate,
-        supplier: supplier,
-        lines: [summaryLine]
+        boletas: [boleta]
     )
 
     let signingConfiguration = SigningConfiguration(

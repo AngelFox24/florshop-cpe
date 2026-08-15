@@ -1,8 +1,12 @@
 import Foundation
 
-public struct InvoiceLine: Codable, Equatable, Sendable {
+public struct InvoiceLine: Equatable, Sendable {
     public let id: String
     public let quantity: Quantity
+    /// Precio y tratamiento tributario comercial recibidos sin modificar.
+    public let pricing: LinePricing
+    public let taxTreatment: TaxTreatment
+    public let taxCategory: TaxCategory
     public let lineExtensionAmount: MonetaryAmount
     public let alternativePrices: [AlternativePrice]
     public let taxTotal: LineTaxTotal
@@ -13,29 +17,34 @@ public struct InvoiceLine: Codable, Equatable, Sendable {
     public init(
         id: String,
         quantity: Quantity,
-        lineExtensionAmount: MonetaryAmount,
-        alternativePrices: [AlternativePrice],
-        taxTotal: LineTaxTotal,
-        item: Item,
-        price: MonetaryAmount,
-        isFreeOfCharge: Bool? = nil
+        pricing: LinePricing,
+        item: Item
     ) {
+        let calculated = CPECalculation.line(
+            quantity: quantity.value,
+            pricing: pricing
+        )
+        let taxTreatment = pricing.taxTreatment
+        let taxCategory = taxTreatment.category
         self.id = id
         self.quantity = quantity
-        self.lineExtensionAmount = lineExtensionAmount
-        self.alternativePrices = alternativePrices
-        self.taxTotal = taxTotal
+        self.pricing = pricing
+        self.taxTreatment = taxTreatment
+        self.taxCategory = taxCategory
+        self.lineExtensionAmount = calculated.lineExtensionAmount
+        self.alternativePrices = calculated.alternativePrices
+        self.taxTotal = calculated.taxTotal
         self.item = item
-        self.price = price
-        self.isFreeOfCharge = isFreeOfCharge
+        self.price = calculated.price
+        self.isFreeOfCharge = calculated.isFreeOfCharge ? true : nil
     }
 }
 
-public struct AlternativePrice: Codable, Equatable, Sendable {
+public struct AlternativePrice: Equatable, Sendable {
     public let amount: MonetaryAmount
     public let type: PriceType
 
-    public init(amount: MonetaryAmount, type: PriceType) {
+    init(amount: MonetaryAmount, type: PriceType) {
         self.amount = amount
         self.type = type
     }

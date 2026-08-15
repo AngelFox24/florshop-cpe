@@ -2,7 +2,7 @@ import Foundation
 
 /// Inconsistencias detectadas después de aplicar la precisión oficial de cada
 /// clase de número. Las comparaciones nunca dependen del formato textual XML.
-public enum CPEAmountConsistencyValidationError: Error, Equatable, Sendable {
+enum CPEAmountConsistencyValidationError: Error, Equatable, Sendable {
     case lineExtensionAmountMismatch(String)
     case lineTaxTotalMismatch(String)
     case documentTaxTotalMismatch
@@ -10,12 +10,12 @@ public enum CPEAmountConsistencyValidationError: Error, Equatable, Sendable {
     case dailySummaryTotalMismatch(Int)
 }
 
-/// Valida importes calculados por sistemas externos contra la misma versión
-/// normalizada que FlorShopCPE enviará a SUNAT.
-public struct CPEAmountConsistencyValidator: Sendable {
-    public init() {}
+/// Comprueba internamente que el motor de cálculo y el documento que será
+/// serializado conservan exactamente los mismos importes normalizados.
+struct CPEAmountConsistencyValidator: Sendable {
+    init() {}
 
-    public func validate(_ document: any UBLInvoiceDocument) throws {
+    func validate(_ document: any UBLInvoiceDocument) throws {
         for line in document.lines {
             try validateLine(
                 id: line.id,
@@ -31,15 +31,15 @@ public struct CPEAmountConsistencyValidator: Sendable {
         let total = document.monetaryTotal
         try validatePayable(
             taxInclusive: total.taxInclusiveAmount,
-            allowance: total.allowanceTotalAmount,
-            charge: total.chargeTotalAmount,
+            allowance: nil,
+            charge: nil,
             prepaid: total.prepaidAmount,
             rounding: total.payableRoundingAmount,
             payable: total.payableAmount
         )
     }
 
-    public func validate(_ note: NotaCredito) throws {
+    func validate(_ note: NotaCredito) throws {
         for line in note.lines {
             try validateLine(
                 id: line.id,
@@ -65,7 +65,7 @@ public struct CPEAmountConsistencyValidator: Sendable {
         )
     }
 
-    public func validate(_ note: NotaDebito) throws {
+    func validate(_ note: NotaDebito) throws {
         for line in note.lines {
             if let quantity = line.quantity, let price = line.price {
                 try validateLine(
@@ -95,7 +95,7 @@ public struct CPEAmountConsistencyValidator: Sendable {
         )
     }
 
-    public func validate(_ summary: ResumenDiarioBoletas) throws {
+    func validate(_ summary: ResumenDiarioBoletas) throws {
         for line in summary.lines {
             let ordinarySales = line.sales
                 .filter { !Self.freeSaleTypes.contains($0.type) }

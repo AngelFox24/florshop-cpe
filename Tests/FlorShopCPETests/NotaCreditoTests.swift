@@ -263,8 +263,6 @@ private func makeCreditNote(
         affectedDocument: affectedDocument,
         reasonCode: reason,
         reasonDescription: "DEVOLUCIÓN DEL PRODUCTO",
-        taxTotal: values.taxTotal,
-        monetaryTotal: CreditNoteMonetaryTotal(payableAmount: values.payable),
         lines: [CreditNoteLine(invoiceLine: values.line)]
     )
 }
@@ -301,28 +299,15 @@ private func creditNoteSupplier() -> Supplier {
     )
 }
 
-private func creditNoteValues() -> (taxTotal: TaxTotal, payable: MonetaryAmount, line: InvoiceLine) {
-    let taxable = MonetaryAmount(value: 100)
-    let tax = MonetaryAmount(value: 18)
+private func creditNoteValues() -> (payable: MonetaryAmount, line: InvoiceLine) {
     let payable = MonetaryAmount(value: 118)
-    let category = TaxCategory(percent: 18, exemptionReasonCode: .gravadoOperacionOnerosa, scheme: .igv)
-    let taxTotal = TaxTotal(
-        amount: tax,
-        subtotals: [TaxSubtotal(taxableAmount: taxable, taxAmount: tax, scheme: .igv)]
-    )
     let line = InvoiceLine(
         id: "1",
         quantity: Quantity(value: 1, unitCode: .unit),
-        lineExtensionAmount: taxable,
-        alternativePrices: [AlternativePrice(amount: payable, type: .unitPriceIncludingTaxes)],
-        taxTotal: LineTaxTotal(
-            amount: tax,
-            subtotals: [LineTaxSubtotal(taxableAmount: taxable, taxAmount: tax, category: category)]
-        ),
-        item: Item(description: "PRODUCTO", sellerItemIdentifier: "P001"),
-        price: taxable
+        pricing: .taxed(100, basis: .excludingTaxes),
+        item: Item(description: "PRODUCTO", sellerItemIdentifier: "P001")
     )
-    return (taxTotal, payable, line)
+    return (payable, line)
 }
 
 private func makeCreditNotePrerequisiteInvoice(number: String, issueDate: IssueDate) -> Factura {
@@ -336,12 +321,6 @@ private func makeCreditNotePrerequisiteInvoice(number: String, issueDate: IssueD
         customer: Customer(
             identifier: PartyIdentifier(value: "20109072177", documentType: .ruc),
             legalName: "CLIENTE S.A.C."
-        ),
-        taxTotal: values.taxTotal,
-        monetaryTotal: MonetaryTotal(
-            lineExtensionAmount: MonetaryAmount(value: 100),
-            taxInclusiveAmount: values.payable,
-            payableAmount: values.payable
         ),
         lines: [values.line],
         paymentCondition: .cash

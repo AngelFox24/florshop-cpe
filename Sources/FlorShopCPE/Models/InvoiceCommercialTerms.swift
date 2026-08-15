@@ -36,11 +36,18 @@ public enum PaymentCondition: Codable, Equatable, Sendable {
     case cash
 
     /// Una parte o la totalidad se pagará después de la fecha de emisión.
-    case credit(pendingAmount: MonetaryAmount, installments: [PaymentInstallment])
+    case credit(installments: [PaymentInstallment])
+
+    public var pendingAmount: MonetaryAmount? {
+        guard case let .credit(installments) = self else { return nil }
+        return MonetaryAmount(
+            value: CPEPrecision.monetarySum(installments.map(\.amount.value))
+        )
+    }
 }
 
 /// Cargo o descuento global de una factura.
-public struct AllowanceCharge: Codable, Equatable, Sendable {
+public struct AllowanceCharge: Equatable, Sendable {
     public let isCharge: Bool
     public let reasonCode: String?
     public let multiplierFactor: Decimal?
@@ -50,14 +57,27 @@ public struct AllowanceCharge: Codable, Equatable, Sendable {
     public init(
         isCharge: Bool,
         reasonCode: String? = nil,
-        multiplierFactor: Decimal? = nil,
-        amount: MonetaryAmount,
-        baseAmount: MonetaryAmount? = nil
+        amount: Decimal
+    ) {
+        self.isCharge = isCharge
+        self.reasonCode = reasonCode
+        self.multiplierFactor = nil
+        self.amount = MonetaryAmount(value: CPEPrecision.monetary(amount))
+        self.baseAmount = nil
+    }
+
+    public init(
+        isCharge: Bool,
+        reasonCode: String? = nil,
+        multiplierFactor: Decimal,
+        baseAmount: Decimal
     ) {
         self.isCharge = isCharge
         self.reasonCode = reasonCode
         self.multiplierFactor = multiplierFactor
-        self.amount = amount
-        self.baseAmount = baseAmount
+        self.baseAmount = MonetaryAmount(value: CPEPrecision.monetary(baseAmount))
+        self.amount = MonetaryAmount(
+            value: CPEPrecision.monetary(baseAmount * multiplierFactor)
+        )
     }
 }

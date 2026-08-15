@@ -4,7 +4,7 @@ import Foundation
 ///
 /// La serialización, firma, empaquetado y comunicación con SUNAT permanecen
 /// fuera del modelo.
-public struct Factura: Codable, Equatable, Sendable, UBLInvoiceDocument {
+public struct Factura: Equatable, Sendable, UBLInvoiceDocument {
     public let identifier: DocumentIdentifier
     public let issueDate: IssueDate
     public let issueTime: IssueTime?
@@ -30,15 +30,14 @@ public struct Factura: Codable, Equatable, Sendable, UBLInvoiceDocument {
         currency: CurrencyCode,
         supplier: Supplier,
         customer: Customer,
-        taxTotal: TaxTotal,
-        monetaryTotal: MonetaryTotal,
         lines: [InvoiceLine],
         additionalNotes: [DocumentNote] = [],
         orderReference: String? = nil,
         despatchDocumentReferences: [DocumentReference] = [],
         buyerAddress: Address? = nil,
         paymentCondition: PaymentCondition,
-        allowanceCharges: [AllowanceCharge] = []
+        allowanceCharges: [AllowanceCharge] = [],
+        payableRoundingAmount: Decimal? = nil
     ) {
         self.identifier = identifier
         self.issueDate = issueDate
@@ -46,8 +45,6 @@ public struct Factura: Codable, Equatable, Sendable, UBLInvoiceDocument {
         self.currency = currency
         self.supplier = supplier
         self.customer = customer
-        self.taxTotal = taxTotal
-        self.monetaryTotal = monetaryTotal
         self.lines = lines
         self.additionalNotes = additionalNotes
         self.orderReference = orderReference
@@ -55,5 +52,16 @@ public struct Factura: Codable, Equatable, Sendable, UBLInvoiceDocument {
         self.buyerAddress = buyerAddress
         self.paymentCondition = paymentCondition
         self.allowanceCharges = allowanceCharges
+        self.taxTotal = CPECalculation.taxTotal(from: lines, taxTotal: \.taxTotal)
+        self.monetaryTotal = CPECalculation.monetaryTotal(
+            lineAmounts: lines.map(\.lineExtensionAmount),
+            taxTotal: self.taxTotal,
+            allowanceCharges: allowanceCharges,
+            payableRoundingAmount: payableRoundingAmount.map(MonetaryAmount.init(value:))
+        )
     }
+
+    public var netAmount: Decimal { monetaryTotal.lineExtensionAmount.value }
+    public var taxAmount: Decimal { taxTotal.amount.value }
+    public var totalAmount: Decimal { monetaryTotal.payableAmount.value }
 }

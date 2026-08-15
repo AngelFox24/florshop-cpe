@@ -34,7 +34,7 @@ import ZIPFoundation
     #expect(xml.contains("<cbc:PaymentMeansID>Cuota001</cbc:PaymentMeansID>"))
     #expect(xml.contains("<cbc:PaymentDueDate>2026-08-10</cbc:PaymentDueDate>"))
     #expect(xml.contains("<cbc:AllowanceChargeReasonCode>62</cbc:AllowanceChargeReasonCode>"))
-    #expect(xml.contains("<cbc:PayableAmount currencyID=\"PEN\">1328.74</cbc:PayableAmount>"))
+    #expect(xml.contains("<cbc:PayableAmount currencyID=\"PEN\">1288.88</cbc:PayableAmount>"))
     #expect(xml.contains("<cbc:Description>COLA ENTOMOLÓGICA K-GLUE X 1 LT</cbc:Description>"))
     #expect(xml.hasSuffix("</Invoice>"))
 }
@@ -50,14 +50,13 @@ import ZIPFoundation
 
 @Test func facturaGeneratesSequentialSUNATInstallmentIdentifiers() throws {
     let condition = PaymentCondition.credit(
-        pendingAmount: MonetaryAmount(value: 100),
         installments: [
             PaymentInstallment(
-                amount: MonetaryAmount(value: 40),
+                amount: MonetaryAmount(value: 600),
                 dueDate: IssueDate(year: 2026, month: 8, day: 10)
             ),
             PaymentInstallment(
-                amount: MonetaryAmount(value: 60),
+                amount: MonetaryAmount(value: 688.88),
                 dueDate: IssueDate(year: 2026, month: 9, day: 10)
             )
         ]
@@ -75,7 +74,6 @@ import ZIPFoundation
 
 @Test func facturaRejectsInstallmentsThatDoNotMatchThePendingAmount() {
     let condition = PaymentCondition.credit(
-        pendingAmount: MonetaryAmount(value: 100),
         installments: [
             PaymentInstallment(
                 amount: MonetaryAmount(value: 90),
@@ -274,15 +272,6 @@ private func makeFactura(
     paymentCondition: PaymentCondition? = nil,
     allowanceCharges: [AllowanceCharge]? = nil
 ) -> Factura {
-    let taxableAmount = MonetaryAmount(value: 1126.05)
-    let taxAmount = MonetaryAmount(value: 202.69)
-    let payableAmount = MonetaryAmount(value: 1328.74)
-    let category = TaxCategory(
-        percent: 18,
-        exemptionReasonCode: .gravadoOperacionOnerosa,
-        scheme: .igv
-    )
-
     return Factura(
         identifier: identifier,
         issueDate: issueDate,
@@ -301,44 +290,12 @@ private func makeFactura(
             )
         ),
         customer: customer,
-        taxTotal: TaxTotal(
-            amount: taxAmount,
-            subtotals: [
-                TaxSubtotal(
-                    taxableAmount: taxableAmount,
-                    taxAmount: taxAmount,
-                    scheme: .igv
-                )
-            ]
-        ),
-        monetaryTotal: MonetaryTotal(
-            lineExtensionAmount: taxableAmount,
-            taxInclusiveAmount: payableAmount,
-            payableAmount: payableAmount
-        ),
         lines: [
             InvoiceLine(
                 id: "1",
                 quantity: Quantity(value: 15, unitCode: .unit),
-                lineExtensionAmount: taxableAmount,
-                alternativePrices: [
-                    AlternativePrice(
-                        amount: MonetaryAmount(value: 88.5826),
-                        type: .unitPriceIncludingTaxes
-                    )
-                ],
-                taxTotal: LineTaxTotal(
-                    amount: taxAmount,
-                    subtotals: [
-                        LineTaxSubtotal(
-                            taxableAmount: taxableAmount,
-                            taxAmount: taxAmount,
-                            category: category
-                        )
-                    ]
-                ),
-                item: Item(description: "COLA ENTOMOLÓGICA K-GLUE X 1 LT"),
-                price: MonetaryAmount(value: 75.07)
+                pricing: .taxed(75.07, basis: .excludingTaxes),
+                item: Item(description: "COLA ENTOMOLÓGICA K-GLUE X 1 LT")
             )
         ],
         orderReference: includeCommercialTerms ? "4301113494" : nil,
@@ -357,10 +314,9 @@ private func makeFactura(
             line: "CAL. AUGUSTO ANGULO 130"
         ) : nil,
         paymentCondition: paymentCondition ?? (includeCommercialTerms ? .credit(
-            pendingAmount: payableAmount,
             installments: [
                 PaymentInstallment(
-                    amount: payableAmount,
+                    amount: MonetaryAmount(value: 1288.88),
                     dueDate: IssueDate(year: 2026, month: 8, day: 10)
                 )
             ]
@@ -370,8 +326,7 @@ private func makeFactura(
                 isCharge: false,
                 reasonCode: "62",
                 multiplierFactor: 0.03,
-                amount: MonetaryAmount(value: 39.86),
-                baseAmount: payableAmount
+                baseAmount: 1328.74
             )
         ] : [])
     )
@@ -391,8 +346,6 @@ private func makeFacturaForSunatBeta() -> Factura {
 }
 
 private func makeReferenceFacturaForSunatBeta() -> Factura {
-    let netPendingAmount = MonetaryAmount(value: 1328.74)
-
     return makeFactura(
         identifier: DocumentIdentifier(
             series: "F001",
@@ -402,10 +355,9 @@ private func makeReferenceFacturaForSunatBeta() -> Factura {
         includeCommercialTerms: true,
         emitterRUC: "10708255195",
         paymentCondition: .credit(
-            pendingAmount: netPendingAmount,
             installments: [
                 PaymentInstallment(
-                    amount: netPendingAmount,
+                    amount: MonetaryAmount(value: 1328.74),
                     dueDate: limaIssueDate(daysFromToday: 16)
                 )
             ]

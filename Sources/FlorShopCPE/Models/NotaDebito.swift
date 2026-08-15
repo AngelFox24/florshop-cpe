@@ -11,12 +11,12 @@ public enum DebitNoteReasonCode: String, Codable, CaseIterable, Sendable {
 }
 
 /// Totales monetarios admitidos por SUNAT en una Nota de Débito UBL 2.1.
-public struct DebitNoteMonetaryTotal: Codable, Equatable, Sendable {
+public struct DebitNoteMonetaryTotal: Equatable, Sendable {
     public let chargeTotalAmount: MonetaryAmount?
     public let payableRoundingAmount: MonetaryAmount?
     public let payableAmount: MonetaryAmount
 
-    public init(
+    init(
         chargeTotalAmount: MonetaryAmount? = nil,
         payableRoundingAmount: MonetaryAmount? = nil,
         payableAmount: MonetaryAmount
@@ -28,9 +28,12 @@ public struct DebitNoteMonetaryTotal: Codable, Equatable, Sendable {
 }
 
 /// Línea de incremento informada por una Nota de Débito UBL 2.1.
-public struct DebitNoteLine: Codable, Equatable, Sendable {
+public struct DebitNoteLine: Equatable, Sendable {
     public let id: String
     public let quantity: Quantity?
+    public let pricing: LinePricing
+    public let taxTreatment: TaxTreatment
+    public let taxCategory: TaxCategory
     public let lineExtensionAmount: MonetaryAmount
     public let alternativePrices: [AlternativePrice]
     public let taxTotal: LineTaxTotal
@@ -39,20 +42,51 @@ public struct DebitNoteLine: Codable, Equatable, Sendable {
 
     public init(
         id: String,
-        quantity: Quantity? = nil,
-        lineExtensionAmount: MonetaryAmount,
-        alternativePrices: [AlternativePrice] = [],
-        taxTotal: LineTaxTotal,
-        item: Item,
-        price: MonetaryAmount? = nil
+        quantity: Quantity,
+        pricing: LinePricing,
+        item: Item
     ) {
+        let calculated = CPECalculation.line(
+            quantity: quantity.value,
+            pricing: pricing
+        )
+        let taxTreatment = pricing.taxTreatment
+        let taxCategory = taxTreatment.category
         self.id = id
         self.quantity = quantity
-        self.lineExtensionAmount = lineExtensionAmount
-        self.alternativePrices = alternativePrices
-        self.taxTotal = taxTotal
+        self.pricing = pricing
+        self.taxTreatment = taxTreatment
+        self.taxCategory = taxCategory
+        self.lineExtensionAmount = calculated.lineExtensionAmount
+        self.alternativePrices = calculated.alternativePrices
+        self.taxTotal = calculated.taxTotal
         self.item = item
-        self.price = price
+        self.price = calculated.price
+    }
+
+    /// Incremento cuyo importe es el dato comercial primario (por ejemplo,
+    /// una penalidad) y por ello no tiene cantidad ni precio unitario UBL.
+    public init(
+        id: String,
+        pricing: LinePricing,
+        item: Item
+    ) {
+        let calculated = CPECalculation.line(
+            quantity: 1,
+            pricing: pricing
+        )
+        let taxTreatment = pricing.taxTreatment
+        let taxCategory = taxTreatment.category
+        self.id = id
+        self.quantity = nil
+        self.pricing = pricing
+        self.taxTreatment = taxTreatment
+        self.taxCategory = taxCategory
+        self.lineExtensionAmount = calculated.lineExtensionAmount
+        self.alternativePrices = []
+        self.taxTotal = calculated.taxTotal
+        self.item = item
+        self.price = nil
     }
 
     /// Facilita reutilizar una línea ya calculada cuando el débito incrementa
@@ -61,11 +95,8 @@ public struct DebitNoteLine: Codable, Equatable, Sendable {
         self.init(
             id: invoiceLine.id,
             quantity: invoiceLine.quantity,
-            lineExtensionAmount: invoiceLine.lineExtensionAmount,
-            alternativePrices: invoiceLine.alternativePrices,
-            taxTotal: invoiceLine.taxTotal,
-            item: invoiceLine.item,
-            price: invoiceLine.price
+            pricing: invoiceLine.pricing,
+            item: invoiceLine.item
         )
     }
 }
@@ -74,7 +105,7 @@ public struct DebitNoteLine: Codable, Equatable, Sendable {
 ///
 /// Las notas cuya serie empieza con `F` se envían individualmente. Las que
 /// empiezan con `B` se informan mediante un Resumen Diario como documento `08`.
-public struct NotaDebito: Codable, Equatable, Sendable {
+public struct NotaDebito: Equatable, Sendable {
     public let identifier: DocumentIdentifier
     public let issueDate: IssueDate
     public let issueTime: IssueTime?
@@ -99,9 +130,8 @@ public struct NotaDebito: Codable, Equatable, Sendable {
         affectedDocument: AffectedDocumentIdentifier,
         reasonCode: DebitNoteReasonCode,
         reasonDescription: String,
-        taxTotal: TaxTotal,
-        monetaryTotal: DebitNoteMonetaryTotal,
         lines: [DebitNoteLine],
+        payableRoundingAmount: Decimal? = nil,
         additionalNotes: [DocumentNote] = []
     ) {
         self.identifier = identifier
@@ -113,11 +143,22 @@ public struct NotaDebito: Codable, Equatable, Sendable {
         self.affectedDocument = affectedDocument
         self.reasonCode = reasonCode
         self.reasonDescription = reasonDescription
-        self.taxTotal = taxTotal
-        self.monetaryTotal = monetaryTotal
         self.lines = lines
+        self.taxTotal = CPECalculation.taxTotal(from: lines, taxTotal: \.taxTotal)
+        let calculatedTotal = CPECalculation.monetaryTotal(
+            lineAmounts: lines.map(\.lineExtensionAmount),
+            taxTotal: self.taxTotal,
+            payableRoundingAmount: payableRoundingAmount.map(MonetaryAmount.init(value:))
+        )
+        self.monetaryTotal = DebitNoteMonetaryTotal(
+            payableRoundingAmount: calculatedTotal.payableRoundingAmount,
+            payableAmount: calculatedTotal.payableAmount
+        )
         self.additionalNotes = additionalNotes
     }
 
     public var documentType: ElectronicDocumentType { .notaDeDebito }
+    public var netAmount: Decimal { CPEPrecision.monetarySum(lines.map(\.lineExtensionAmount.value)) }
+    public var taxAmount: Decimal { taxTotal.amount.value }
+    public var totalAmount: Decimal { monetaryTotal.payableAmount.value }
 }
