@@ -10,6 +10,7 @@ import ZIPFoundation
     #expect(note.identifier.value == "FC01-200")
     #expect(note.documentType == .notaDeCredito)
     #expect(note.affectedDocument.value == "F001-100")
+    #expect(note.reasonDescription == "DEVOLUCIÓN TOTAL")
     #expect(xml.contains("<CreditNote"))
     #expect(xml.contains("xmlns=\"urn:oasis:names:specification:ubl:schema:xsd:CreditNote-2\""))
     #expect(xml.contains("<cbc:UBLVersionID>2.1</cbc:UBLVersionID>"))
@@ -17,6 +18,8 @@ import ZIPFoundation
     #expect(xml.contains("<cbc:ReferenceID>F001-100</cbc:ReferenceID>"))
     #expect(xml.contains(">06</cbc:ResponseCode>"))
     #expect(xml.contains("catalogo09"))
+    #expect(xml.contains("<cbc:Description>DEVOLUCIÓN TOTAL</cbc:Description>"))
+    #expect(xml.contains("<cbc:Note languageLocaleID=\"1000\">SON CIENTO DIECIOCHO CON 00/100 SOLES</cbc:Note>"))
     #expect(xml.contains("<cac:InvoiceDocumentReference>"))
     #expect(xml.contains(">01</cbc:DocumentTypeCode>"))
     #expect(xml.contains("<cac:CreditNoteLine>"))
@@ -24,6 +27,18 @@ import ZIPFoundation
     #expect(xml.contains(">1</cbc:CreditedQuantity>"))
     #expect(xml.contains("<cbc:PayableAmount currencyID=\"PEN\">118.00</cbc:PayableAmount>"))
     #expect(xml.hasSuffix("</CreditNote>"))
+}
+
+@Test func creditNoteDistinguishesFreeNotesFromTypedSUNATLegends() throws {
+    let note = makeCreditNote(additionalNotes: [
+        DocumentNote("DEVOLUCIÓN COORDINADA CON EL CLIENTE"),
+        DocumentNote(legend: .subjectToDetraction)
+    ])
+    let xml = try CreditNoteXMLTransformer().transform(note)
+
+    #expect(xml.contains("<cbc:Note>DEVOLUCIÓN COORDINADA CON EL CLIENTE</cbc:Note>"))
+    #expect(xml.contains("<cbc:Note languageLocaleID=\"2006\">OPERACIÓN SUJETA A DETRACCIÓN</cbc:Note>"))
+    #expect(!xml.contains("languageLocaleID=\"1002\">DEVOLUCIÓN COORDINADA"))
 }
 
 @Test func affectedDocumentTypeCannotRepresentAnotherNote() {
@@ -250,7 +265,9 @@ private func makeCreditNote(
         legalName: "CLIENTE S.A.C."
     ),
     reason: CreditNoteReasonCode = .devolucionTotal,
-    issueDate: IssueDate = IssueDate(year: 2026, month: 8, day: 2)
+    reasonDescription: String? = nil,
+    issueDate: IssueDate = IssueDate(year: 2026, month: 8, day: 2),
+    additionalNotes: [DocumentNote] = []
 ) -> NotaCredito {
     let values = creditNoteValues()
     return NotaCredito(
@@ -262,8 +279,9 @@ private func makeCreditNote(
         customer: customer,
         affectedDocument: affectedDocument,
         reasonCode: reason,
-        reasonDescription: "DEVOLUCIÓN DEL PRODUCTO",
-        lines: [CreditNoteLine(invoiceLine: values.line)]
+        reasonDescription: reasonDescription,
+        lines: [CreditNoteLine(invoiceLine: values.line)],
+        additionalNotes: additionalNotes
     )
 }
 

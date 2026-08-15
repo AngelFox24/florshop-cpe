@@ -81,7 +81,6 @@ import FlorShopCPE
             type: .factura
         ),
         reasonCode: .devolucionTotal,
-        reasonDescription: "DEVOLUCIÓN TOTAL DEL PRODUCTO",
         lines: [
             CreditNoteLine(
                 id: "1",
@@ -95,7 +94,7 @@ import FlorShopCPE
             )
         ],
         additionalNotes: [                                // Opcional
-            DocumentNote(value: "DEVOLUCIÓN COORDINADA CON EL CLIENTE", languageLocaleID: "1002")
+            DocumentNote("DEVOLUCIÓN COORDINADA CON EL CLIENTE")
         ]
     )
     #expect(notaCredito.totalAmount == 118.00)

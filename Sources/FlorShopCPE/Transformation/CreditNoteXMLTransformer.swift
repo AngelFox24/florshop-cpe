@@ -7,9 +7,14 @@ public protocol CreditNoteXMLTransforming: Sendable {
 /// Genera el documento SUNAT `CreditNote` UBL 2.1 sin realizar envíos de red.
 public struct CreditNoteXMLTransformer: CreditNoteXMLTransforming, Sendable {
     private let validator: CreditNoteValidator
+    private let amountInWordsFormatter: any AmountInWordsFormatting
 
-    public init(validator: CreditNoteValidator = CreditNoteValidator()) {
+    public init(
+        validator: CreditNoteValidator = CreditNoteValidator(),
+        amountInWordsFormatter: any AmountInWordsFormatting = SpanishAmountInWordsFormatter()
+    ) {
         self.validator = validator
+        self.amountInWordsFormatter = amountInWordsFormatter
     }
 
     public func transform(_ note: NotaCredito) throws -> String {
@@ -37,8 +42,24 @@ public struct CreditNoteXMLTransformer: CreditNoteXMLTransforming, Sendable {
         if let issueTime = note.issueTime {
             writer.element("cbc:IssueTime", text: format(issueTime))
         }
+        let amountInWords = try amountInWordsFormatter.format(
+            CPEPrecision.monetary(note.monetaryTotal.payableAmount.value),
+            currency: note.currency
+        )
+        writer.element("cbc:Note", text: amountInWords, attributes: ["languageLocaleID": "1000"])
+        if !note.lines.isEmpty && note.lines.allSatisfy({ $0.taxTreatment == .free }) {
+            writer.element(
+                "cbc:Note",
+                text: "TRANSFERENCIA GRATUITA DE UN BIEN Y/O SERVICIO PRESTADO GRATUITAMENTE",
+                attributes: ["languageLocaleID": "1002"]
+            )
+        }
         note.additionalNotes.forEach {
-            writer.element("cbc:Note", text: $0.value, attributes: ["languageLocaleID": $0.languageLocaleID])
+            writer.element(
+                "cbc:Note",
+                text: $0.value,
+                attributes: $0.legend.map { ["languageLocaleID": $0.rawValue] } ?? [:]
+            )
         }
         writer.element("cbc:DocumentCurrencyCode", text: note.currency.rawValue)
         writeDiscrepancy(note, to: &writer)

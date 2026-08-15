@@ -81,7 +81,6 @@ import FlorShopCPE
             type: .factura
         ),
         reasonCode: .aumentoEnElValor,
-        reasonDescription: "AUMENTO EN EL VALOR DEL PRODUCTO",
         lines: [
             DebitNoteLine(
                 id: "1",
@@ -95,7 +94,7 @@ import FlorShopCPE
             )
         ],
         additionalNotes: [                                 // Opcional
-            DocumentNote(value: "AJUSTE COORDINADO CON EL CLIENTE", languageLocaleID: "1002")
+            DocumentNote("AJUSTE COORDINADO CON EL CLIENTE")
         ]
     )
     #expect(notaDebito.totalAmount == 11.80)

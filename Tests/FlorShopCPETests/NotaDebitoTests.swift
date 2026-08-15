@@ -13,6 +13,7 @@ import Testing
     #expect(note.identifier.value == "FD01-200")
     #expect(note.documentType == .notaDeDebito)
     #expect(note.affectedDocument.value == "F001-100")
+    #expect(note.reasonDescription == "AUMENTO EN EL VALOR")
     #expect(xml.contains("<DebitNote"))
     #expect(xml.contains("xmlns=\"urn:oasis:names:specification:ubl:schema:xsd:DebitNote-2\""))
     #expect(xml.contains("<cbc:UBLVersionID>2.1</cbc:UBLVersionID>"))
@@ -20,6 +21,8 @@ import Testing
     #expect(xml.contains("<cbc:ReferenceID>F001-100</cbc:ReferenceID>"))
     #expect(xml.contains(">02</cbc:ResponseCode>"))
     #expect(xml.contains("catalogo10"))
+    #expect(xml.contains("<cbc:Description>AUMENTO EN EL VALOR</cbc:Description>"))
+    #expect(xml.contains("<cbc:Note languageLocaleID=\"1000\">SON ONCE CON 80/100 SOLES</cbc:Note>"))
     #expect(xml.contains("<cac:InvoiceDocumentReference>"))
     #expect(xml.contains(">01</cbc:DocumentTypeCode>"))
     #expect(xml.contains("<cac:RequestedMonetaryTotal>"))
@@ -287,7 +290,7 @@ private func makeDebitNote(
         legalName: "CLIENTE S.A.C."
     ),
     reason: DebitNoteReasonCode = .aumentoEnElValor,
-    reasonDescription: String = "AUMENTO EN EL VALOR DEL PRODUCTO",
+    reasonDescription: String? = nil,
     issueDate: IssueDate = IssueDate(year: 2026, month: 8, day: 2),
     includeQuantityAndPrice: Bool = true
 ) -> NotaDebito {

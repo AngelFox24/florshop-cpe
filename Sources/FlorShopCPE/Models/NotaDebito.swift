@@ -8,6 +8,17 @@ public enum DebitNoteReasonCode: String, Codable, CaseIterable, Sendable {
     case ajustesDeOperacionesDeExportacion = "11"
     case ajustesAfectosAlIVAP = "12"
     case penalidades = "13"
+
+    public var defaultDescription: String {
+        switch self {
+        case .interesesPorMora: "INTERESES POR MORA"
+        case .aumentoEnElValor: "AUMENTO EN EL VALOR"
+        case .penalidadesUOtrosConceptos: "PENALIDADES U OTROS CONCEPTOS"
+        case .ajustesDeOperacionesDeExportacion: "AJUSTES DE OPERACIONES DE EXPORTACIÓN"
+        case .ajustesAfectosAlIVAP: "AJUSTES AFECTOS AL IVAP"
+        case .penalidades: "PENALIDADES"
+        }
+    }
 }
 
 /// Totales monetarios admitidos por SUNAT en una Nota de Débito UBL 2.1.
@@ -129,7 +140,7 @@ public struct NotaDebito: Equatable, Sendable {
         customer: Customer,
         affectedDocument: AffectedDocumentIdentifier,
         reasonCode: DebitNoteReasonCode,
-        reasonDescription: String,
+        reasonDescription: String? = nil,
         lines: [DebitNoteLine],
         payableRoundingAmount: Decimal? = nil,
         additionalNotes: [DocumentNote] = []
@@ -142,7 +153,7 @@ public struct NotaDebito: Equatable, Sendable {
         self.customer = customer
         self.affectedDocument = affectedDocument
         self.reasonCode = reasonCode
-        self.reasonDescription = reasonDescription
+        self.reasonDescription = reasonDescription ?? reasonCode.defaultDescription
         self.lines = lines
         self.taxTotal = CPECalculation.taxTotal(from: lines, taxTotal: \.taxTotal)
         let calculatedTotal = CPECalculation.monetaryTotal(

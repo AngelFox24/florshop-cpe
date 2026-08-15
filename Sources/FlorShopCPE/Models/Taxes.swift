@@ -124,26 +124,14 @@ public struct LinePricing: Equatable, Sendable {
     public let taxTreatment: TaxTreatment
     public let taxedPriceBasis: TaxedPriceBasis?
 
-    private init(
-        amount: Decimal,
-        taxTreatment: TaxTreatment,
-        taxedPriceBasis: TaxedPriceBasis?
-    ) {
+    private init(amount: Decimal, taxTreatment: TaxTreatment, taxedPriceBasis: TaxedPriceBasis?) {
         self.amount = amount
         self.taxTreatment = taxTreatment
         self.taxedPriceBasis = taxedPriceBasis
     }
 
-    public static func taxed(
-        _ price: Decimal,
-        rate: Decimal = 18,
-        basis: TaxedPriceBasis = .includingTaxes
-    ) -> LinePricing {
-        LinePricing(
-            amount: price,
-            taxTreatment: .taxed(rate: rate),
-            taxedPriceBasis: basis
-        )
+    public static func taxed(_ price: Decimal, rate: Decimal = 18, basis: TaxedPriceBasis = .includingTaxes) -> LinePricing {
+        LinePricing(amount: price, taxTreatment: .taxed(rate: rate), taxedPriceBasis: basis)
     }
 
     public static func exempt(_ price: Decimal) -> LinePricing {
@@ -162,9 +150,7 @@ public struct LinePricing: Equatable, Sendable {
         LinePricing(amount: referenceValue, taxTreatment: .free, taxedPriceBasis: nil)
     }
 
-    var isReferenceValue: Bool {
-        taxTreatment == .free
-    }
+    var isReferenceValue: Bool { taxTreatment == .free }
 }
 
 public enum TaxExemptionReasonCode: String, Codable, Sendable {

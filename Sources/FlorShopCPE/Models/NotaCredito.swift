@@ -15,6 +15,25 @@ public enum CreditNoteReasonCode: String, Codable, CaseIterable, Sendable {
     case ajustesDeOperacionesDeExportacion = "11"
     case ajustesAfectosAlIVAP = "12"
     case correccionMontoNetoPendienteOFechasDePago = "13"
+
+    public var defaultDescription: String {
+        switch self {
+        case .anulacionDeOperacion: "ANULACIÓN DE LA OPERACIÓN"
+        case .anulacionPorErrorEnRUC: "ANULACIÓN POR ERROR EN EL RUC"
+        case .correccionPorErrorEnDescripcion: "CORRECCIÓN POR ERROR EN LA DESCRIPCIÓN"
+        case .descuentoGlobal: "DESCUENTO GLOBAL"
+        case .descuentoPorItem: "DESCUENTO POR ÍTEM"
+        case .devolucionTotal: "DEVOLUCIÓN TOTAL"
+        case .devolucionPorItem: "DEVOLUCIÓN POR ÍTEM"
+        case .bonificacion: "BONIFICACIÓN"
+        case .disminucionEnElValor: "DISMINUCIÓN EN EL VALOR"
+        case .otrosConceptos: "OTROS CONCEPTOS"
+        case .ajustesDeOperacionesDeExportacion: "AJUSTES DE OPERACIONES DE EXPORTACIÓN"
+        case .ajustesAfectosAlIVAP: "AJUSTES AFECTOS AL IVAP"
+        case .correccionMontoNetoPendienteOFechasDePago:
+            "CORRECCIÓN DEL MONTO NETO PENDIENTE DE PAGO Y/O FECHAS DE PAGO"
+        }
+    }
 }
 
 /// Totales monetarios permitidos por SUNAT dentro de una Nota de Crédito.
@@ -116,7 +135,7 @@ public struct NotaCredito: Equatable, Sendable {
         customer: Customer,
         affectedDocument: AffectedDocumentIdentifier,
         reasonCode: CreditNoteReasonCode,
-        reasonDescription: String,
+        reasonDescription: String? = nil,
         lines: [CreditNoteLine],
         payableRoundingAmount: Decimal? = nil,
         additionalNotes: [DocumentNote] = []
@@ -129,7 +148,7 @@ public struct NotaCredito: Equatable, Sendable {
         self.customer = customer
         self.affectedDocument = affectedDocument
         self.reasonCode = reasonCode
-        self.reasonDescription = reasonDescription
+        self.reasonDescription = reasonDescription ?? reasonCode.defaultDescription
         self.lines = lines
         self.taxTotal = CPECalculation.taxTotal(from: lines, taxTotal: \.taxTotal)
         let calculatedTotal = CPECalculation.monetaryTotal(

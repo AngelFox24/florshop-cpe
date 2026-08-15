@@ -65,11 +65,18 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
             currency: document.currency
         )
         writer.element("cbc:Note", text: note, attributes: ["languageLocaleID": "1000"])
+        if !document.lines.isEmpty && document.lines.allSatisfy({ $0.taxTreatment == .free }) {
+            writer.element(
+                "cbc:Note",
+                text: "TRANSFERENCIA GRATUITA DE UN BIEN Y/O SERVICIO PRESTADO GRATUITAMENTE",
+                attributes: ["languageLocaleID": "1002"]
+            )
+        }
         document.additionalNotes.forEach { note in
             writer.element(
                 "cbc:Note",
                 text: note.value,
-                attributes: ["languageLocaleID": note.languageLocaleID]
+                attributes: note.legend.map { ["languageLocaleID": $0.rawValue] } ?? [:]
             )
         }
         writer.element("cbc:DocumentCurrencyCode", text: document.currency.rawValue)

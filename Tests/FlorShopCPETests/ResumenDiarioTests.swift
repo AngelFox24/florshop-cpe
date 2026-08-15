@@ -72,6 +72,18 @@ import ZIPFoundation
     #expect(xml.contains("<cbc:Percent>18</cbc:Percent>"))
 }
 
+@Test func invoiceTransformerAutomaticallyWritesTheFreeTransferLegend() throws {
+    let boleta = makeSummaryBoleta(
+        number: "4",
+        pricing: .free(referenceValue: 4.80)
+    )
+    let xml = try UBLInvoiceXMLTransformer().transform(boleta)
+
+    #expect(xml.contains(
+        "<cbc:Note languageLocaleID=\"1002\">TRANSFERENCIA GRATUITA DE UN BIEN Y/O SERVICIO PRESTADO GRATUITAMENTE</cbc:Note>"
+    ))
+}
+
 @Test func dailySummaryTransformerGeneratesSummaryDocumentsUBL20() throws {
     let xml = try DailySummaryXMLTransformer().transform(
         makeDailySummary(boletas: [makeSummaryBoleta(number: "1"), makeSummaryBoleta(number: "2")])

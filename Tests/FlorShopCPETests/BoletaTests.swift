@@ -393,6 +393,7 @@ import ZIPFoundation
     #expect(xml.contains("<cbc:LineExtensionAmount currencyID=\"PEN\">0.00</cbc:LineExtensionAmount>"))
     #expect(xml.contains("<cbc:TaxableAmount currencyID=\"PEN\">4.80</cbc:TaxableAmount>"))
     #expect(xml.contains("<cbc:PayableAmount currencyID=\"PEN\">1748.00</cbc:PayableAmount>"))
+    #expect(!xml.contains("languageLocaleID=\"1002\""))
     #expect(xml.contains("<cbc:AddressTypeCode>0000</cbc:AddressTypeCode>"))
     #expect(!xml.contains("<cbc:AddressTypeCode>0014</cbc:AddressTypeCode>"))
     #expect(xml.contains("<cbc:Line>CAL. PABLO USANDIZAGA 670</cbc:Line>"))

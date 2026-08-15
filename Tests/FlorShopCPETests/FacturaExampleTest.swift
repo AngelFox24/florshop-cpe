@@ -97,10 +97,7 @@ import FlorShopCPE
             )
         ],
         additionalNotes: [                                  // Opcional
-            DocumentNote(
-                value: "ORDEN DE COMPRA 4301113494",
-                languageLocaleID: "1002"
-            )
+            DocumentNote("ORDEN DE COMPRA 4301113494")
         ],
         orderReference: "4301113494",                       // Opcional
         despatchDocumentReferences: [                       // Opcional
