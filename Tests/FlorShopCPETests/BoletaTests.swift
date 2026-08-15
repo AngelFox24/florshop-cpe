@@ -229,12 +229,20 @@ import ZIPFoundation
     #expect(exempt.taxCategory.percent == 0)
     #expect(exempt.taxCategory.exemptionReasonCode == .exonerado)
     #expect(exempt.taxCategory.scheme == .exonerado)
+    #expect(exempt.taxCategory.scheme.identifier == "9997")
+    #expect(exempt.taxCategory.scheme.name == "EXO")
+    #expect(exempt.taxCategory.scheme.typeCode == "VAT")
     #expect(unaffected.taxCategory.percent == 0)
     #expect(unaffected.taxCategory.exemptionReasonCode == .inafecto)
     #expect(unaffected.taxCategory.scheme == .inafecto)
+    #expect(unaffected.taxCategory.scheme.identifier == "9998")
+    #expect(unaffected.taxCategory.scheme.name == "INA")
+    #expect(unaffected.taxCategory.scheme.typeCode == "FRE")
     #expect(free.taxCategory.percent == 18)
     #expect(free.taxCategory.exemptionReasonCode == .inafectoRetiroPorBonificacion)
     #expect(free.taxCategory.scheme == .gratuito)
+    #expect(free.lineExtensionAmount.value == 100)
+    #expect(free.price.value == 0)
     #expect(export.taxCategory.percent == 0)
     #expect(export.taxCategory.exemptionReasonCode == .exportacion)
     #expect(export.taxCategory.scheme == .exportacion)
@@ -379,7 +387,15 @@ import ZIPFoundation
 }
 
 @Test func referenceBoletaUsesTheFreeTaxSchemeForItsReferencePrice() throws {
-    let xml = try UBLInvoiceXMLTransformer().transform(makeReferenceBoletaForSunatBeta())
+    let boleta = makeReferenceBoletaForSunatBeta()
+    let freeLine = boleta.lines[2]
+    let xml = try UBLInvoiceXMLTransformer().transform(boleta)
+
+    #expect(freeLine.lineExtensionAmount.value == 4.80)
+    #expect(freeLine.taxTotal.subtotals[0].taxableAmount.value == 4.80)
+    #expect(freeLine.price.value == 0)
+    #expect(boleta.netAmount == 1481.35)
+    #expect(boleta.totalAmount == 1748.00)
 
     #expect(xml.contains("<cbc:PriceTypeCode>02</cbc:PriceTypeCode>"))
     #expect(xml.contains("<cbc:TaxExemptionReasonCode>31</cbc:TaxExemptionReasonCode>"))
@@ -390,7 +406,7 @@ import ZIPFoundation
     #expect(xml.contains("<cbc:TaxTypeCode>FRE</cbc:TaxTypeCode>"))
     #expect(xml.contains("<cbc:TaxAmount currencyID=\"PEN\">266.65</cbc:TaxAmount>"))
     #expect(xml.contains("<cbc:LineExtensionAmount currencyID=\"PEN\">1481.35</cbc:LineExtensionAmount>"))
-    #expect(xml.contains("<cbc:LineExtensionAmount currencyID=\"PEN\">0.00</cbc:LineExtensionAmount>"))
+    #expect(xml.contains("<cbc:LineExtensionAmount currencyID=\"PEN\">4.80</cbc:LineExtensionAmount>"))
     #expect(xml.contains("<cbc:TaxableAmount currencyID=\"PEN\">4.80</cbc:TaxableAmount>"))
     #expect(xml.contains("<cbc:PayableAmount currencyID=\"PEN\">1748.00</cbc:PayableAmount>"))
     #expect(!xml.contains("languageLocaleID=\"1002\""))

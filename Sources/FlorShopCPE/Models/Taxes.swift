@@ -174,7 +174,7 @@ public struct TaxScheme: Codable, Equatable, Sendable {
 
     public static let igv = TaxScheme(identifier: "1000", name: "IGV", typeCode: "VAT")
     public static let exportacion = TaxScheme(identifier: "9995", name: "EXP", typeCode: "FRE")
-    public static let exonerado = TaxScheme(identifier: "9997", name: "EXO", typeCode: "FRE")
-    public static let inafecto = TaxScheme(identifier: "9998", name: "INAFECTO", typeCode: "FRE")
+    public static let exonerado = TaxScheme(identifier: "9997", name: "EXO", typeCode: "VAT")
+    public static let inafecto = TaxScheme(identifier: "9998", name: "INA", typeCode: "FRE")
     public static let gratuito = TaxScheme(identifier: "9996", name: "GRA", typeCode: "FRE")
 }

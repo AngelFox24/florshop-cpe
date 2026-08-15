@@ -38,7 +38,9 @@ public struct Boleta: Equatable, Sendable, UBLInvoiceDocument {
         self.lines = lines
         self.taxTotal = CPECalculation.taxTotal(from: lines, taxTotal: \.taxTotal)
         self.monetaryTotal = CPECalculation.monetaryTotal(
-            lineAmounts: lines.map(\.lineExtensionAmount),
+            lineAmounts: lines
+                .filter { $0.taxTreatment != .free }
+                .map(\.lineExtensionAmount),
             taxTotal: self.taxTotal,
             payableRoundingAmount: payableRoundingAmount.map(MonetaryAmount.init(value:))
         )

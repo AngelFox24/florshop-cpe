@@ -28,7 +28,7 @@ import FlorShopCPE
     let issueTime = IssueTime(
         hour: try #require(dateComponents.hour),
         minute: try #require(dateComponents.minute),
-        second: try #require(dateComponents.second)
+        second: try #require(dateComponents.second)             // Por defecto: 0
     )
     let correlative = String(max(1, Int(now.timeIntervalSince1970) % 99_999_999))
     let identifier = DocumentIdentifier(
@@ -39,28 +39,28 @@ import FlorShopCPE
     let boleta = Boleta(
         identifier: identifier,
         issueDate: issueDate,
-        issueTime: issueTime,                                  // Opcional
+        issueTime: issueTime,                                  // Por defecto: nil
         currency: .pen,
         supplier: Supplier(
             taxIdentifier: PartyIdentifier(
                 value: "10708255195",
                 documentType: .ruc
             ),
-            commercialName: "Electrodomésticos Cruz de Motupe", // Opcional
+            commercialName: "Electrodomésticos Cruz de Motupe", // Por defecto: nil
             legalName: "Vega Poblete Carlos Enrique",
-            address: Address(                                  // Opcional
-                ubigeoCode: "150130",                         // Opcional
-                addressTypeCode: "0000",                      // Opcional; lo proporciona el POS
-                urbanization: "URB. SAN BORJA",               // Opcional
-                city: "LIMA",                                 // Opcional
-                department: "LIMA",                           // Opcional
-                district: "SAN BORJA",                        // Opcional
+            address: Address(                                  // Por defecto: nil
+                ubigeoCode: "150130",                         // Por defecto: nil
+                addressTypeCode: "0000",                      // Por defecto: nil; lo proporciona el POS
+                urbanization: "URB. SAN BORJA",               // Por defecto: nil
+                city: "LIMA",                                 // Por defecto: nil
+                department: "LIMA",                           // Por defecto: nil
+                district: "SAN BORJA",                        // Por defecto: nil
                 line: "CAL. PABLO USANDIZAGA 670",
-                countryCode: "PE"
+                countryCode: "PE"                             // Por defecto: "PE"
             ),
-            contact: Contact(                                  // Opcional
-                telephone: "+51 999 999 999",                 // Opcional
-                email: "ventas@ejemplo.pe"                    // Opcional
+            contact: Contact(                                  // Por defecto: nil
+                telephone: "+51 999 999 999",                 // Por defecto: nil
+                email: "ventas@ejemplo.pe"                    // Por defecto: nil
             )
         ),
         customer: Customer(
@@ -69,42 +69,122 @@ import FlorShopCPE
                 documentType: .dni
             ),
             legalName: "Pazos Atoche Luana Karina",
-            address: Address(                                  // Opcional
-                ubigeoCode: "150122",                         // Opcional
-                addressTypeCode: "0000",                      // Opcional
-                urbanization: "URB. MIRAFLORES",              // Opcional
-                city: "LIMA",                                 // Opcional
-                department: "LIMA",                           // Opcional
-                district: "MIRAFLORES",                       // Opcional
+            address: Address(                                  // Por defecto: nil
+                ubigeoCode: "150122",                         // Por defecto: nil
+                addressTypeCode: "0000",                      // Por defecto: nil
+                urbanization: "URB. MIRAFLORES",              // Por defecto: nil
+                city: "LIMA",                                 // Por defecto: nil
+                department: "LIMA",                           // Por defecto: nil
+                district: "MIRAFLORES",                       // Por defecto: nil
                 line: "CAL. AUGUSTO ANGULO 130",
-                countryCode: "PE"
+                countryCode: "PE"                             // Por defecto: "PE"
             )
         ),
         lines: [
+            // Precio gravado que incluye IGV. Se escriben también los valores
+            // predeterminados para que la forma completa de la API sea visible.
             InvoiceLine(
                 id: "1",
                 quantity: .units(1),
-                pricing: .taxed(998.00),
+                pricing: .taxed(
+                    998.00,
+                    rate: 18,                                  // Por defecto: 18
+                    basis: .includingTaxes                     // Por defecto: .includingTaxes
+                ),
                 item: Item(
                     description: "Refrigeradora marca AXM no frost de 200 ltrs.",
-                    sellerItemIdentifier: "REF564",             // Opcional
-                    commodityClassificationCode: "52141501"     // Opcional
+                    sellerItemIdentifier: "REF564",             // Por defecto: nil
+                    commodityClassificationCode: "52141501"     // Por defecto: nil
                 )
             ),
+            // Cantidad fraccionaria de kilogramos y precio gravado sin IGV.
             InvoiceLine(
                 id: "2",
-                quantity: .units(1),
-                pricing: .taxed(750.00),
+                quantity: .kilograms(34.521234),
+                pricing: .taxed(
+                    2.50,
+                    rate: 18,                                  // Por defecto: 18
+                    basis: .excludingTaxes
+                ),
                 item: Item(
-                    description: "Cocina a gas GLP, marca AXM de 5 hornillas",
-                    sellerItemIdentifier: "COC124",             // Opcional
-                    commodityClassificationCode: "52141504"     // Opcional
+                    description: "Café tostado vendido por kilogramo",
+                    sellerItemIdentifier: "CAF-KG",            // Por defecto: nil
+                    commodityClassificationCode: nil            // Por defecto: nil
+                )
+            ),
+            // Operación exonerada, expresada en gramos con decimales.
+            InvoiceLine(
+                id: "3",
+                quantity: .grams(250.125),
+                pricing: .exempt(0.08),
+                item: Item(
+                    description: "Producto exonerado vendido por gramos",
+                    sellerItemIdentifier: nil,                  // Por defecto: nil
+                    commodityClassificationCode: nil            // Por defecto: nil
+                )
+            ),
+            // Operación inafecta medida en litros.
+            InvoiceLine(
+                id: "4",
+                quantity: .liters(1.75),
+                pricing: .unaffected(12.40),
+                item: Item(
+                    description: "Producto inafecto vendido por litros",
+                    sellerItemIdentifier: "INA-LT",            // Por defecto: nil
+                    commodityClassificationCode: nil            // Por defecto: nil
+                )
+            ),
+            // Entrega gratuita: el importe es un valor referencial y no se cobra.
+            InvoiceLine(
+                id: "5",
+                quantity: .meters(2.345678),
+                pricing: .free(referenceValue: 4.80),
+                item: Item(
+                    description: "Muestra gratuita entregada por metros",
+                    sellerItemIdentifier: nil,                  // Por defecto: nil
+                    commodityClassificationCode: nil            // Por defecto: nil
+                )
+            ),
+            // La forma corta usa ambos valores predeterminados de `.taxed`:
+            // tasa 18 y precio que incluye impuestos.
+            InvoiceLine(
+                id: "6",
+                quantity: .serviceUnits(1.5),
+                pricing: .taxed(59.00),                         // Por defecto: rate 18 y .includingTaxes
+                item: Item(
+                    description: "Servicio cobrado por unidad de servicio",
+                    sellerItemIdentifier: "SRV-001",           // Por defecto: nil
+                    commodityClassificationCode: nil            // Por defecto: nil
                 )
             )
         ],
-        additionalNotes: []                                     // Opcional
+        payableRoundingAmount: nil,                             // Por defecto: nil
+        additionalNotes: []                                    // Por defecto: []
     )
-    #expect(boleta.totalAmount == 1748.00)
+
+    // Todos los importes derivados están disponibles antes de firmar.
+    #expect(boleta.netAmount == 1048.77)
+    #expect(boleta.taxAmount == 181.27)
+    #expect(boleta.totalAmount == 1230.04)
+    #expect(boleta.lines[1].lineExtensionAmount.value == 86.30)
+    #expect(boleta.lines[4].isFreeOfCharge == true)
+    #expect(boleta.lines[4].lineExtensionAmount.value == 11.26)
+
+    // La API también representa exportaciones. No se agrega esta línea a la
+    // boleta enviada porque una exportación real requiere un contexto comercial
+    // y un tipo de operación distintos de esta venta local de demostración.
+    let exportLineExample = InvoiceLine(
+        id: "EXPORT-1",
+        quantity: .units(2),
+        pricing: .export(30.00),
+        item: Item(
+            description: "Ejemplo de producto destinado a exportación",
+            sellerItemIdentifier: nil,                         // Por defecto: nil
+            commodityClassificationCode: nil                   // Por defecto: nil
+        )
+    )
+    #expect(exportLineExample.taxTreatment == .export)
+    #expect(exportLineExample.lineExtensionAmount.value == 60.00)
     //MARK: SING
     let signingConfiguration = SigningConfiguration(
         credentials: .pkcs12(

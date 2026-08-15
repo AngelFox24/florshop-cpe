@@ -54,7 +54,9 @@ public struct Factura: Equatable, Sendable, UBLInvoiceDocument {
         self.allowanceCharges = allowanceCharges
         self.taxTotal = CPECalculation.taxTotal(from: lines, taxTotal: \.taxTotal)
         self.monetaryTotal = CPECalculation.monetaryTotal(
-            lineAmounts: lines.map(\.lineExtensionAmount),
+            lineAmounts: lines
+                .filter { $0.taxTreatment != .free }
+                .map(\.lineExtensionAmount),
             taxTotal: self.taxTotal,
             allowanceCharges: allowanceCharges,
             payableRoundingAmount: payableRoundingAmount.map(MonetaryAmount.init(value:))

@@ -152,7 +152,9 @@ public struct NotaCredito: Equatable, Sendable {
         self.lines = lines
         self.taxTotal = CPECalculation.taxTotal(from: lines, taxTotal: \.taxTotal)
         let calculatedTotal = CPECalculation.monetaryTotal(
-            lineAmounts: lines.map(\.lineExtensionAmount),
+            lineAmounts: lines
+                .filter { $0.taxTreatment != .free }
+                .map(\.lineExtensionAmount),
             taxTotal: self.taxTotal,
             payableRoundingAmount: payableRoundingAmount.map(MonetaryAmount.init(value:))
         )
@@ -164,7 +166,13 @@ public struct NotaCredito: Equatable, Sendable {
     }
 
     public var documentType: ElectronicDocumentType { .notaDeCredito }
-    public var netAmount: Decimal { CPEPrecision.monetarySum(lines.map(\.lineExtensionAmount.value)) }
+    public var netAmount: Decimal {
+        CPEPrecision.monetarySum(
+            lines.lazy
+                .filter { $0.taxTreatment != .free }
+                .map(\.lineExtensionAmount.value)
+        )
+    }
     public var taxAmount: Decimal { taxTotal.amount.value }
     public var totalAmount: Decimal { monetaryTotal.payableAmount.value }
 }

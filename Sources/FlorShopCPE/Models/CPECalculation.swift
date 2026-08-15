@@ -55,7 +55,10 @@ enum CPECalculation {
         let taxableValue = CPEPrecision.monetary(
             (isFree ? commercialValue : netUnitPrice) * quantity
         )
-        let lineExtension = isFree ? Decimal.zero : taxableValue
+        // SUNAT define LineExtensionAmount como el valor de venta del ítem.
+        // En operaciones gratuitas es el valor referencial total, aunque no
+        // forme parte del importe que el cliente debe pagar.
+        let lineExtension = taxableValue
         let taxAmount = appliesTax && !isFree
             ? CPEPrecision.monetary(taxableValue * rate / 100)
             : .zero

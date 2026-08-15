@@ -20,6 +20,7 @@ struct CPEAmountConsistencyValidator: Sendable {
             try validateLine(
                 id: line.id,
                 quantity: line.quantity,
+                pricing: line.pricing,
                 lineExtensionAmount: line.lineExtensionAmount,
                 price: line.price,
                 taxTotal: line.taxTotal,
@@ -44,6 +45,7 @@ struct CPEAmountConsistencyValidator: Sendable {
             try validateLine(
                 id: line.id,
                 quantity: line.quantity,
+                pricing: line.pricing,
                 lineExtensionAmount: line.lineExtensionAmount,
                 price: line.price,
                 taxTotal: line.taxTotal,
@@ -52,7 +54,11 @@ struct CPEAmountConsistencyValidator: Sendable {
         }
         try validateTaxTotal(note.taxTotal, lineTaxes: note.lines.map(\.taxTotal))
 
-        let lineAndTaxTotal = normalizedSum(note.lines.map(\.lineExtensionAmount))
+        let lineAndTaxTotal = normalizedSum(
+            note.lines
+                .filter { $0.taxTreatment != .free }
+                .map(\.lineExtensionAmount)
+        )
             + CPEPrecision.monetary(note.taxTotal.amount.value)
         let total = note.monetaryTotal
         try validatePayable(
@@ -71,6 +77,7 @@ struct CPEAmountConsistencyValidator: Sendable {
                 try validateLine(
                     id: line.id,
                     quantity: quantity,
+                    pricing: line.pricing,
                     lineExtensionAmount: line.lineExtensionAmount,
                     price: price,
                     taxTotal: line.taxTotal,
@@ -82,7 +89,11 @@ struct CPEAmountConsistencyValidator: Sendable {
         }
         try validateTaxTotal(note.taxTotal, lineTaxes: note.lines.map(\.taxTotal))
 
-        let lineAndTaxTotal = normalizedSum(note.lines.map(\.lineExtensionAmount))
+        let lineAndTaxTotal = normalizedSum(
+            note.lines
+                .filter { $0.taxTreatment != .free }
+                .map(\.lineExtensionAmount)
+        )
             + CPEPrecision.monetary(note.taxTotal.amount.value)
         let total = note.monetaryTotal
         try validatePayable(
@@ -112,19 +123,18 @@ struct CPEAmountConsistencyValidator: Sendable {
     private func validateLine(
         id: String,
         quantity: Quantity,
+        pricing: LinePricing,
         lineExtensionAmount: MonetaryAmount,
         price: MonetaryAmount,
         taxTotal: LineTaxTotal,
         isFree: Bool
     ) throws {
-        if !isFree {
-            let expected = CPEPrecision.lineAmount(
-                unitPrice: price.value,
-                quantity: quantity.value
-            )
-            guard expected == CPEPrecision.monetary(lineExtensionAmount.value) else {
-                throw CPEAmountConsistencyValidationError.lineExtensionAmountMismatch(id)
-            }
+        let expected = CPEPrecision.lineAmount(
+            unitPrice: isFree ? pricing.amount : price.value,
+            quantity: quantity.value
+        )
+        guard expected == CPEPrecision.monetary(lineExtensionAmount.value) else {
+            throw CPEAmountConsistencyValidationError.lineExtensionAmountMismatch(id)
         }
         try validateLineTaxTotal(id: id, taxTotal: taxTotal)
     }
