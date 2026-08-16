@@ -1,7 +1,7 @@
 import Foundation
 import FlorShopCPE
 
-struct SummitDocument {
+struct SummitDocumentExample {
     // Example in: Examples/Zip/ZipDocument.swift to optain CPEDocument
     static func summitBeta(document: CPEDocument, ruc: String) async throws -> SunatBillSubmissionResult {
         // MARK: Example of Summit Beta

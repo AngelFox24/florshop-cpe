@@ -1,9 +1,9 @@
 import Foundation
 import FlorShopCPE
 
-struct ZipDocument {
+struct ZipDocumentExample {
     // Example of SignedCPE in: Examples/Sing/SingDocument.swift
-    static func zip(signedDocument: SignedCPE, url: URL) async throws -> CPEDocument {
+    static func zip(signedDocument: SignedCPE, url: URL) throws -> CPEDocument {
         // MARK: Example of Zip
         let document: CPEDocument = try CPEDocumentWriter().write(
             signedDocument,

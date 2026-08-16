@@ -6,9 +6,9 @@ enum BoletaExampleError: Error {
     case incompleteCurrentDate
 }
 
-struct BoletaLarge {
-    static func getBoletaLargeExample(now: Date = Date()) throws -> Boleta {
-        // MARK: Example of Boleta
+struct BoletaLargeExample {
+    static func getBoletaLarge(serie: String? = nil, correlative: String? = nil) throws -> Boleta {
+        let now = Date()
         var limaCalendar = Calendar(identifier: .gregorian)
         guard let limaTimeZone = TimeZone(identifier: "America/Lima") else {
             throw BoletaExampleError.invalidLimaTimeZone
@@ -27,19 +27,13 @@ struct BoletaLarge {
               let second = dateComponents.second else {
             throw BoletaExampleError.incompleteCurrentDate
         }
-
-        let issueDate = IssueDate(year: year, month: month, day: day)
-        let issueTime = IssueTime(
-            hour: hour,
-            minute: minute,
-            second: second                                      // Por defecto: 0
-        )
-        let correlative = String(max(1, Int(now.timeIntervalSince1970) % 99_999_999))
-
+        let series = serie ?? "BC01"
+        let correlative = correlative ?? String(max(1, Int(now.timeIntervalSince1970) % 99_999_999))
+        // MARK: Example of Boleta
         return Boleta(
-            identifier: DocumentIdentifier(series: "BC01", number: correlative),
-            issueDate: issueDate,
-            issueTime: issueTime,                              // Por defecto: nil
+            identifier: DocumentIdentifier(series: series, number: correlative),
+            issueDate: IssueDate(year: year, month: month, day: day),
+            issueTime: IssueTime(hour: hour, minute: minute, second: second),    // Por defecto: nil
             currency: .pen,
             supplier: Supplier(
                 taxIdentifier: PartyIdentifier(
@@ -147,6 +141,6 @@ struct BoletaLarge {
             payableRoundingAmount: nil,                         // Por defecto: nil
             additionalNotes: []                                // Por defecto: []
         )
-        // MARK: End of Example of Boleta
+        // MARK: End of Example
     }
 }

@@ -1,8 +1,9 @@
 import Foundation
 import FlorShopCPE
 
-struct BoletaSmall {
-    static func getBoletaSmallExample(now: Date = Date()) throws -> Boleta {
+struct BoletaSmallExample {
+    static func getBoletaSmall(serie: String? = nil, correlative: String? = nil) throws -> Boleta {
+        let now = Date()
         var calendar = Calendar(identifier: .gregorian)
         guard let timeZone = TimeZone(identifier: "America/Lima") else {
             throw BoletaExampleError.invalidLimaTimeZone
@@ -14,12 +15,12 @@ struct BoletaSmall {
               let day = components.day else {
             throw BoletaExampleError.incompleteCurrentDate
         }
-
+        let series = serie ?? "BC01"
+        let correlative = correlative ?? String(max(1, Int(now.timeIntervalSince1970) % 99_999_999))
+        
+        // MARK: Example of Boleta
         return Boleta(
-            identifier: DocumentIdentifier(
-                series: "BC01",
-                number: String(max(1, Int(now.timeIntervalSince1970) % 99_999_999))
-            ),
+            identifier: DocumentIdentifier(series: series, number: correlative),
             issueDate: IssueDate(year: year, month: month, day: day),
             currency: .pen,
             supplier: Supplier(
@@ -38,5 +39,6 @@ struct BoletaSmall {
                 )
             ]
         )
+        // MARK: End of Example
     }
 }
