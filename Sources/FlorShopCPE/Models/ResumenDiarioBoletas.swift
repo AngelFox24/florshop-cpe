@@ -41,6 +41,26 @@ public enum DailySummarySaleType: String, Codable, Sendable {
     case freeExport = "09"
 }
 
+/// Documento de entrada que la librería convertirá en una línea del Resumen
+/// Diario. El identificador correlativo de línea se deriva de su posición en
+/// el arreglo `entries` y no forma parte de la API de entrada.
+public enum DailySummaryEntry: Equatable, Sendable {
+    case boleta(Boleta, condition: DailySummaryCondition = .add)
+    case creditNote(NotaCredito, condition: DailySummaryCondition = .add)
+    case debitNote(NotaDebito, condition: DailySummaryCondition = .add)
+
+    fileprivate func makeLine(lineID: Int) throws -> DailySummaryLine {
+        switch self {
+        case let .boleta(boleta, condition):
+            try DailySummaryLine(lineID: lineID, boleta: boleta, condition: condition)
+        case let .creditNote(note, condition):
+            try DailySummaryLine(lineID: lineID, creditNote: note, condition: condition)
+        case let .debitNote(note, condition):
+            try DailySummaryLine(lineID: lineID, debitNote: note, condition: condition)
+        }
+    }
+}
+
 /// Tributo agregado de una línea del Resumen Diario.
 ///
 /// La tasa se conserva porque SUNAT la exige también para operaciones gratuitas.
@@ -108,7 +128,7 @@ public struct DailySummaryLine: Equatable, Sendable {
     }
 
     /// Deriva de una boleta los importes exigidos por `SummaryDocumentsLine`.
-    public init(
+    init(
         lineID: Int,
         boleta: Boleta,
         condition: DailySummaryCondition = .add
@@ -134,7 +154,7 @@ public struct DailySummaryLine: Equatable, Sendable {
     /// Deriva la línea `07` exigida por el Resumen Diario para una Nota de
     /// Crédito asociada a una boleta. Las notas de facturas se envían de forma
     /// individual mediante `sendBill` y no pueden convertirse con esta API.
-    public init(
+    init(
         lineID: Int,
         creditNote: NotaCredito,
         condition: DailySummaryCondition = .add
@@ -164,7 +184,7 @@ public struct DailySummaryLine: Equatable, Sendable {
     /// Deriva la línea `08` exigida por el Resumen Diario para una Nota de
     /// Débito asociada a una boleta. Las notas de facturas se envían de forma
     /// individual mediante `sendBill` y no pueden convertirse con esta API.
-    public init(
+    init(
         lineID: Int,
         debitNote: NotaDebito,
         condition: DailySummaryCondition = .add
@@ -311,7 +331,7 @@ public struct ResumenDiarioBoletas: Equatable, Sendable {
     public let supplier: Supplier
     public let lines: [DailySummaryLine]
 
-    public init(
+    init(
         identifier: DailySummaryIdentifier,
         issueDate: IssueDate,
         referenceDate: IssueDate,
@@ -324,6 +344,26 @@ public struct ResumenDiarioBoletas: Equatable, Sendable {
         self.supplier = supplier
         self.lines = lines
         try DailySummaryValidator().validate(self)
+    }
+
+    /// API para combinar boletas y notas asociadas a boletas. La librería
+    /// asigna `lineID` correlativos empezando en 1 según el orden de entrada.
+    public init(
+        identifier: DailySummaryIdentifier,
+        issueDate: IssueDate,
+        referenceDate: IssueDate,
+        supplier: Supplier,
+        entries: [DailySummaryEntry]
+    ) throws {
+        try self.init(
+            identifier: identifier,
+            issueDate: issueDate,
+            referenceDate: referenceDate,
+            supplier: supplier,
+            lines: try entries.enumerated().map { offset, entry in
+                try entry.makeLine(lineID: offset + 1)
+            }
+        )
     }
 
     /// API de conveniencia para el caso normal: informar boletas nuevas.
@@ -339,9 +379,7 @@ public struct ResumenDiarioBoletas: Equatable, Sendable {
             issueDate: issueDate,
             referenceDate: first.issueDate,
             supplier: first.supplier,
-            lines: try boletas.enumerated().map {
-                try DailySummaryLine(lineID: $0.offset + 1, boleta: $0.element)
-            }
+            entries: boletas.map { .boleta($0) }
         )
     }
 }

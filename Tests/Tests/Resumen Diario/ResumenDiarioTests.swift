@@ -119,14 +119,15 @@ import ZIPFoundation
         issueDate: boleta.issueDate,
         referenceDate: boleta.issueDate,
         supplier: boleta.supplier,
-        lines: [
-            try DailySummaryLine(lineID: 1, boleta: boleta),
-            try DailySummaryLine(lineID: 2, creditNote: creditNote)
+        entries: [
+            .boleta(boleta),
+            .creditNote(creditNote)
         ]
     )
     let xml = try DailySummaryXMLTransformer().transform(summary)
 
     #expect(summary.lines.count == 2)
+    #expect(summary.lines.map(\.lineID) == [1, 2])
     #expect(summary.lines[0].documentType == .boleta)
     #expect(summary.lines[1].documentType == .notaDeCredito)
     #expect(summary.lines[1].affectedDocument == boleta.identifier)
@@ -291,9 +292,9 @@ struct SunatBetaDailySummaryIntegrationTests {
             issueDate: date,
             referenceDate: date,
             supplier: boleta.supplier,
-            lines: [
-                try DailySummaryLine(lineID: 1, boleta: boleta),
-                try DailySummaryLine(lineID: 2, creditNote: creditNote)
+            entries: [
+                .boleta(boleta),
+                .creditNote(creditNote)
             ]
         )
         let configuration = SigningConfiguration(
