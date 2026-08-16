@@ -40,44 +40,4 @@ struct BoletaSmall {
             ]
         )
     }
-
-    static func run() async throws {
-        // MARK: Creacion de Boleta
-
-        let boleta = try getBoletaSmallExample()
-
-        // MARK: SING
-
-        let signedBoleta = try XMLSecCPESigner().sign(
-            boleta,
-            configuration: SigningConfiguration(
-                credentials: .pkcs12(
-                    path: URL(fileURLWithPath: "/Users/angel/Downloads/LLAMA-PE-CERTIFICADO-DEMO-1070825519.pfx"),
-                    passwordProvider: { "Foxangel2498." }
-                )
-            )
-        )
-
-        // MARK: ZIP
-
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("FlorShopCPE-BoletaSmall-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let document = try CPEDocumentWriter().write(
-            signedBoleta,
-            output: CPEOutputConfiguration(rootDirectory: directory)
-        )
-
-        // MARK: Envio a SUNAT
-
-        let environment = ProcessInfo.processInfo.environment
-        guard environment["FLORSHOP_CPE_RUN_BOLETA_EXAMPLE"] == "true" else {
-            return
-        }
-        _ = try await SunatBillClient().submit(
-            document: document,
-            credentials: .beta(emitterRUC: boleta.supplier.taxIdentifier.value)
-        )
-    }
 }
