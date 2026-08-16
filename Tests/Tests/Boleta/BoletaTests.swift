@@ -4,8 +4,9 @@ import ZIPFoundation
 @testable import FlorShopCPE
 
 @Test func boletaAssignsSequentialInvoiceLineIdentifiers() throws {
-    let boleta = try BoletaLarge.getBoletaLargeExample(
-        now: Date(timeIntervalSince1970: 1_786_899_600)
+    let boleta = try BoletaLargeExample.getBoletaLarge(
+        serie: "BC01",
+        correlative: "1"
     )
 
     #expect(boleta.lines.map(\.id) == ["1", "2", "3", "4", "5", "6"])
@@ -227,12 +228,6 @@ import ZIPFoundation
         pricing: .free(referenceValue: 100),
         item: item
     )
-    let export = InvoiceLine(
-        id: "4",
-        quantity: quantity,
-        pricing: .export(100),
-        item: item
-    )
 
     #expect(exempt.taxCategory.percent == 0)
     #expect(exempt.taxCategory.exemptionReasonCode == .exonerado)
@@ -251,10 +246,6 @@ import ZIPFoundation
     #expect(free.taxCategory.scheme == .gratuito)
     #expect(free.lineExtensionAmount.value == 100)
     #expect(free.price.value == 0)
-    #expect(export.taxCategory.percent == 0)
-    #expect(export.taxCategory.exemptionReasonCode == .exportacion)
-    #expect(export.taxCategory.scheme == .exportacion)
-    #expect(export.taxTotal.amount.value == 0)
 }
 
 @Test func transformerInfersBoletaSignatureMetadata() throws {

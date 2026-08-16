@@ -34,7 +34,7 @@ struct BoletaSmallExample {
             lines: [
                 InvoiceLine(
                     quantity: .units(1),
-                    pricing: .taxed(10),
+                    pricing: .taxed(11.80),
                     item: Item(description: "Producto")
                 )
             ]

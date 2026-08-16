@@ -5,7 +5,6 @@ public enum DebitNoteReasonCode: String, Codable, CaseIterable, Sendable {
     case interesesPorMora = "01"
     case aumentoEnElValor = "02"
     case penalidadesUOtrosConceptos = "03"
-    case ajustesDeOperacionesDeExportacion = "11"
     case ajustesAfectosAlIVAP = "12"
     case penalidades = "13"
 
@@ -14,7 +13,6 @@ public enum DebitNoteReasonCode: String, Codable, CaseIterable, Sendable {
         case .interesesPorMora: "INTERESES POR MORA"
         case .aumentoEnElValor: "AUMENTO EN EL VALOR"
         case .penalidadesUOtrosConceptos: "PENALIDADES U OTROS CONCEPTOS"
-        case .ajustesDeOperacionesDeExportacion: "AJUSTES DE OPERACIONES DE EXPORTACIÓN"
         case .ajustesAfectosAlIVAP: "AJUSTES AFECTOS AL IVAP"
         case .penalidades: "PENALIDADES"
         }

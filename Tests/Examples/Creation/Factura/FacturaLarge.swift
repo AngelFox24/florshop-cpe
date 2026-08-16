@@ -200,20 +200,6 @@ import FlorShopCPE
     #expect(factura.lines[4].isFreeOfCharge == true)
     #expect(factura.lines[4].lineExtensionAmount.value == 11.26)
 
-    // Exportación: no se agrega a la factura enviada porque requiere un tipo
-    // de operación y un contexto comercial distintos de esta venta local.
-    let exportLineExample = InvoiceLine(
-        quantity: .units(2),
-        pricing: .export(30.00),
-        item: Item(
-            description: "Ejemplo de producto destinado a exportación",
-            sellerItemIdentifier: nil,                     // Por defecto: nil
-            commodityClassificationCode: nil               // Por defecto: nil
-        )
-    )
-    #expect(exportLineExample.taxTreatment == .export)
-    #expect(exportLineExample.lineExtensionAmount.value == 60.00)
-
     // Otras variantes de términos comerciales. Se construyen por separado
     // porque no corresponden a la factura al crédito enviada en este ejemplo.
     let cashPaymentExample: PaymentCondition = .cash

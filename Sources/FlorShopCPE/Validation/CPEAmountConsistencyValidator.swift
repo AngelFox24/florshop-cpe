@@ -208,6 +208,6 @@ struct CPEAmountConsistencyValidator: Sendable {
     }
 
     private static let freeSaleTypes: Set<DailySummarySaleType> = [
-        .freeTaxable, .freeExempt, .freeUnaffected, .freeExport
+        .freeTaxable, .freeExempt, .freeUnaffected
     ]
 }

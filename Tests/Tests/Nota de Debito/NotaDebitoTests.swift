@@ -3,7 +3,7 @@ import Testing
 @testable import FlorShopCPE
 
 @Test func debitNoteCatalog10ContainsCurrentSUNATReasons() {
-    #expect(Set(DebitNoteReasonCode.allCases.map(\.rawValue)) == Set(["01", "02", "03", "11", "12", "13"]))
+    #expect(Set(DebitNoteReasonCode.allCases.map(\.rawValue)) == Set(["01", "02", "03", "12", "13"]))
 }
 
 @Test func debitNoteModelAndTransformerGenerateUBL21() throws {

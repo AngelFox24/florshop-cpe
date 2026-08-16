@@ -12,7 +12,6 @@ public enum CreditNoteReasonCode: String, Codable, CaseIterable, Sendable {
     case bonificacion = "08"
     case disminucionEnElValor = "09"
     case otrosConceptos = "10"
-    case ajustesDeOperacionesDeExportacion = "11"
     case ajustesAfectosAlIVAP = "12"
     case correccionMontoNetoPendienteOFechasDePago = "13"
 
@@ -28,7 +27,6 @@ public enum CreditNoteReasonCode: String, Codable, CaseIterable, Sendable {
         case .bonificacion: "BONIFICACIÓN"
         case .disminucionEnElValor: "DISMINUCIÓN EN EL VALOR"
         case .otrosConceptos: "OTROS CONCEPTOS"
-        case .ajustesDeOperacionesDeExportacion: "AJUSTES DE OPERACIONES DE EXPORTACIÓN"
         case .ajustesAfectosAlIVAP: "AJUSTES AFECTOS AL IVAP"
         case .correccionMontoNetoPendienteOFechasDePago:
             "CORRECCIÓN DEL MONTO NETO PENDIENTE DE PAGO Y/O FECHAS DE PAGO"

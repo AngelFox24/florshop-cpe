@@ -323,8 +323,6 @@ public struct UBLInvoiceXMLTransformer: UBLInvoiceXMLTransforming, Sendable {
         switch scheme.identifier {
         case TaxScheme.igv.identifier:
             identifier = "S"
-        case TaxScheme.exportacion.identifier:
-            identifier = "G"
         case TaxScheme.gratuito.identifier:
             identifier = "Z"
         case "9997":

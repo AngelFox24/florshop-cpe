@@ -71,7 +71,6 @@ public enum TaxTreatment: Codable, Equatable, Sendable {
     case exempt
     case unaffected
     case free
-    case export
 
     var category: TaxCategory {
         switch self {
@@ -98,12 +97,6 @@ public enum TaxTreatment: Codable, Equatable, Sendable {
                 percent: 18,
                 exemptionReasonCode: .inafectoRetiroPorBonificacion,
                 scheme: .gratuito
-            )
-        case .export:
-            TaxCategory(
-                percent: 0,
-                exemptionReasonCode: .exportacion,
-                scheme: .exportacion
             )
         }
     }
@@ -142,10 +135,6 @@ public struct LinePricing: Equatable, Sendable {
         LinePricing(amount: price, taxTreatment: .unaffected, taxedPriceBasis: nil)
     }
 
-    public static func export(_ price: Decimal) -> LinePricing {
-        LinePricing(amount: price, taxTreatment: .export, taxedPriceBasis: nil)
-    }
-
     public static func free(referenceValue: Decimal) -> LinePricing {
         LinePricing(amount: referenceValue, taxTreatment: .free, taxedPriceBasis: nil)
     }
@@ -158,7 +147,6 @@ public enum TaxExemptionReasonCode: String, Codable, Sendable {
     case exonerado = "20"
     case inafecto = "30"
     case inafectoRetiroPorBonificacion = "31"
-    case exportacion = "40"
 }
 
 public struct TaxScheme: Codable, Equatable, Sendable {
@@ -173,7 +161,6 @@ public struct TaxScheme: Codable, Equatable, Sendable {
     }
 
     public static let igv = TaxScheme(identifier: "1000", name: "IGV", typeCode: "VAT")
-    public static let exportacion = TaxScheme(identifier: "9995", name: "EXP", typeCode: "FRE")
     public static let exonerado = TaxScheme(identifier: "9997", name: "EXO", typeCode: "VAT")
     public static let inafecto = TaxScheme(identifier: "9998", name: "INA", typeCode: "FRE")
     public static let gratuito = TaxScheme(identifier: "9996", name: "GRA", typeCode: "FRE")
