@@ -26,30 +26,29 @@ import FlorShopCPE
     let correlative = String(max(1, Int(now.timeIntervalSince1970) % 99_999_999))
     let sequence = max(1, Int(now.timeIntervalSince1970) % 99_999)
 
-    let supplier = Supplier(
-        taxIdentifier: PartyIdentifier(value: "10708255195", documentType: .ruc),
-        commercialName: "ELECTRODOMÉSTICOS CRUZ DE MOTUPE", // Opcional
-        legalName: "Vega Poblete Carlos Enrique",
-        address: Address(                                  // Opcional
-            ubigeoCode: "150130",                         // Opcional
-            addressTypeCode: "0000",                      // Opcional; lo proporciona el POS
-            urbanization: "URB. SAN BORJA",               // Opcional
-            city: "LIMA",                                 // Opcional
-            department: "LIMA",                           // Opcional
-            district: "SAN BORJA",                        // Opcional
-            line: "CAL. PABLO USANDIZAGA 670",
-            countryCode: "PE"
-        ),
-        contact: Contact(                                  // Opcional
-            telephone: "+51 999 999 999",                 // Opcional
-            email: "ventas@ejemplo.pe"                    // Opcional
-        )
-    )
     let boleta = Boleta(
         identifier: DocumentIdentifier(series: "BC01", number: correlative),
         issueDate: issueDate,
         currency: .pen,
-        supplier: supplier,
+        supplier: Supplier(
+            taxIdentifier: PartyIdentifier(value: "10708255195", documentType: .ruc),
+            commercialName: "ELECTRODOMÉSTICOS CRUZ DE MOTUPE", // Opcional
+            legalName: "Vega Poblete Carlos Enrique",
+            address: Address(                                  // Opcional
+                ubigeoCode: "150130",                         // Opcional
+                addressTypeCode: "0000",                      // Opcional; lo proporciona el POS
+                urbanization: "URB. SAN BORJA",               // Opcional
+                city: "LIMA",                                 // Opcional
+                department: "LIMA",                           // Opcional
+                district: "SAN BORJA",                        // Opcional
+                line: "CAL. PABLO USANDIZAGA 670",
+                countryCode: "PE"
+            ),
+            contact: Contact(                                  // Opcional
+                telephone: "+51 999 999 999",                 // Opcional
+                email: "ventas@ejemplo.pe"                    // Opcional
+            )
+        ),
         customer: Customer(
             identifier: PartyIdentifier(value: "46237547", documentType: .dni),
             legalName: "Pazos Atoche Luana Karina"

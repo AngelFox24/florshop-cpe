@@ -26,25 +26,6 @@ import FlorShopCPE
     )
     let sequence = max(1, Int(now.timeIntervalSince1970) % 99_999)
 
-    let supplier = Supplier(
-        taxIdentifier: PartyIdentifier(value: "10708255195", documentType: .ruc),
-        commercialName: "EMISOR",                         // Opcional
-        legalName: "EMISOR S.A.C.",
-        address: Address(                                  // Opcional
-            ubigeoCode: "150130",                         // Opcional
-            addressTypeCode: "0000",                      // Opcional; lo proporciona el POS
-            urbanization: "URB. SAN BORJA",               // Opcional
-            city: "LIMA",                                 // Opcional
-            department: "LIMA",                           // Opcional
-            district: "SAN BORJA",                        // Opcional
-            line: "CAL. PABLO USANDIZAGA 670",
-            countryCode: "PE"
-        ),
-        contact: Contact(                                  // Opcional
-            telephone: "+51 999 999 999",                 // Opcional
-            email: "ventas@ejemplo.pe"                    // Opcional
-        )
-    )
     let comunicacion = try ComunicacionBaja(
         identifier: VoidedDocumentsIdentifier(
             date: issueDate,
@@ -52,7 +33,25 @@ import FlorShopCPE
         ),
         issueDate: issueDate,
         referenceDate: issueDate,
-        supplier: supplier,
+        supplier: Supplier(
+            taxIdentifier: PartyIdentifier(value: "10708255195", documentType: .ruc),
+            commercialName: "EMISOR",                         // Opcional
+            legalName: "EMISOR S.A.C.",
+            address: Address(                                  // Opcional
+                ubigeoCode: "150130",                         // Opcional
+                addressTypeCode: "0000",                      // Opcional; lo proporciona el POS
+                urbanization: "URB. SAN BORJA",               // Opcional
+                city: "LIMA",                                 // Opcional
+                department: "LIMA",                           // Opcional
+                district: "SAN BORJA",                        // Opcional
+                line: "CAL. PABLO USANDIZAGA 670",
+                countryCode: "PE"
+            ),
+            contact: Contact(                                  // Opcional
+                telephone: "+51 999 999 999",                 // Opcional
+                email: "ventas@ejemplo.pe"                    // Opcional
+            )
+        ),
         lines: [
             VoidedDocumentLine(
                 lineID: 1,
@@ -100,7 +99,7 @@ import FlorShopCPE
 
     """)
 
-    let credentials = SunatCredentials.beta(emitterRUC: supplier.taxIdentifier.value)
+    let credentials = SunatCredentials.beta(emitterRUC: comunicacion.supplier.taxIdentifier.value)
     let client = SunatSummaryClient()
     let submission = try await client.submit(
         document: communicationDocument,
