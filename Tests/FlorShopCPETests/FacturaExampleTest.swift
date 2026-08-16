@@ -39,10 +39,10 @@ import FlorShopCPE
             number: correlative
         ),
         issueDate: issueDate,
-        issueTime: IssueTime(                              // Opcional
+        issueTime: IssueTime(                              // Por defecto: nil
             hour: try #require(components.hour),
             minute: try #require(components.minute),
-            second: try #require(components.second)
+            second: try #require(components.second)        // Por defecto: 0
         ),
         currency: .pen,
         supplier: Supplier(
@@ -50,21 +50,21 @@ import FlorShopCPE
                 value: "10708255195",
                 documentType: .ruc
             ),
-            commercialName: "NKR PRODUCTS",               // Opcional
+            commercialName: "NKR PRODUCTS",               // Por defecto: nil
             legalName: "NKR PROFESSIONAL PRODUCTS S.A.C.",
-            address: Address(                              // Opcional
-                ubigeoCode: "150130",                     // Opcional
-                addressTypeCode: "0000",                  // Opcional; lo proporciona el POS
-                urbanization: "URB. SAN BORJA",           // Opcional
-                city: "LIMA",                             // Opcional
-                department: "LIMA",                       // Opcional
-                district: "SAN BORJA",                    // Opcional
+            address: Address(                              // Por defecto: nil
+                ubigeoCode: "150130",                     // Por defecto: nil
+                addressTypeCode: "0000",                  // Por defecto: nil; lo proporciona el POS
+                urbanization: "URB. SAN BORJA",           // Por defecto: nil
+                city: "LIMA",                             // Por defecto: nil
+                department: "LIMA",                       // Por defecto: nil
+                district: "SAN BORJA",                    // Por defecto: nil
                 line: "CAL. PABLO USANDIZAGA 670",
-                countryCode: "PE"
+                countryCode: "PE"                         // Por defecto: "PE"
             ),
-            contact: Contact(                              // Opcional
-                telephone: "+51 999 999 999",             // Opcional
-                email: "ventas@ejemplo.pe"                // Opcional
+            contact: Contact(                              // Por defecto: nil
+                telephone: "+51 999 999 999",             // Por defecto: nil
+                email: "ventas@ejemplo.pe"                // Por defecto: nil
             )
         ),
         customer: Customer(
@@ -73,61 +73,172 @@ import FlorShopCPE
                 documentType: .ruc
             ),
             legalName: "CENCOSUD RETAIL PERU S.A.",
-            address: Address(                              // Opcional
-                ubigeoCode: "150103",                     // Opcional
-                addressTypeCode: "0000",                  // Opcional
-                urbanization: "URB. ATE",                 // Opcional
-                city: "LIMA",                             // Opcional
-                department: "LIMA",                       // Opcional
-                district: "ATE",                          // Opcional
+            address: Address(                              // Por defecto: nil
+                ubigeoCode: "150103",                     // Por defecto: nil
+                addressTypeCode: "0000",                  // Por defecto: nil
+                urbanization: "URB. ATE",                 // Por defecto: nil
+                city: "LIMA",                             // Por defecto: nil
+                department: "LIMA",                       // Por defecto: nil
+                district: "ATE",                          // Por defecto: nil
                 line: "AV. NICOLAS AYLLON 4297",
-                countryCode: "PE"
+                countryCode: "PE"                         // Por defecto: "PE"
             )
         ),
         lines: [
+            // Precio gravado sin IGV. La tasa se escribe explícitamente aunque
+            // 18 sea el valor predeterminado, para mostrar la forma completa.
             InvoiceLine(
                 id: "1",
                 quantity: .units(15),
-                pricing: .taxed(75.07, basis: .excludingTaxes),
+                pricing: .taxed(
+                    75.07,
+                    rate: 18,                              // Por defecto: 18
+                    basis: .excludingTaxes
+                ),
                 item: Item(
                     description: "COLA ENTOMOLÓGICA K-GLUE X 1 LT",
-                    sellerItemIdentifier: "KGLUE-1L",      // Opcional
-                    commodityClassificationCode: "12161902" // Opcional
+                    sellerItemIdentifier: "KGLUE-1L",     // Por defecto: nil
+                    commodityClassificationCode: "12161902" // Por defecto: nil
+                )
+            ),
+            // Cantidad fraccionaria de kilogramos y precio gravado con IGV.
+            InvoiceLine(
+                id: "2",
+                quantity: .kilograms(34.521234),
+                pricing: .taxed(
+                    2.95,
+                    rate: 18,                              // Por defecto: 18
+                    basis: .includingTaxes                 // Por defecto: .includingTaxes
+                ),
+                item: Item(
+                    description: "Café tostado vendido por kilogramo",
+                    sellerItemIdentifier: "CAF-KG",       // Por defecto: nil
+                    commodityClassificationCode: nil       // Por defecto: nil
+                )
+            ),
+            // Operación exonerada, expresada en gramos con decimales.
+            InvoiceLine(
+                id: "3",
+                quantity: .grams(250.125),
+                pricing: .exempt(0.08),
+                item: Item(
+                    description: "Producto exonerado vendido por gramos",
+                    sellerItemIdentifier: nil,             // Por defecto: nil
+                    commodityClassificationCode: nil       // Por defecto: nil
+                )
+            ),
+            // Operación inafecta medida en litros.
+            InvoiceLine(
+                id: "4",
+                quantity: .liters(1.75),
+                pricing: .unaffected(12.40),
+                item: Item(
+                    description: "Producto inafecto vendido por litros",
+                    sellerItemIdentifier: "INA-LT",       // Por defecto: nil
+                    commodityClassificationCode: nil       // Por defecto: nil
+                )
+            ),
+            // Entrega gratuita: el importe es un valor referencial y no forma
+            // parte del monto pendiente de pago de la factura.
+            InvoiceLine(
+                id: "5",
+                quantity: .meters(2.345678),
+                pricing: .free(referenceValue: 4.80),
+                item: Item(
+                    description: "Muestra gratuita entregada por metros",
+                    sellerItemIdentifier: nil,             // Por defecto: nil
+                    commodityClassificationCode: nil       // Por defecto: nil
+                )
+            ),
+            // La forma corta usa los dos valores predeterminados de `.taxed`:
+            // tasa 18 y precio que incluye impuestos.
+            InvoiceLine(
+                id: "6",
+                quantity: .serviceUnits(1.5),
+                pricing: .taxed(59.00),                    // Por defecto: rate 18 y .includingTaxes
+                item: Item(
+                    description: "Servicio cobrado por unidad de servicio",
+                    sellerItemIdentifier: "SRV-001",      // Por defecto: nil
+                    commodityClassificationCode: nil       // Por defecto: nil
                 )
             )
         ],
-        additionalNotes: [                                  // Opcional
+        additionalNotes: [                                // Por defecto: []
             DocumentNote("ORDEN DE COMPRA 4301113494")
         ],
-        orderReference: "4301113494",                       // Opcional
-        despatchDocumentReferences: [                       // Opcional
+        orderReference: "4301113494",                    // Por defecto: nil
+        despatchDocumentReferences: [                     // Por defecto: []
             DocumentReference(
                 identifier: "EG07-00000280",
                 documentTypeCode: "09",
-                documentTypeDescription: "GUIA DE REMISION REMITENTE" // Opcional
+                documentTypeDescription: "GUIA DE REMISION REMITENTE" // Por defecto: nil
             )
         ],
-        buyerAddress: Address(                              // Opcional
-            ubigeoCode: "150122",                         // Opcional
-            addressTypeCode: "0000",                      // Opcional
-            urbanization: "URB. MIRAFLORES",              // Opcional
-            city: "LIMA",                                 // Opcional
-            department: "LIMA",                           // Opcional
-            district: "MIRAFLORES",                       // Opcional
+        buyerAddress: Address(                            // Por defecto: nil
+            ubigeoCode: "150122",                       // Por defecto: nil
+            addressTypeCode: "0000",                    // Por defecto: nil
+            urbanization: "URB. MIRAFLORES",            // Por defecto: nil
+            city: "LIMA",                               // Por defecto: nil
+            department: "LIMA",                         // Por defecto: nil
+            district: "MIRAFLORES",                     // Por defecto: nil
             line: "CAL. AUGUSTO ANGULO 130",
-            countryCode: "PE"
+            countryCode: "PE"                           // Por defecto: "PE"
         ),
+        // `paymentCondition` es obligatorio. Esta factura usa crédito; la API
+        // también permite `.cash`, mostrado más abajo sin enviarlo a SUNAT.
         paymentCondition: .credit(
             installments: [
                 PaymentInstallment(
-                    amount: MonetaryAmount(value: 1328.74),
+                    amount: MonetaryAmount(value: 1560.78),
                     dueDate: dueDate
                 )
             ]
         ),
-        allowanceCharges: []                               // Opcional; vacío porque no existe descuento/cargo real
+        allowanceCharges: [],                            // Por defecto: []
+        payableRoundingAmount: nil                       // Por defecto: nil
     )
-    #expect(factura.totalAmount == 1328.74)
+
+    // Todos los importes derivados están disponibles antes de firmar.
+    #expect(factura.netAmount == 1329.06)
+    #expect(factura.taxAmount == 231.72)
+    #expect(factura.totalAmount == 1560.78)
+    #expect(factura.lines[1].lineExtensionAmount.value == 86.30)
+    #expect(factura.lines[4].isFreeOfCharge == true)
+    #expect(factura.lines[4].lineExtensionAmount.value == 11.26)
+
+    // Exportación: no se agrega a la factura enviada porque requiere un tipo
+    // de operación y un contexto comercial distintos de esta venta local.
+    let exportLineExample = InvoiceLine(
+        id: "EXPORT-1",
+        quantity: .units(2),
+        pricing: .export(30.00),
+        item: Item(
+            description: "Ejemplo de producto destinado a exportación",
+            sellerItemIdentifier: nil,                     // Por defecto: nil
+            commodityClassificationCode: nil               // Por defecto: nil
+        )
+    )
+    #expect(exportLineExample.taxTreatment == .export)
+    #expect(exportLineExample.lineExtensionAmount.value == 60.00)
+
+    // Otras variantes de términos comerciales. Se construyen por separado
+    // porque no corresponden a la factura al crédito enviada en este ejemplo.
+    let cashPaymentExample: PaymentCondition = .cash
+    #expect(cashPaymentExample.pendingAmount == nil)
+
+    let fixedDiscountExample = AllowanceCharge(
+        isCharge: false,
+        reasonCode: nil,                                   // Por defecto: nil
+        amount: 10.00
+    )
+    let percentageChargeExample = AllowanceCharge(
+        isCharge: true,
+        reasonCode: nil,                                   // Por defecto: nil
+        multiplierFactor: 0.05,
+        baseAmount: 100.00
+    )
+    #expect(fixedDiscountExample.amount.value == 10.00)
+    #expect(percentageChargeExample.amount.value == 5.00)
 
     let signingConfiguration = SigningConfiguration(
         credentials: .pkcs12(

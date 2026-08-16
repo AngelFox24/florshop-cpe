@@ -99,6 +99,11 @@
             value = "false"
             isEnabled = "YES">
          </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "FLORSHOP_CPE_RUN_FACTURA_EXAMPLE"
+            value = "true"
+            isEnabled = "YES">
+         </EnvironmentVariable>
       </EnvironmentVariables>
    </LaunchAction>
    <ProfileAction
