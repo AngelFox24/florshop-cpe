@@ -15,6 +15,19 @@ public struct InvoiceLine: Equatable, Sendable {
     public let isFreeOfCharge: Bool?
 
     public init(
+        quantity: Quantity,
+        pricing: LinePricing,
+        item: Item
+    ) {
+        self.init(
+            id: "",
+            quantity: quantity,
+            pricing: pricing,
+            item: item
+        )
+    }
+
+    init(
         id: String,
         quantity: Quantity,
         pricing: LinePricing,
@@ -37,6 +50,15 @@ public struct InvoiceLine: Equatable, Sendable {
         self.item = item
         self.price = calculated.price
         self.isFreeOfCharge = calculated.isFreeOfCharge ? true : nil
+    }
+
+    func assigningID(_ id: String) -> InvoiceLine {
+        InvoiceLine(
+            id: id,
+            quantity: quantity,
+            pricing: pricing,
+            item: item
+        )
     }
 }
 

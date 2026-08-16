@@ -82,7 +82,6 @@ struct BoletaLarge {
             ),
             lines: [
                 InvoiceLine(
-                    id: "1",
                     quantity: .units(1),
                     pricing: .taxed(
                         998.00,
@@ -96,7 +95,6 @@ struct BoletaLarge {
                     )
                 ),
                 InvoiceLine(
-                    id: "2",
                     quantity: .kilograms(34.521234),
                     pricing: .taxed(
                         2.50,
@@ -110,7 +108,6 @@ struct BoletaLarge {
                     )
                 ),
                 InvoiceLine(
-                    id: "3",
                     quantity: .grams(250.125),
                     pricing: .exempt(0.08),
                     item: Item(
@@ -120,7 +117,6 @@ struct BoletaLarge {
                     )
                 ),
                 InvoiceLine(
-                    id: "4",
                     quantity: .liters(1.75),
                     pricing: .unaffected(12.40),
                     item: Item(
@@ -130,7 +126,6 @@ struct BoletaLarge {
                     )
                 ),
                 InvoiceLine(
-                    id: "5",
                     quantity: .meters(2.345678),
                     pricing: .free(referenceValue: 4.80),
                     item: Item(
@@ -140,7 +135,6 @@ struct BoletaLarge {
                     )
                 ),
                 InvoiceLine(
-                    id: "6",
                     quantity: .serviceUnits(1.5),
                     pricing: .taxed(59.00),                    // Por defecto: rate 18 y .includingTaxes
                     item: Item(

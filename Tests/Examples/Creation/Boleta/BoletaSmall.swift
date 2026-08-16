@@ -32,7 +32,6 @@ struct BoletaSmall {
             ),
             lines: [
                 InvoiceLine(
-                    id: "1",
                     quantity: .units(1),
                     pricing: .taxed(10),
                     item: Item(description: "Producto")

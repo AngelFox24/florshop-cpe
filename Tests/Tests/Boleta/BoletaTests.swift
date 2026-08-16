@@ -3,6 +3,14 @@ import Testing
 import ZIPFoundation
 @testable import FlorShopCPE
 
+@Test func boletaAssignsSequentialInvoiceLineIdentifiers() throws {
+    let boleta = try BoletaLarge.getBoletaLargeExample(
+        now: Date(timeIntervalSince1970: 1_786_899_600)
+    )
+
+    #expect(boleta.lines.map(\.id) == ["1", "2", "3", "4", "5", "6"])
+}
+
 @Test func boletaModelRetainsItsDomainData() {
     let supplier = Supplier(
         taxIdentifier: PartyIdentifier(value: "20123456789", documentType: .ruc),

@@ -88,7 +88,6 @@ import FlorShopCPE
             // Precio gravado sin IGV. La tasa se escribe explícitamente aunque
             // 18 sea el valor predeterminado, para mostrar la forma completa.
             InvoiceLine(
-                id: "1",
                 quantity: .units(15),
                 pricing: .taxed(
                     75.07,
@@ -103,7 +102,6 @@ import FlorShopCPE
             ),
             // Cantidad fraccionaria de kilogramos y precio gravado con IGV.
             InvoiceLine(
-                id: "2",
                 quantity: .kilograms(34.521234),
                 pricing: .taxed(
                     2.95,
@@ -118,7 +116,6 @@ import FlorShopCPE
             ),
             // Operación exonerada, expresada en gramos con decimales.
             InvoiceLine(
-                id: "3",
                 quantity: .grams(250.125),
                 pricing: .exempt(0.08),
                 item: Item(
@@ -129,7 +126,6 @@ import FlorShopCPE
             ),
             // Operación inafecta medida en litros.
             InvoiceLine(
-                id: "4",
                 quantity: .liters(1.75),
                 pricing: .unaffected(12.40),
                 item: Item(
@@ -141,7 +137,6 @@ import FlorShopCPE
             // Entrega gratuita: el importe es un valor referencial y no forma
             // parte del monto pendiente de pago de la factura.
             InvoiceLine(
-                id: "5",
                 quantity: .meters(2.345678),
                 pricing: .free(referenceValue: 4.80),
                 item: Item(
@@ -153,7 +148,6 @@ import FlorShopCPE
             // La forma corta usa los dos valores predeterminados de `.taxed`:
             // tasa 18 y precio que incluye impuestos.
             InvoiceLine(
-                id: "6",
                 quantity: .serviceUnits(1.5),
                 pricing: .taxed(59.00),                    // Por defecto: rate 18 y .includingTaxes
                 item: Item(
@@ -209,7 +203,6 @@ import FlorShopCPE
     // Exportación: no se agrega a la factura enviada porque requiere un tipo
     // de operación y un contexto comercial distintos de esta venta local.
     let exportLineExample = InvoiceLine(
-        id: "EXPORT-1",
         quantity: .units(2),
         pricing: .export(30.00),
         item: Item(

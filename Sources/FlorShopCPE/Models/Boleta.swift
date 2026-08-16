@@ -35,10 +35,13 @@ public struct Boleta: Equatable, Sendable, UBLInvoiceDocument {
         self.currency = currency
         self.supplier = supplier
         self.customer = customer
-        self.lines = lines
-        self.taxTotal = CPECalculation.taxTotal(from: lines, taxTotal: \.taxTotal)
+        let identifiedLines = lines.enumerated().map { offset, line in
+            line.assigningID(String(offset + 1))
+        }
+        self.lines = identifiedLines
+        self.taxTotal = CPECalculation.taxTotal(from: identifiedLines, taxTotal: \.taxTotal)
         self.monetaryTotal = CPECalculation.monetaryTotal(
-            lineAmounts: lines
+            lineAmounts: identifiedLines
                 .filter { $0.taxTreatment != .free }
                 .map(\.lineExtensionAmount),
             taxTotal: self.taxTotal,

@@ -45,16 +45,19 @@ public struct Factura: Equatable, Sendable, UBLInvoiceDocument {
         self.currency = currency
         self.supplier = supplier
         self.customer = customer
-        self.lines = lines
+        let identifiedLines = lines.enumerated().map { offset, line in
+            line.assigningID(String(offset + 1))
+        }
+        self.lines = identifiedLines
         self.additionalNotes = additionalNotes
         self.orderReference = orderReference
         self.despatchDocumentReferences = despatchDocumentReferences
         self.buyerAddress = buyerAddress
         self.paymentCondition = paymentCondition
         self.allowanceCharges = allowanceCharges
-        self.taxTotal = CPECalculation.taxTotal(from: lines, taxTotal: \.taxTotal)
+        self.taxTotal = CPECalculation.taxTotal(from: identifiedLines, taxTotal: \.taxTotal)
         self.monetaryTotal = CPECalculation.monetaryTotal(
-            lineAmounts: lines
+            lineAmounts: identifiedLines
                 .filter { $0.taxTreatment != .free }
                 .map(\.lineExtensionAmount),
             taxTotal: self.taxTotal,

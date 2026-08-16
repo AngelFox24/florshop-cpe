@@ -11,6 +11,7 @@ import ZIPFoundation
     #expect(factura.customer.identifier.documentType == .ruc)
     #expect(factura.customer.address?.district == "ATE")
     #expect(factura.lines.count == 1)
+    #expect(factura.lines[0].id == "1")
 }
 
 @Test func facturaTransformerGeneratesUBLInvoiceXML() throws {
@@ -292,7 +293,6 @@ private func makeFactura(
         customer: customer,
         lines: [
             InvoiceLine(
-                id: "1",
                 quantity: .units(15),
                 pricing: .taxed(75.07, basis: .excludingTaxes),
                 item: Item(description: "COLA ENTOMOLÓGICA K-GLUE X 1 LT")

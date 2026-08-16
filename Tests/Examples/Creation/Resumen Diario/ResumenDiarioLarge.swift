@@ -72,7 +72,6 @@ import FlorShopCPE
         customer: customer,
         lines: [
             InvoiceLine(
-                id: "1",
                 quantity: .units(1),
                 pricing: .taxed(
                     118.00,
@@ -86,7 +85,6 @@ import FlorShopCPE
                 )
             ),
             InvoiceLine(
-                id: "2",
                 quantity: .kilograms(2.345678),
                 pricing: .exempt(12.50),
                 item: Item(
@@ -96,7 +94,6 @@ import FlorShopCPE
                 )
             ),
             InvoiceLine(
-                id: "3",
                 quantity: .liters(1.75),
                 pricing: .unaffected(8.40),
                 item: Item(
@@ -106,7 +103,6 @@ import FlorShopCPE
                 )
             ),
             InvoiceLine(
-                id: "4",
                 quantity: .meters(3.125),
                 pricing: .free(referenceValue: 4.80),
                 item: Item(
@@ -134,7 +130,6 @@ import FlorShopCPE
         customer: customer,
         lines: [
             InvoiceLine(
-                id: "1",
                 quantity: .serviceUnits(1.5),
                 pricing: .taxed(59.00),                        // Por defecto: rate 18 y .includingTaxes
                 item: Item(
