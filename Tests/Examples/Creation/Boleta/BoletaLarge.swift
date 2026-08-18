@@ -1,39 +1,16 @@
 import Foundation
 import FlorShopCPE
 
-enum BoletaExampleError: Error {
-    case invalidLimaTimeZone
-    case incompleteCurrentDate
-}
-
 struct BoletaLargeExample {
     static func getBoletaLarge(serie: String? = nil, correlative: String? = nil) throws -> Boleta {
-        let now = Date()
-        var limaCalendar = Calendar(identifier: .gregorian)
-        guard let limaTimeZone = TimeZone(identifier: "America/Lima") else {
-            throw BoletaExampleError.invalidLimaTimeZone
-        }
-        limaCalendar.timeZone = limaTimeZone
-
-        let dateComponents = limaCalendar.dateComponents(
-            [.year, .month, .day, .hour, .minute, .second],
-            from: now
-        )
-        guard let year = dateComponents.year,
-              let month = dateComponents.month,
-              let day = dateComponents.day,
-              let hour = dateComponents.hour,
-              let minute = dateComponents.minute,
-              let second = dateComponents.second else {
-            throw BoletaExampleError.incompleteCurrentDate
-        }
+        let dateTime = try currentLimaExampleDateTime()
         let series = serie ?? "BC01"
-        let correlative = correlative ?? String(max(1, Int(now.timeIntervalSince1970) % 99_999_999))
+        let correlative = correlative ?? String(max(1, Int(dateTime.instant.timeIntervalSince1970) % 99_999_999))
         // MARK: Example of Boleta
         return Boleta(
             identifier: DocumentIdentifier(series: series, number: correlative),
-            issueDate: IssueDate(year: year, month: month, day: day),
-            issueTime: IssueTime(hour: hour, minute: minute, second: second),    // Por defecto: nil
+            issueDate: IssueDate(year: dateTime.issueDate.year, month: dateTime.issueDate.month, day: dateTime.issueDate.day),
+            issueTime: IssueTime(hour: dateTime.issueTime.hour, minute: dateTime.issueTime.minute, second: dateTime.issueTime.second),    // Por defecto: nil
             currency: .pen,
             supplier: Supplier(
                 taxIdentifier: PartyIdentifier(

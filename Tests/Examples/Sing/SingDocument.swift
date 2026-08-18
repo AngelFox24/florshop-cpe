@@ -2,20 +2,39 @@ import Foundation
 import FlorShopCPE
 
 struct SingDocumentExample {
-    // Example of UBLInvoiceDocument in: Examples/Creation/...
-    // Boleta, Factura, Nota de Credito, Nota de Debito, Resumen Diario y Comunicación de Baja conforman UBLInvoiceDocument
+    // Boleta y Factura conforman UBLInvoiceDocument.
     static func sing(document: UBLInvoiceDocument) throws -> SignedCPE {
         // MARK: Example of Sing
-        let signedBoleta: SignedCPE = try XMLSecCPESigner().sign(
+        let signedDocument: SignedCPE = try XMLSecCPESigner().sign(
             document,
-            configuration: SigningConfiguration(
-                credentials: .pkcs12(
-                    path: URL(fileURLWithPath: "/Users/angel/Downloads/LLAMA-PE-CERTIFICADO-DEMO-1070825519.pfx"),
-                    passwordProvider: { "Foxangel2498." }
-                )
-            )
+            configuration: configuration
         )
         // MARK: End of Example
-        return signedBoleta
+        return signedDocument
+    }
+
+    static func sing(document: NotaCredito) throws -> SignedCPE {
+        try XMLSecCPESigner().sign(document, configuration: configuration)
+    }
+
+    static func sing(document: NotaDebito) throws -> SignedCPE {
+        try XMLSecCPESigner().sign(document, configuration: configuration)
+    }
+
+    static func sing(document: ResumenDiarioBoletas) throws -> SignedCPE {
+        try XMLSecCPESigner().sign(document, configuration: configuration)
+    }
+
+    static func sing(document: ComunicacionBaja) throws -> SignedCPE {
+        try XMLSecCPESigner().sign(document, configuration: configuration)
+    }
+
+    private static var configuration: SigningConfiguration {
+        SigningConfiguration(
+            credentials: .pkcs12(
+                path: URL(fileURLWithPath: "/Users/angel/Downloads/LLAMA-PE-CERTIFICADO-DEMO-1070825519.pfx"),
+                passwordProvider: { "Foxangel2498." }
+            )
+        )
     }
 }

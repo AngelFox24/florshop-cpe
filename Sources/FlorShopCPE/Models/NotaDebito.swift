@@ -50,6 +50,14 @@ public struct DebitNoteLine: Equatable, Sendable {
     public let price: MonetaryAmount?
 
     public init(
+        quantity: Quantity,
+        pricing: LinePricing,
+        item: Item
+    ) {
+        self.init(id: "", quantity: quantity, pricing: pricing, item: item)
+    }
+
+    init(
         id: String,
         quantity: Quantity,
         pricing: LinePricing,
@@ -76,6 +84,13 @@ public struct DebitNoteLine: Equatable, Sendable {
     /// Incremento cuyo importe es el dato comercial primario (por ejemplo,
     /// una penalidad) y por ello no tiene cantidad ni precio unitario UBL.
     public init(
+        pricing: LinePricing,
+        item: Item
+    ) {
+        self.init(id: "", pricing: pricing, item: item)
+    }
+
+    init(
         id: String,
         pricing: LinePricing,
         item: Item
@@ -102,11 +117,23 @@ public struct DebitNoteLine: Equatable, Sendable {
     /// el valor de un bien o servicio del comprobante afectado.
     public init(invoiceLine: InvoiceLine) {
         self.init(
-            id: invoiceLine.id,
             quantity: invoiceLine.quantity,
             pricing: invoiceLine.pricing,
             item: invoiceLine.item
         )
+    }
+
+    func assigningID(_ id: String) -> DebitNoteLine {
+        if let quantity {
+            DebitNoteLine(
+                id: id,
+                quantity: quantity,
+                pricing: pricing,
+                item: item
+            )
+        } else {
+            DebitNoteLine(id: id, pricing: pricing, item: item)
+        }
     }
 }
 
@@ -152,10 +179,13 @@ public struct NotaDebito: Equatable, Sendable {
         self.affectedDocument = affectedDocument
         self.reasonCode = reasonCode
         self.reasonDescription = reasonDescription ?? reasonCode.defaultDescription
-        self.lines = lines
-        self.taxTotal = CPECalculation.taxTotal(from: lines, taxTotal: \.taxTotal)
+        let identifiedLines = lines.enumerated().map { offset, line in
+            line.assigningID(String(offset + 1))
+        }
+        self.lines = identifiedLines
+        self.taxTotal = CPECalculation.taxTotal(from: identifiedLines, taxTotal: \.taxTotal)
         let calculatedTotal = CPECalculation.monetaryTotal(
-            lineAmounts: lines
+            lineAmounts: identifiedLines
                 .filter { $0.taxTreatment != .free }
                 .map(\.lineExtensionAmount),
             taxTotal: self.taxTotal,

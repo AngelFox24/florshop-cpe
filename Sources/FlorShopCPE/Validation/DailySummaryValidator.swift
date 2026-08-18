@@ -27,7 +27,9 @@ public struct DailySummaryValidator: Sendable {
     public init() {}
 
     public func validate(_ summary: ResumenDiarioBoletas) throws {
-        guard summary.identifier.date == summary.issueDate else { throw DailySummaryValidationError.invalidIdentifierDate }
+        guard summary.identifier.date == summary.referenceDate else {
+            throw DailySummaryValidationError.invalidIdentifierDate
+        }
         guard dateKey(summary.issueDate) >= dateKey(summary.referenceDate) else {
             throw DailySummaryValidationError.generationDateBeforeReferenceDate
         }
@@ -76,18 +78,6 @@ public struct DailySummaryValidator: Sendable {
                     type: mandatoryType
                 )
             }
-        }
-    }
-
-    public func validateSourceBoletas(_ boletas: [Boleta]) throws {
-        guard let first = boletas.first else { throw DailySummaryValidationError.emptyLines }
-        for boleta in boletas {
-            try UBLInvoiceDocumentValidator().validate(boleta)
-            guard boleta.currency == .pen else {
-                throw DailySummaryValidationError.sourceDocumentMustUsePEN
-            }
-            guard boleta.supplier == first.supplier else { throw DailySummaryValidationError.inconsistentSupplier }
-            guard boleta.issueDate == first.issueDate else { throw DailySummaryValidationError.inconsistentReferenceDate }
         }
     }
 

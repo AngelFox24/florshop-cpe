@@ -47,6 +47,33 @@ public enum DailySummaryEntry: Equatable, Sendable {
     case creditNote(NotaCredito, condition: DailySummaryCondition = .add)
     case debitNote(NotaDebito, condition: DailySummaryCondition = .add)
 
+    var issueDate: IssueDate {
+        switch self {
+        case let .boleta(document, _): document.issueDate
+        case let .creditNote(document, _): document.issueDate
+        case let .debitNote(document, _): document.issueDate
+        }
+    }
+
+    var supplier: Supplier {
+        switch self {
+        case let .boleta(document, _): document.supplier
+        case let .creditNote(document, _): document.supplier
+        case let .debitNote(document, _): document.supplier
+        }
+    }
+
+    func validateSource() throws {
+        switch self {
+        case let .boleta(document, _):
+            try UBLInvoiceDocumentValidator().validate(document)
+        case let .creditNote(document, _):
+            try CreditNoteValidator().validate(document)
+        case let .debitNote(document, _):
+            try DebitNoteValidator().validate(document)
+        }
+    }
+
     fileprivate func makeLine(lineID: Int) throws -> DailySummaryLine {
         switch self {
         case let .boleta(boleta, condition):
@@ -343,39 +370,45 @@ public struct ResumenDiarioBoletas: Equatable, Sendable {
         try DailySummaryValidator().validate(self)
     }
 
-    /// API para combinar boletas y notas asociadas a boletas. La librería
-    /// asigna `lineID` correlativos empezando en 1 según el orden de entrada.
+    /// Crea un resumen para documentos emitidos en un mismo día. La librería
+    /// deriva la fecha de referencia, la fecha del identificador `RC` y el
+    /// emisor desde `entries`. `issueDate` es la fecha de generación y puede
+    /// ser posterior a la fecha de los documentos informados.
     public init(
-        identifier: DailySummaryIdentifier,
+        sequence: Int,
         issueDate: IssueDate,
-        referenceDate: IssueDate,
-        supplier: Supplier,
         entries: [DailySummaryEntry]
     ) throws {
+        guard let first = entries.first else { throw DailySummaryValidationError.emptyLines }
+        for entry in entries {
+            try entry.validateSource()
+            guard entry.supplier.taxIdentifier == first.supplier.taxIdentifier else {
+                throw DailySummaryValidationError.inconsistentSupplier
+            }
+            guard entry.issueDate == first.issueDate else {
+                throw DailySummaryValidationError.inconsistentReferenceDate
+            }
+        }
         try self.init(
-            identifier: identifier,
+            identifier: DailySummaryIdentifier(date: first.issueDate, sequence: sequence),
             issueDate: issueDate,
-            referenceDate: referenceDate,
-            supplier: supplier,
+            referenceDate: first.issueDate,
+            supplier: first.supplier,
             lines: try entries.enumerated().map { offset, entry in
                 try entry.makeLine(lineID: offset + 1)
             }
         )
     }
 
-    /// API de conveniencia para el caso normal: informar boletas nuevas.
+    /// API de conveniencia para el caso normal: informar únicamente boletas nuevas.
     public init(
-        identifier: DailySummaryIdentifier,
+        sequence: Int,
         issueDate: IssueDate,
         boletas: [Boleta]
     ) throws {
-        guard let first = boletas.first else { throw DailySummaryValidationError.emptyLines }
-        try DailySummaryValidator().validateSourceBoletas(boletas)
         try self.init(
-            identifier: identifier,
+            sequence: sequence,
             issueDate: issueDate,
-            referenceDate: first.issueDate,
-            supplier: first.supplier,
             entries: boletas.map { .boleta($0) }
         )
     }

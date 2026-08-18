@@ -1,150 +1,71 @@
 import Foundation
-import Testing
 import FlorShopCPE
 
-/// Ejemplo ejecutable de una Comunicación de Baja mediante el flujo asíncrono
-/// `sendSummary` / `getStatus`. Los comprobantes referenciados deben existir
-/// previamente en el sistema del POS y en SUNAT. Solo se conecta cuando
-/// `FLORSHOP_CPE_RUN_COMUNICACION_BAJA_EXAMPLE=true`.
-@Test func completeComunicacionBajaLifecycleExample() async throws {
-    let environment = ProcessInfo.processInfo.environment
-    guard environment["FLORSHOP_CPE_RUN_COMUNICACION_BAJA_EXAMPLE"] == "true" else {
-        return
-    }
+struct ComunicacionBajaLargeExample {
+    static func getComunicacionBajaLarge(sequence: Int? = nil) throws -> ComunicacionBaja {
+        let context = try makeComunicacionBajaExampleContext()
 
-    var limaCalendar = Calendar(identifier: .gregorian)
-    limaCalendar.timeZone = try #require(TimeZone(identifier: "America/Lima"))
-    let now = Date()
-    let components = limaCalendar.dateComponents(
-        [.year, .month, .day],
-        from: now
-    )
-    let issueDate = IssueDate(
-        year: try #require(components.year),
-        month: try #require(components.month),
-        day: try #require(components.day)
-    )
-    let sequence = max(1, Int(now.timeIntervalSince1970) % 99_999)
-
-    let comunicacion = try ComunicacionBaja(
-        identifier: VoidedDocumentsIdentifier(
-            date: issueDate,
-            sequence: sequence
-        ),
-        issueDate: issueDate,
-        referenceDate: issueDate,
-        supplier: Supplier(
-            taxIdentifier: PartyIdentifier(value: "10708255195", documentType: .ruc),
-            commercialName: "EMISOR",                         // Opcional
-            legalName: "EMISOR S.A.C.",
-            address: Address(                                  // Opcional
-                ubigeoCode: "150130",                         // Opcional
-                addressTypeCode: "0000",                      // Opcional; lo proporciona el POS
-                urbanization: "URB. SAN BORJA",               // Opcional
-                city: "LIMA",                                 // Opcional
-                department: "LIMA",                           // Opcional
-                district: "SAN BORJA",                        // Opcional
-                line: "CAL. PABLO USANDIZAGA 670",
-                countryCode: "PE"
+        // MARK: Example of Comunicacion de Baja
+        return try ComunicacionBaja(
+            identifier: VoidedDocumentsIdentifier(
+                date: context.issueDate,
+                sequence: sequence ?? context.sequence
             ),
-            contact: Contact(                                  // Opcional
-                telephone: "+51 999 999 999",                 // Opcional
-                email: "ventas@ejemplo.pe"                    // Opcional
-            )
-        ),
-        lines: [
-            VoidedDocumentLine(
-                lineID: 1,
-                documentType: .factura,
-                // Reemplazar por un comprobante existente que pueda darse de baja.
-                documentIdentifier: DocumentIdentifier(
-                    series: "F001",
-                    number: "12345"
+            issueDate: context.issueDate,
+            referenceDate: context.issueDate,
+            supplier: Supplier(
+                taxIdentifier: PartyIdentifier(value: "10708255195", documentType: .ruc),
+                commercialName: "EMISOR",                    // Por defecto: nil
+                legalName: "EMISOR S.A.C.",
+                address: Address(                             // Por defecto: nil
+                    ubigeoCode: "150130",                    // Por defecto: nil
+                    addressTypeCode: "0000",                 // Por defecto: nil
+                    urbanization: "URB. SAN BORJA",          // Por defecto: nil
+                    city: "LIMA",                            // Por defecto: nil
+                    department: "LIMA",                      // Por defecto: nil
+                    district: "SAN BORJA",                   // Por defecto: nil
+                    line: "CAL. PABLO USANDIZAGA 670",
+                    countryCode: "PE"                        // Por defecto: "PE"
                 ),
-                reason: "DOCUMENTO NO OTORGADO"
-            )
-        ]
-    )
-
-    let signingConfiguration = SigningConfiguration(
-        credentials: .pkcs12(
-            path: URL(fileURLWithPath: "/Users/angel/Downloads/LLAMA-PE-CERTIFICADO-DEMO-1070825519.pfx"),
-            passwordProvider: { "Foxangel2498." }
+                contact: Contact(                             // Por defecto: nil
+                    telephone: "+51 999 999 999",            // Por defecto: nil
+                    email: "ventas@ejemplo.pe"               // Por defecto: nil
+                )
+            ),
+            lines: [
+                VoidedDocumentLine(
+                    lineID: 1,
+                    documentType: .factura,
+                    documentIdentifier: DocumentIdentifier(series: "F001", number: "12345"),
+                    reason: "DOCUMENTO NO OTORGADO"
+                ),
+                VoidedDocumentLine(
+                    lineID: 2,
+                    documentType: .notaDeCredito,
+                    documentIdentifier: DocumentIdentifier(series: "FC01", number: "12346"),
+                    reason: "NOTA DE CRÉDITO EMITIDA POR ERROR"
+                ),
+                VoidedDocumentLine(
+                    lineID: 3,
+                    documentType: .notaDeDebito,
+                    documentIdentifier: DocumentIdentifier(series: "FD01", number: "12347"),
+                    reason: "NOTA DE DÉBITO EMITIDA POR ERROR"
+                )
+            ]
         )
-    )
-    let fileManager = FileManager.default
-    let temporaryDirectory = fileManager.temporaryDirectory
-        .appendingPathComponent("FlorShopCPE-ComunicacionBajaExample-\(UUID().uuidString)", isDirectory: true)
-    try fileManager.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
-    defer { try? fileManager.removeItem(at: temporaryDirectory) }
-
-    let signedCommunication = try XMLSecCPESigner().sign(
-        comunicacion,
-        configuration: signingConfiguration
-    )
-    #expect(try XMLSecSignatureVerifier().verify(signedCommunication.xml))
-    let communicationDocument = try CPEDocumentWriter().write(
-        signedCommunication,
-        output: CPEOutputConfiguration(rootDirectory: temporaryDirectory)
-    )
-    let communicationXML = try Data(contentsOf: communicationDocument.signedXMLURL)
-    let communicationZIP = try Data(contentsOf: communicationDocument.zipURL)
-    print("""
-
-    ===== COMUNICACIÓN DE BAJA FIRMADA Y EMPAQUETADA =====
-    XML: \(communicationDocument.signedXMLURL.path)
-    ZIP: \(communicationDocument.zipURL.path) (\(communicationZIP.count) bytes)
-    \(String(decoding: communicationXML, as: UTF8.self))
-    ===== FIN COMUNICACIÓN DE BAJA FIRMADA Y EMPAQUETADA =====
-
-    """)
-
-    let credentials = SunatCredentials.beta(emitterRUC: comunicacion.supplier.taxIdentifier.value)
-    let client = SunatSummaryClient()
-    let submission = try await client.submit(
-        document: communicationDocument,
-        credentials: credentials
-    )
-    print("SUNAT BETA recibió la comunicación. Ticket: \(submission.ticket)")
-    #expect(!submission.ticket.isEmpty)
-
-    // Consulta única de ejemplo. El POS conserva el ticket y programa los
-    // reintentos cuando SUNAT responde `.processing` o existe indisponibilidad.
-    do {
-        let processingResult = try await client.status(
-            ticket: submission.ticket,
-            document: communicationDocument,
-            credentials: credentials
-        )
-        switch processingResult {
-        case .processing:
-            print("SUNAT todavía está procesando la Comunicación de Baja.")
-        case let .completed(result):
-            let cdr = try #require(result.cdrArtifacts)
-            let cdrXML = try Data(contentsOf: cdr.xmlURL)
-            print("""
-
-            BAJA COMPLETADA: \(result.status), código \(result.responseCode)
-            Descripciones: \(result.descriptions)
-            Observaciones: \(result.observations)
-            \(String(decoding: cdrXML, as: UTF8.self))
-
-            """)
-        case let .failed(result):
-            let cdrXML = result.cdrArtifacts.flatMap { try? Data(contentsOf: $0.xmlURL) }
-            print("""
-
-            BAJA RECHAZADA: código \(result.responseCode)
-            Descripciones: \(result.descriptions)
-            Observaciones: \(result.observations)
-            \(cdrXML.map { String(decoding: $0, as: UTF8.self) } ?? "CDR no disponible")
-
-            """)
-            Issue.record("SUNAT rechazó la Comunicación de Baja: \(result.responseCode)")
-        }
-    } catch {
-        // El beta público no siempre ofrece getStatus para documentos UBL 2.0.
-        // En producción el POS debe conservar el ticket y reintentar después.
-        print("No fue posible consultar el ticket en SUNAT beta: \(error)")
+        // MARK: End of Example
     }
+}
+
+struct ComunicacionBajaExampleContext {
+    let issueDate: IssueDate
+    let sequence: Int
+}
+
+func makeComunicacionBajaExampleContext() throws -> ComunicacionBajaExampleContext {
+    let dateTime = try currentLimaExampleDateTime()
+    return ComunicacionBajaExampleContext(
+        issueDate: dateTime.issueDate,
+        sequence: max(1, Int(dateTime.instant.timeIntervalSince1970) % 99_999)
+    )
 }

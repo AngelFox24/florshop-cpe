@@ -1,15 +1,16 @@
 import Foundation
 import FlorShopCPE
 
-struct BoletaSmallExample {
-    static func getBoletaSmall(serie: String? = nil, correlative: String? = nil) throws -> Boleta {
+struct FacturaSmallExample {
+    static func getFacturaSmall(serie: String? = nil, correlative: String? = nil) throws -> Factura {
         let dateTime = try currentLimaExampleDateTime()
-        let series = serie ?? "BC01"
-        let correlative = correlative ?? String(max(1, Int(dateTime.instant.timeIntervalSince1970) % 99_999_999))
-        
-        // MARK: Example of Boleta
-        return Boleta(
-            identifier: DocumentIdentifier(series: series, number: correlative),
+
+        // MARK: Example of Factura
+        return Factura(
+            identifier: DocumentIdentifier(
+                series: serie ?? "F001",
+                number: correlative ?? String(max(1, Int(dateTime.instant.timeIntervalSince1970) % 99_999_999))
+            ),
             issueDate: IssueDate(year: dateTime.issueDate.year, month: dateTime.issueDate.month, day: dateTime.issueDate.day),
             currency: .pen,
             supplier: Supplier(
@@ -17,8 +18,8 @@ struct BoletaSmallExample {
                 legalName: "Vega Poblete Carlos Enrique"
             ),
             customer: Customer(
-                identifier: PartyIdentifier(value: "46237547", documentType: .dni),
-                legalName: "Pazos Atoche Luana Karina"
+                identifier: PartyIdentifier(value: "20109072177", documentType: .ruc),
+                legalName: "CLIENTE S.A.C."
             ),
             lines: [
                 InvoiceLine(
@@ -26,7 +27,8 @@ struct BoletaSmallExample {
                     pricing: .taxed(11.80),
                     item: Item(description: "Producto")
                 )
-            ]
+            ],
+            paymentCondition: .cash
         )
         // MARK: End of Example
     }

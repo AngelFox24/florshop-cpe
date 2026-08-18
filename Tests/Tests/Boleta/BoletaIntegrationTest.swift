@@ -26,7 +26,16 @@ struct BoletaIntegrationTests {
             )
             #expect(try Data(contentsOf: document.signedXMLURL) == signedBoleta.xml)
             #expect(!(try Data(contentsOf: document.zipURL)).isEmpty)
-
+            
+            //Print XML
+            let signedXML = try Data(contentsOf: document.signedXMLURL)
+            print("""
+            ===== BOLETA FIRMADA Y EMPAQUETADA =====
+            XML: \(document.signedXMLURL.path)
+            ZIP: \(document.zipURL.path)
+            \(String(decoding: signedXML, as: UTF8.self))
+            ===== FIN BOLETA FIRMADA Y EMPAQUETADA =====
+            """)
             //MARK: Summit
             let environment = ProcessInfo.processInfo.environment
             guard environment["FLORSHOP_CPE_RUN_BOLETA_INTEGRATION_LIFE_CYCLE"] == "true" else {
@@ -42,6 +51,18 @@ struct BoletaIntegrationTests {
             #expect(!result.cdrArchive.isEmpty)
             #expect(!result.cdrXML.isEmpty)
             #expect(result.cdrArtifacts != nil)
+            
+            //Print result
+            let cdrXML = result.cdrArtifacts.flatMap { try? Data(contentsOf: $0.xmlURL) }
+            print("""
+            ===== RESPUESTA SUNAT BETA =====
+            Estado: \(result.status)
+            Código: \(result.responseCode)
+            Descripciones: \(result.descriptions)
+            Observaciones: \(result.observations)
+            \(cdrXML.map { String(decoding: $0, as: UTF8.self) } ?? "CDR no disponible")
+            ===== FIN RESPUESTA SUNAT BETA =====
+            """)
         }
     }
 
@@ -84,17 +105,4 @@ struct BoletaIntegrationTests {
             #expect(result.cdrArtifacts != nil)
         }
     }
-
-}
-
-private func withTemporaryDirectory(
-    prefix: String,
-    operation: (URL) async throws -> Void
-) async throws {
-    let fileManager = FileManager.default
-    let directory = fileManager.temporaryDirectory
-        .appendingPathComponent("\(prefix)-\(UUID().uuidString)", isDirectory: true)
-    try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
-    defer { try? fileManager.removeItem(at: directory) }
-    try await operation(directory)
 }

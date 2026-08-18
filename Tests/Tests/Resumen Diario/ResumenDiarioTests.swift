@@ -25,6 +25,38 @@ import ZIPFoundation
     ])
 }
 
+@Test func dailySummaryDerivesDocumentDateWhenGeneratedLater() throws {
+    let documentDate = IssueDate(year: 2026, month: 8, day: 2)
+    let generationDate = IssueDate(year: 2026, month: 8, day: 5)
+    let boleta = makeSummaryBoleta(number: "1", issueDate: documentDate)
+
+    let summary = try ResumenDiarioBoletas(
+        sequence: 7,
+        issueDate: generationDate,
+        entries: [.boleta(boleta)]
+    )
+
+    #expect(summary.identifier.date == documentDate)
+    #expect(summary.identifier.value == "RC-20260802-00007")
+    #expect(summary.referenceDate == documentDate)
+    #expect(summary.issueDate == generationDate)
+}
+
+@Test func dailySummaryRejectsGenerationBeforeDocumentDate() {
+    let boleta = makeSummaryBoleta(
+        number: "1",
+        issueDate: IssueDate(year: 2026, month: 8, day: 5)
+    )
+
+    #expect(throws: DailySummaryValidationError.generationDateBeforeReferenceDate) {
+        _ = try ResumenDiarioBoletas(
+            sequence: 1,
+            issueDate: IssueDate(year: 2026, month: 8, day: 2),
+            entries: [.boleta(boleta)]
+        )
+    }
+}
+
 @Test func dailySummaryRejectsBoletasFromDifferentDates() {
     let boletas = [
         makeSummaryBoleta(number: "1"),
@@ -115,10 +147,8 @@ import ZIPFoundation
     let boleta = makeSummaryBoleta(number: "100")
     let creditNote = makeSummaryCreditNote(number: "101", affectedBoleta: boleta)
     let summary = try ResumenDiarioBoletas(
-        identifier: DailySummaryIdentifier(date: boleta.issueDate, sequence: 2),
+        sequence: 2,
         issueDate: boleta.issueDate,
-        referenceDate: boleta.issueDate,
-        supplier: boleta.supplier,
         entries: [
             .boleta(boleta),
             .creditNote(creditNote)
@@ -288,10 +318,8 @@ struct SunatBetaDailySummaryIntegrationTests {
             affectedBoleta: boleta
         )
         let summary = try ResumenDiarioBoletas(
-            identifier: DailySummaryIdentifier(date: date, sequence: sequence),
+            sequence: sequence,
             issueDate: date,
-            referenceDate: date,
-            supplier: boleta.supplier,
             entries: [
                 .boleta(boleta),
                 .creditNote(creditNote)
@@ -354,7 +382,7 @@ private enum DailySummaryIntegrationError: Error {
 
 private func makeDailySummary(boletas: [Boleta]? = nil) throws -> ResumenDiarioBoletas {
     try ResumenDiarioBoletas(
-        identifier: DailySummaryIdentifier(date: IssueDate(year: 2026, month: 8, day: 2), sequence: 1),
+        sequence: 1,
         issueDate: IssueDate(year: 2026, month: 8, day: 2),
         boletas: boletas ?? [makeSummaryBoleta(number: "1")]
     )

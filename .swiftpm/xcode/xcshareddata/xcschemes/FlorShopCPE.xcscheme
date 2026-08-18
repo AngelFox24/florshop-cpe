@@ -101,7 +101,7 @@
          </EnvironmentVariable>
          <EnvironmentVariable
             key = "FLORSHOP_CPE_RUN_FACTURA_EXAMPLE"
-            value = "true"
+            value = "false"
             isEnabled = "YES">
          </EnvironmentVariable>
       </EnvironmentVariables>

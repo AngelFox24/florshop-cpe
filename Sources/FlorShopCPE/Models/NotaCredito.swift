@@ -71,6 +71,14 @@ public struct CreditNoteLine: Equatable, Sendable {
     public let price: MonetaryAmount
 
     public init(
+        quantity: Quantity,
+        pricing: LinePricing,
+        item: Item
+    ) {
+        self.init(id: "", quantity: quantity, pricing: pricing, item: item)
+    }
+
+    init(
         id: String,
         quantity: Quantity,
         pricing: LinePricing,
@@ -97,10 +105,18 @@ public struct CreditNoteLine: Equatable, Sendable {
     /// Facilita reutilizar el detalle calculado del comprobante afectado.
     public init(invoiceLine: InvoiceLine) {
         self.init(
-            id: invoiceLine.id,
             quantity: invoiceLine.quantity,
             pricing: invoiceLine.pricing,
             item: invoiceLine.item
+        )
+    }
+
+    func assigningID(_ id: String) -> CreditNoteLine {
+        CreditNoteLine(
+            id: id,
+            quantity: quantity,
+            pricing: pricing,
+            item: item
         )
     }
 }
@@ -147,10 +163,13 @@ public struct NotaCredito: Equatable, Sendable {
         self.affectedDocument = affectedDocument
         self.reasonCode = reasonCode
         self.reasonDescription = reasonDescription ?? reasonCode.defaultDescription
-        self.lines = lines
-        self.taxTotal = CPECalculation.taxTotal(from: lines, taxTotal: \.taxTotal)
+        let identifiedLines = lines.enumerated().map { offset, line in
+            line.assigningID(String(offset + 1))
+        }
+        self.lines = identifiedLines
+        self.taxTotal = CPECalculation.taxTotal(from: identifiedLines, taxTotal: \.taxTotal)
         let calculatedTotal = CPECalculation.monetaryTotal(
-            lineAmounts: lines
+            lineAmounts: identifiedLines
                 .filter { $0.taxTreatment != .free }
                 .map(\.lineExtensionAmount),
             taxTotal: self.taxTotal,

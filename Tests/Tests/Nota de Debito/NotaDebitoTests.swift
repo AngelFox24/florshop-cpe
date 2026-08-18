@@ -2,6 +2,24 @@ import Foundation
 import Testing
 @testable import FlorShopCPE
 
+@Test func debitNoteAssignsSequentialLineIdentifiers() {
+    let lines = [
+        DebitNoteLine(
+            quantity: .units(1),
+            pricing: .taxed(11.80),
+            item: Item(description: "PRODUCTO")
+        ),
+        DebitNoteLine(
+            pricing: .taxed(5.90),
+            item: Item(description: "PENALIDAD")
+        )
+    ]
+
+    let note = makeDebitNote(lines: lines)
+
+    #expect(note.lines.map(\.id) == ["1", "2"])
+}
+
 @Test func debitNoteCatalog10ContainsCurrentSUNATReasons() {
     #expect(Set(DebitNoteReasonCode.allCases.map(\.rawValue)) == Set(["01", "02", "03", "12", "13"]))
 }
@@ -101,14 +119,12 @@ import Testing
 
 @Test func debitNoteForBoletaBecomesDailySummaryLine08() throws {
     let note = makeDebitNoteForBoleta()
-    let line = try DailySummaryLine(lineID: 1, debitNote: note)
     let summary = try ResumenDiarioBoletas(
-        identifier: DailySummaryIdentifier(date: note.issueDate, sequence: 1),
+        sequence: 1,
         issueDate: note.issueDate,
-        referenceDate: note.issueDate,
-        supplier: note.supplier,
-        lines: [line]
+        entries: [.debitNote(note)]
     )
+    let line = try #require(summary.lines.first)
     let xml = try DailySummaryXMLTransformer().transform(summary)
 
     #expect(line.documentType == .notaDeDebito)
@@ -292,7 +308,8 @@ private func makeDebitNote(
     reason: DebitNoteReasonCode = .aumentoEnElValor,
     reasonDescription: String? = nil,
     issueDate: IssueDate = IssueDate(year: 2026, month: 8, day: 2),
-    includeQuantityAndPrice: Bool = true
+    includeQuantityAndPrice: Bool = true,
+    lines: [DebitNoteLine]? = nil
 ) -> NotaDebito {
     let values = debitNoteValues(includeQuantityAndPrice: includeQuantityAndPrice)
     return NotaDebito(
@@ -305,7 +322,7 @@ private func makeDebitNote(
         affectedDocument: affectedDocument,
         reasonCode: reason,
         reasonDescription: reasonDescription,
-        lines: [values.line]
+        lines: lines ?? [values.line]
     )
 }
 
@@ -347,12 +364,11 @@ private func debitNoteValues(
     let item = Item(description: "AUMENTO EN EL VALOR DEL PRODUCTO", sellerItemIdentifier: "P001")
     let line = includeQuantityAndPrice
         ? DebitNoteLine(
-            id: "1",
             quantity: .units(1),
             pricing: .taxed(10, basis: .excludingTaxes),
             item: item
         )
-        : DebitNoteLine(id: "1", pricing: .taxed(10, basis: .excludingTaxes), item: item)
+        : DebitNoteLine(pricing: .taxed(10, basis: .excludingTaxes), item: item)
     return (payable, line)
 }
 

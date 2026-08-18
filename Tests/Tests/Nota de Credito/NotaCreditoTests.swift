@@ -3,6 +3,25 @@ import Testing
 import ZIPFoundation
 @testable import FlorShopCPE
 
+@Test func creditNoteAssignsSequentialLineIdentifiers() {
+    let lines = [
+        CreditNoteLine(
+            quantity: .units(1),
+            pricing: .taxed(11.80),
+            item: Item(description: "PRODUCTO 1")
+        ),
+        CreditNoteLine(
+            quantity: .units(2),
+            pricing: .taxed(5.90),
+            item: Item(description: "PRODUCTO 2")
+        )
+    ]
+
+    let note = makeCreditNote(lines: lines)
+
+    #expect(note.lines.map(\.id) == ["1", "2"])
+}
+
 @Test func creditNoteModelAndTransformerGenerateUBL21() throws {
     let note = makeCreditNote()
     let xml = try CreditNoteXMLTransformer().transform(note)
@@ -77,14 +96,12 @@ import ZIPFoundation
 
 @Test func creditNoteForBoletaBecomesDailySummaryLine() throws {
     let note = makeCreditNoteForBoleta()
-    let line = try DailySummaryLine(lineID: 1, creditNote: note)
     let summary = try ResumenDiarioBoletas(
-        identifier: DailySummaryIdentifier(date: note.issueDate, sequence: 1),
+        sequence: 1,
         issueDate: note.issueDate,
-        referenceDate: note.issueDate,
-        supplier: note.supplier,
-        lines: [line]
+        entries: [.creditNote(note)]
     )
+    let line = try #require(summary.lines.first)
     let xml = try DailySummaryXMLTransformer().transform(summary)
 
     #expect(line.documentType == .notaDeCredito)
@@ -267,7 +284,8 @@ private func makeCreditNote(
     reason: CreditNoteReasonCode = .devolucionTotal,
     reasonDescription: String? = nil,
     issueDate: IssueDate = IssueDate(year: 2026, month: 8, day: 2),
-    additionalNotes: [DocumentNote] = []
+    additionalNotes: [DocumentNote] = [],
+    lines: [CreditNoteLine]? = nil
 ) -> NotaCredito {
     let values = creditNoteValues()
     return NotaCredito(
@@ -280,7 +298,7 @@ private func makeCreditNote(
         affectedDocument: affectedDocument,
         reasonCode: reason,
         reasonDescription: reasonDescription,
-        lines: [CreditNoteLine(invoiceLine: values.line)],
+        lines: lines ?? [CreditNoteLine(invoiceLine: values.line)],
         additionalNotes: additionalNotes
     )
 }

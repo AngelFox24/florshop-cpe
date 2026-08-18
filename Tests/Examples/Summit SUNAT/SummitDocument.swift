@@ -24,4 +24,19 @@ struct SummitDocumentExample {
         )
         return result
     }
+
+    static func summitSummaryBeta(document: CPEDocument, ruc: String) async throws -> SunatSummarySubmission {
+        try await SunatSummaryClient().submit(
+            document: document,
+            credentials: .beta(emitterRUC: ruc)
+        )
+    }
+
+    static func summaryStatusBeta(ticket: String, document: CPEDocument, ruc: String) async throws -> SunatSummaryProcessingResult {
+        try await SunatSummaryClient().status(
+            ticket: ticket,
+            document: document,
+            credentials: .beta(emitterRUC: ruc)
+        )
+    }
 }
