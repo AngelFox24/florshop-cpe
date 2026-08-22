@@ -65,8 +65,20 @@ import Testing
 
 @Test func voidedDocumentsValidatorRequiresIdentifierDateToMatchIssueDate() {
     #expect(throws: VoidedDocumentsValidationError.invalidIdentifierDate) {
-        _ = try makeVoidedDocuments(
-            identifier: VoidedDocumentsIdentifier(date: IssueDate(year: 2026, month: 8, day: 1), sequence: 1)
+        _ = try ComunicacionBaja(
+            identifier: VoidedDocumentsIdentifier(
+                date: IssueDate(year: 2026, month: 8, day: 1),
+                sequence: 1
+            ),
+            issueDate: IssueDate(year: 2026, month: 8, day: 2),
+            referenceDate: IssueDate(year: 2026, month: 8, day: 2),
+            supplier: voidedSupplier(),
+            lines: [VoidedDocumentLine(
+                lineID: 1,
+                documentType: .factura,
+                documentIdentifier: DocumentIdentifier(series: "F001", number: "100"),
+                reason: "DOCUMENTO NO OTORGADO"
+            )]
         )
     }
 }
@@ -216,7 +228,7 @@ struct SunatBetaVoidedDocumentsIntegrationTests {
         }
 
         let issueDate = currentLimaVoidedDate()
-        let base = max(1, Int(Date().timeIntervalSince1970) % 99_999_990)
+        let base = timestampBasedNumber(modulo: 99_999_990)
         let invoice = makeVoidedPrerequisiteInvoice(number: String(base), issueDate: issueDate)
         let invoiceResult = try await signWriteAndSubmitVoidedPrerequisite(
             invoice,
@@ -230,10 +242,7 @@ struct SunatBetaVoidedDocumentsIntegrationTests {
 
         try await Task.sleep(for: .seconds(2))
         let communication = try makeVoidedDocuments(
-            identifier: VoidedDocumentsIdentifier(
-                date: issueDate,
-                sequence: max(1, Int(Date().timeIntervalSince1970) % 99_999)
-            ),
+            sequence: timestampBasedNumber(modulo: 99_999),
             issueDate: issueDate,
             referenceDate: issueDate,
             supplier: invoice.supplier,
@@ -278,13 +287,10 @@ struct OSEVoidedDocumentsManualValidationTests {
               let pfxPassword = environment["FLORSHOP_CPE_TEST_PFX_PASSWORD"] else { return }
 
         let issueDate = currentLimaVoidedDate()
-        let base = max(1, Int(Date().timeIntervalSince1970) % 99_999_990)
+        let base = timestampBasedNumber(modulo: 99_999_990)
         let invoice = makeVoidedPrerequisiteInvoice(number: String(base), issueDate: issueDate)
         let communication = try makeVoidedDocuments(
-            identifier: VoidedDocumentsIdentifier(
-                date: issueDate,
-                sequence: max(1, Int(Date().timeIntervalSince1970) % 99_999)
-            ),
+            sequence: timestampBasedNumber(modulo: 99_999),
             issueDate: issueDate,
             referenceDate: issueDate,
             supplier: invoice.supplier,
@@ -332,10 +338,7 @@ struct OSEVoidedDocumentsManualValidationTests {
 }
 
 private func makeVoidedDocuments(
-    identifier: VoidedDocumentsIdentifier = VoidedDocumentsIdentifier(
-        date: IssueDate(year: 2026, month: 8, day: 2),
-        sequence: 1
-    ),
+    sequence: Int = 1,
     issueDate: IssueDate = IssueDate(year: 2026, month: 8, day: 2),
     referenceDate: IssueDate = IssueDate(year: 2026, month: 8, day: 2),
     supplier: Supplier = voidedSupplier(),
@@ -347,7 +350,7 @@ private func makeVoidedDocuments(
     )]
 ) throws -> ComunicacionBaja {
     try ComunicacionBaja(
-        identifier: identifier,
+        sequence: sequence,
         issueDate: issueDate,
         referenceDate: referenceDate,
         supplier: supplier,

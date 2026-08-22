@@ -10,7 +10,7 @@ struct FacturaLargeExample {
         return Factura(
             identifier: DocumentIdentifier(
                 series: serie ?? "F001",
-                number: correlative ?? String(max(1, Int(dateTime.instant.timeIntervalSince1970) % 99_999_999))
+                number: correlative ?? String(timestampBasedNumber(from: dateTime.instant, modulo: 99_999_999))
             ),
             issueDate: IssueDate(year: dateTime.issueDate.year, month: dateTime.issueDate.month, day: dateTime.issueDate.day),
             issueTime: IssueTime(hour: dateTime.issueTime.hour, minute: dateTime.issueTime.minute, second: dateTime.issueTime.second),    // Por defecto: nil

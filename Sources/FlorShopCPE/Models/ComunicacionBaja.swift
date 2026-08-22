@@ -60,7 +60,7 @@ public struct ComunicacionBaja: Codable, Equatable, Sendable {
     public let supplier: Supplier
     public let lines: [VoidedDocumentLine]
 
-    public init(
+    init(
         identifier: VoidedDocumentsIdentifier,
         issueDate: IssueDate,
         referenceDate: IssueDate,
@@ -73,5 +73,24 @@ public struct ComunicacionBaja: Codable, Equatable, Sendable {
         self.supplier = supplier
         self.lines = lines
         try VoidedDocumentsValidator().validate(self)
+    }
+
+    /// Crea una Comunicación de Baja y deriva la fecha del identificador `RA`
+    /// desde su fecha de generación. `referenceDate` corresponde a la fecha de
+    /// emisión de los documentos dados de baja y puede ser anterior.
+    public init(
+        sequence: Int,
+        issueDate: IssueDate,
+        referenceDate: IssueDate,
+        supplier: Supplier,
+        lines: [VoidedDocumentLine]
+    ) throws {
+        try self.init(
+            identifier: VoidedDocumentsIdentifier(date: issueDate, sequence: sequence),
+            issueDate: issueDate,
+            referenceDate: referenceDate,
+            supplier: supplier,
+            lines: lines
+        )
     }
 }

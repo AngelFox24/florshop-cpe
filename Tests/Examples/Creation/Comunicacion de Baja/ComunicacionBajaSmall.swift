@@ -6,10 +6,7 @@ struct ComunicacionBajaSmallExample {
 
         // MARK: Example of Comunicacion de Baja
         return try ComunicacionBaja(
-            identifier: VoidedDocumentsIdentifier(
-                date: context.issueDate,
-                sequence: sequence ?? context.sequence
-            ),
+            sequence: sequence ?? context.sequence,
             issueDate: context.issueDate,
             referenceDate: context.issueDate,
             supplier: Supplier(

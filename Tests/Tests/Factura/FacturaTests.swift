@@ -379,9 +379,7 @@ private func limaIssueDate(daysFromToday: Int = 0) -> IssueDate {
 }
 
 private func facturaBetaCorrelative(offset: Int) -> String {
-    let maximumCorrelative = 99_999_999
-    let timestamp = Int(Date().timeIntervalSince1970) % maximumCorrelative
-    return String(max(1, (timestamp + offset) % maximumCorrelative))
+    String(timestampBasedNumber(modulo: 99_999_999, offset: offset))
 }
 
 private enum FacturaIntegrationConfigurationError: Error {

@@ -7,10 +7,7 @@ struct ComunicacionBajaLargeExample {
 
         // MARK: Example of Comunicacion de Baja
         return try ComunicacionBaja(
-            identifier: VoidedDocumentsIdentifier(
-                date: context.issueDate,
-                sequence: sequence ?? context.sequence
-            ),
+            sequence: sequence ?? context.sequence,
             issueDate: context.issueDate,
             referenceDate: context.issueDate,
             supplier: Supplier(
@@ -66,6 +63,6 @@ func makeComunicacionBajaExampleContext() throws -> ComunicacionBajaExampleConte
     let dateTime = try currentLimaExampleDateTime()
     return ComunicacionBajaExampleContext(
         issueDate: dateTime.issueDate,
-        sequence: max(1, Int(dateTime.instant.timeIntervalSince1970) % 99_999)
+        sequence: timestampBasedNumber(from: dateTime.instant, modulo: 99_999)
     )
 }

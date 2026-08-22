@@ -9,7 +9,7 @@ struct NotaCreditoLargeExample {
         return NotaCredito(
             identifier: DocumentIdentifier(
                 series: serie ?? "FC01",
-                number: correlative ?? String(max(1, Int(dateTime.instant.timeIntervalSince1970) % 99_999_999))
+                number: correlative ?? String(timestampBasedNumber(from: dateTime.instant, modulo: 99_999_999))
             ),
             issueDate: affectedBoleta?.issueDate ?? IssueDate(year: dateTime.issueDate.year, month: dateTime.issueDate.month, day: dateTime.issueDate.day),
             issueTime: IssueTime(hour: dateTime.issueTime.hour, minute: dateTime.issueTime.minute, second: dateTime.issueTime.second),    // Por defecto: nil

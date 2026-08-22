@@ -176,7 +176,7 @@ struct SunatBetaCreditNoteIntegrationTests {
         }
 
         let issueDate = currentLimaCreditNoteDate()
-        let base = max(1, Int(Date().timeIntervalSince1970) % 99_999_990)
+        let base = timestampBasedNumber(modulo: 99_999_990)
         let invoice = makeCreditNotePrerequisiteInvoice(number: String(base), issueDate: issueDate)
         let invoiceResult = try await signWriteAndSubmit(
             invoice,
@@ -223,7 +223,7 @@ struct OSECreditNoteManualValidationTests {
               let pfxPassword = environment["FLORSHOP_CPE_TEST_PFX_PASSWORD"] else { return }
 
         let issueDate = currentLimaCreditNoteDate()
-        let base = max(1, Int(Date().timeIntervalSince1970) % 99_999_990)
+        let base = timestampBasedNumber(modulo: 99_999_990)
         let invoice = makeCreditNotePrerequisiteInvoice(number: String(base), issueDate: issueDate)
         let note = makeCreditNote(
             identifier: DocumentIdentifier(series: "FC01", number: String(base + 1)),

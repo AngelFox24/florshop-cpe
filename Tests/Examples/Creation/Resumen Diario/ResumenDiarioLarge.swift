@@ -4,7 +4,7 @@ import FlorShopCPE
 struct ResumenDiarioLargeExample {
     static func getResumenDiarioLarge(series: String? = nil, sequence: Int? = nil) throws -> ResumenDiarioBoletas {
         let series = series ?? "BC01"
-        let base = max(1, Int(Date().timeIntervalSince1970) % 99_999_990)
+        let base = timestampBasedNumber(modulo: 99_999_990)
         let boleta = try BoletaLargeExample.getBoletaLarge(
             serie: series,
             correlative: String(base)
@@ -41,5 +41,5 @@ struct ResumenDiarioLargeExample {
 }
 
 func defaultResumenDiarioExampleSequence() -> Int {
-    max(1, Int(Date().timeIntervalSince1970) % 99_997)
+    timestampBasedNumber(modulo: 99_997)
 }

@@ -1,5 +1,5 @@
 //
-//  TemporaryDirectory.swift
+//  UtilsFuncs.swift
 //  FlorShopCPE
 //
 //  Created by Angel Curi Laurente on 17/08/2026.
@@ -18,6 +18,10 @@ struct LimaExampleDateTime {
     let instant: Date
     let issueDate: IssueDate
     let issueTime: IssueTime
+}
+
+func timestampBasedNumber(from date: Date = Date(), modulo: Int, offset: Int = 0) -> Int {
+    max(1, (Int(date.timeIntervalSince1970) + offset) % modulo)
 }
 
 func currentLimaExampleDateTime() throws -> LimaExampleDateTime {

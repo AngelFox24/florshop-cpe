@@ -5,7 +5,7 @@ struct BoletaLargeExample {
     static func getBoletaLarge(serie: String? = nil, correlative: String? = nil) throws -> Boleta {
         let dateTime = try currentLimaExampleDateTime()
         let series = serie ?? "BC01"
-        let correlative = correlative ?? String(max(1, Int(dateTime.instant.timeIntervalSince1970) % 99_999_999))
+        let correlative = correlative ?? String(timestampBasedNumber(from: dateTime.instant, modulo: 99_999_999))
         // MARK: Example of Boleta
         return Boleta(
             identifier: DocumentIdentifier(series: series, number: correlative),

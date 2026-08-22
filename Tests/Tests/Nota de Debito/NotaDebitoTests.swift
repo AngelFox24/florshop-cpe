@@ -200,7 +200,7 @@ struct SunatBetaDebitNoteIntegrationTests {
         }
 
         let issueDate = currentLimaDebitNoteDate()
-        let base = max(1, Int(Date().timeIntervalSince1970) % 99_999_990)
+        let base = timestampBasedNumber(modulo: 99_999_990)
         let invoice = makeDebitNotePrerequisiteInvoice(number: String(base), issueDate: issueDate)
         let invoiceResult = try await signWriteAndSubmitDebitScenario(
             invoice,
@@ -247,7 +247,7 @@ struct OSEDebitNoteManualValidationTests {
               let pfxPassword = environment["FLORSHOP_CPE_TEST_PFX_PASSWORD"] else { return }
 
         let issueDate = currentLimaDebitNoteDate()
-        let base = max(1, Int(Date().timeIntervalSince1970) % 99_999_990)
+        let base = timestampBasedNumber(modulo: 99_999_990)
         let invoice = makeDebitNotePrerequisiteInvoice(number: String(base), issueDate: issueDate)
         let note = makeDebitNote(
             identifier: DocumentIdentifier(series: "FD01", number: String(base + 1)),

@@ -306,8 +306,8 @@ struct SunatBetaDailySummaryIntegrationTests {
             throw DailySummaryIntegrationError.missingSigningCredentials
         }
         let date = currentLimaSummaryDate()
-        let sequence = max(1, Int(Date().timeIntervalSince1970) % 99_999)
-        let base = max(1, Int(Date().timeIntervalSince1970) % 99_999_990)
+        let sequence = timestampBasedNumber(modulo: 99_999)
+        let base = timestampBasedNumber(modulo: 99_999_990)
         let boleta = makeSummaryBoleta(
             number: String(base),
             issueDate: date,
