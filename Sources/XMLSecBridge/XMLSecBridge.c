@@ -76,7 +76,7 @@ static void use_namespace(xmlNodePtr node, xmlNsPtr namespace) {
 void flor_shop_xmlsec_free(void *pointer) {
     free(pointer);
 }
-
+//MARK: SING
 int flor_shop_xmlsec_sign_pkcs12(
     const unsigned char *xml,
     size_t xml_size,
@@ -222,7 +222,7 @@ cleanup:
     }
     return result;
 }
-
+//MARK: VERIFY
 int flor_shop_xmlsec_verify(
     const unsigned char *xml,
     size_t xml_size,

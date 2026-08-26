@@ -26,10 +26,7 @@ public struct XMLSecCPESigner: CPESigning, CreditNoteSigning, DebitNoteSigning, 
         self.voidedDocumentsTransformer = voidedDocumentsTransformer
     }
 
-    public func sign(
-        _ summary: ResumenDiarioBoletas,
-        configuration: SigningConfiguration
-    ) throws -> SignedCPE {
+    public func sign(_ summary: ResumenDiarioBoletas, configuration: SigningConfiguration) throws -> SignedCPE {
         let unsignedXML = try dailySummaryTransformer.transform(summary)
         switch configuration.credentials {
         case let .pkcs12(path, passwordProvider):

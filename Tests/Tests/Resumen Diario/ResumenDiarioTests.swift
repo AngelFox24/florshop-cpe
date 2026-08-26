@@ -99,7 +99,10 @@ import ZIPFoundation
     )
     let xml = try DailySummaryXMLTransformer().transform(summary)
 
-    #expect(xml.contains("<cbc:InstructionID>08</cbc:InstructionID>"))
+    #expect(xml.contains("<cbc:InstructionID>05</cbc:InstructionID>"))
+    #expect(!xml.contains("<cbc:InstructionID>06</cbc:InstructionID>"))
+    #expect(!xml.contains("<cbc:InstructionID>07</cbc:InstructionID>"))
+    #expect(!xml.contains("<cbc:InstructionID>08</cbc:InstructionID>"))
     #expect(xml.contains("<cbc:ID>9996</cbc:ID>"))
     #expect(xml.contains("<cbc:Percent>18</cbc:Percent>"))
 }

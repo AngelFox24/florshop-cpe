@@ -34,9 +34,8 @@ public enum DailySummarySaleType: String, Codable, Sendable {
     case taxable = "01"
     case exempt = "02"
     case unaffected = "03"
-    case freeTaxable = "06"
-    case freeExempt = "07"
-    case freeUnaffected = "08"
+    case export = "04"
+    case free = "05"
 }
 
 /// Documento de entrada que la librería convertirá en una línea del Resumen
@@ -292,12 +291,13 @@ public struct DailySummaryLine: Equatable, Sendable {
 
     private static func saleType(for category: TaxCategory) -> DailySummarySaleType {
         let isFree = category.scheme.identifier == TaxScheme.gratuito.identifier
+        if isFree { return .free }
+
         switch category.exemptionReasonCode {
-        case .gravadoOperacionOnerosa: return isFree ? .freeTaxable : .taxable
-        case .exonerado: return isFree ? .freeExempt : .exempt
-        case .inafecto, .inafectoRetiroPorBonificacion: return isFree ? .freeUnaffected : .unaffected
+        case .gravadoOperacionOnerosa: return .taxable
+        case .exonerado: return .exempt
+        case .inafecto, .inafectoRetiroPorBonificacion: return .unaffected
         case nil:
-            if isFree { return .freeUnaffected }
             return category.scheme.identifier == TaxScheme.igv.identifier ? .taxable : .unaffected
         }
     }
@@ -342,8 +342,7 @@ public struct DailySummaryLine: Equatable, Sendable {
 
 private extension DailySummarySaleType {
     static let sunatOrder: [Self] = [
-        .taxable, .exempt, .unaffected,
-        .freeTaxable, .freeExempt, .freeUnaffected
+        .taxable, .exempt, .unaffected, .export, .free
     ]
 }
 
