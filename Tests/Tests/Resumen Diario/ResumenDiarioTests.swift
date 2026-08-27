@@ -9,7 +9,7 @@ import ZIPFoundation
 
 @Test func dailySummaryIsBuiltFromBoletasWithoutProductLines() throws {
     let summary = try makeDailySummary(boletas: [makeSummaryBoleta(number: "1"), makeSummaryBoleta(number: "2")])
-
+    
     #expect(summary.identifier.value == "RC-20260802-00001")
     #expect(summary.referenceDate == IssueDate(year: 2026, month: 8, day: 2))
     #expect(summary.lines.count == 2)
@@ -29,13 +29,13 @@ import ZIPFoundation
     let documentDate = IssueDate(year: 2026, month: 8, day: 2)
     let generationDate = IssueDate(year: 2026, month: 8, day: 5)
     let boleta = makeSummaryBoleta(number: "1", issueDate: documentDate)
-
+    
     let summary = try ResumenDiarioBoletas(
         sequence: 7,
         issueDate: generationDate,
         entries: [.boleta(boleta)]
     )
-
+    
     #expect(summary.identifier.date == documentDate)
     #expect(summary.identifier.value == "RC-20260802-00007")
     #expect(summary.referenceDate == documentDate)
@@ -47,7 +47,7 @@ import ZIPFoundation
         number: "1",
         issueDate: IssueDate(year: 2026, month: 8, day: 5)
     )
-
+    
     #expect(throws: DailySummaryValidationError.generationDateBeforeReferenceDate) {
         _ = try ResumenDiarioBoletas(
             sequence: 1,
@@ -62,7 +62,7 @@ import ZIPFoundation
         makeSummaryBoleta(number: "1"),
         makeSummaryBoleta(number: "2", issueDate: IssueDate(year: 2026, month: 8, day: 1))
     ]
-
+    
     #expect(throws: DailySummaryValidationError.inconsistentReferenceDate) {
         _ = try makeDailySummary(boletas: boletas)
     }
@@ -70,7 +70,7 @@ import ZIPFoundation
 
 @Test func dailySummaryRejectsForeignCurrencySourceDocuments() {
     let boleta = makeSummaryBoleta(number: "200", currency: .usd)
-
+    
     #expect(throws: DailySummaryValidationError.sourceDocumentMustUsePEN) {
         _ = try DailySummaryLine(lineID: 1, boleta: boleta)
     }
@@ -78,7 +78,7 @@ import ZIPFoundation
 
 @Test func dailySummaryRejectsDuplicatedBoletas() {
     let boleta = makeSummaryBoleta(number: "1")
-
+    
     #expect(throws: DailySummaryValidationError.duplicatedDocument("B001-1")) {
         _ = try makeDailySummary(boletas: [boleta, boleta])
     }
@@ -98,7 +98,7 @@ import ZIPFoundation
         lines: [freeLine]
     )
     let xml = try DailySummaryXMLTransformer().transform(summary)
-
+    
     #expect(xml.contains("<cbc:InstructionID>05</cbc:InstructionID>"))
     #expect(!xml.contains("<cbc:InstructionID>06</cbc:InstructionID>"))
     #expect(!xml.contains("<cbc:InstructionID>07</cbc:InstructionID>"))
@@ -113,7 +113,7 @@ import ZIPFoundation
         pricing: .free(referenceValue: 4.80)
     )
     let xml = try UBLInvoiceXMLTransformer().transform(boleta)
-
+    
     #expect(xml.contains(
         "<cbc:Note languageLocaleID=\"1002\">TRANSFERENCIA GRATUITA DE UN BIEN Y/O SERVICIO PRESTADO GRATUITAMENTE</cbc:Note>"
     ))
@@ -123,7 +123,7 @@ import ZIPFoundation
     let xml = try DailySummaryXMLTransformer().transform(
         makeDailySummary(boletas: [makeSummaryBoleta(number: "1"), makeSummaryBoleta(number: "2")])
     )
-
+    
     #expect(xml.contains("<SummaryDocuments"))
     #expect(xml.contains("xmlns=\"urn:sunat:names:specification:ubl:peru:schema:xsd:SummaryDocuments-1\""))
     #expect(xml.contains("xmlns:sac=\"urn:sunat:names:specification:ubl:peru:schema:xsd:SunatAggregateComponents-1\""))
@@ -158,7 +158,7 @@ import ZIPFoundation
         ]
     )
     let xml = try DailySummaryXMLTransformer().transform(summary)
-
+    
     #expect(summary.lines.count == 2)
     #expect(summary.lines.map(\.lineID) == [1, 2])
     #expect(summary.lines[0].documentType == .boleta)
@@ -180,7 +180,7 @@ import ZIPFoundation
         SignedCPE(xml: Data("<SummaryDocuments />".utf8), identity: CPEIdentity(summary: summary)),
         output: CPEOutputConfiguration(rootDirectory: directory)
     )
-
+    
     #expect(document.signedXMLURL.lastPathComponent == "20123456789-RC-20260802-00001.xml")
     #expect(document.zipURL.lastPathComponent == "20123456789-RC-20260802-00001.zip")
     let package = try SunatSummaryPackageValidator().validate(zipAt: document.zipURL)
@@ -190,7 +190,7 @@ import ZIPFoundation
 @Test func dailySummaryTransformerInfersSignatureMetadata() throws {
     let summary = try makeDailySummary()
     let xml = try DailySummaryXMLTransformer().transform(summary)
-
+    
     #expect(xml.contains("<cac:Signature>"))
     #expect(xml.contains("<cbc:URI>#SignSUNAT</cbc:URI>"))
     #expect(xml.contains("<cbc:ID>20123456789</cbc:ID>"))
@@ -203,9 +203,9 @@ import ZIPFoundation
     let configuration = SigningConfiguration(
         credentials: .pkcs12(path: URL(fileURLWithPath: path), passwordProvider: { password })
     )
-
+    
     let signed = try XMLSecCPESigner().sign(makeDailySummary(), configuration: configuration)
-
+    
     #expect(signed.identity.fileBaseName == "20123456789-RC-20260802-00001")
     #expect(try XMLSecSignatureVerifier().verify(signed.xml))
 }
@@ -219,14 +219,14 @@ import ZIPFoundation
         contentType: "text/xml"
     )
     let transport = SummaryCapturingTransport(responses: [response])
-
+    
     let submission = try await SunatSummaryClient(transport: transport).submit(
         document: document,
         credentials: .beta(emitterRUC: "20123456789")
     )
     let request = try #require(await transport.requests.first)
     let body = try #require(request.httpBody)
-
+    
     #expect(submission.ticket == "123456789")
     #expect(request.value(forHTTPHeaderField: "SOAPAction") == "urn:sendSummary")
     #expect(body.contains(Data("<fileName>20123456789-RC-20260802-00001.zip</fileName>".utf8)))
@@ -237,13 +237,13 @@ import ZIPFoundation
     let (document, directory) = try makePreparedSummaryDocument()
     defer { try? FileManager.default.removeItem(at: directory) }
     let transport = SummaryCapturingTransport(responses: [summaryStatusResponse(code: "98")])
-
+    
     let result = try await SunatSummaryClient(transport: transport).status(
         ticket: "123",
         document: document,
         credentials: .beta(emitterRUC: "20123456789")
     )
-
+    
     if case .processing = result {} else { Issue.record("Se esperaba el estado processing") }
     let request = try #require(await transport.requests.first)
     #expect(request.value(forHTTPHeaderField: "SOAPAction") == "urn:getStatus")
@@ -255,13 +255,13 @@ import ZIPFoundation
     defer { try? FileManager.default.removeItem(at: directory) }
     let cdr = try makeSummaryCDRArchive(in: directory, responseCode: "0")
     let transport = SummaryCapturingTransport(responses: [summaryStatusResponse(code: "0", content: cdr)])
-
+    
     let result = try await SunatSummaryClient(transport: transport).status(
         ticket: "123",
         document: document,
         credentials: .beta(emitterRUC: "20123456789")
     )
-
+    
     guard case let .completed(cdrResult) = result else {
         Issue.record("Se esperaba una CDR completada")
         return
@@ -277,13 +277,13 @@ import ZIPFoundation
     defer { try? FileManager.default.removeItem(at: directory) }
     let cdr = try makeSummaryCDRArchive(in: directory, responseCode: "2335")
     let transport = SummaryCapturingTransport(responses: [summaryStatusResponse(code: "99", content: cdr)])
-
+    
     let result = try await SunatSummaryClient(transport: transport).status(
         ticket: "123",
         document: document,
         credentials: .beta(emitterRUC: "20123456789")
     )
-
+    
     guard case let .failed(cdrResult) = result else {
         Issue.record("Se esperaba una CDR fallida")
         return
@@ -292,88 +292,86 @@ import ZIPFoundation
     #expect(cdrResult.responseCode == "2335")
 }
 
-@Suite(.serialized)
-struct SunatBetaDailySummaryIntegrationTests {
-    /// El servicio beta de SUNAT entrega un ticket para `sendSummary`, pero no
-    /// ofrece de manera confiable el procesamiento posterior de resúmenes
-    /// diarios mediante `getStatus`. SUNAT limita oficialmente este beta a la
-    /// prueba de facturas, boletas y notas UBL 2.1. Por eso esta integración
-    /// comprueba el transporte, autenticación y recepción del ticket; el flujo
-    /// completo ticket/CDR se cubre con los tests del cliente usando transporte
-    /// controlado y debe verificarse contra producción con credenciales SOL.
-    @Test func sunatBetaReceivesSignedDailySummaryAndReturnsTicketWhenExplicitlyEnabled() async throws {
-        let environment = ProcessInfo.processInfo.environment
-        guard environment["FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION_RESUMEN_DIARIO"] == "true" else { return }
-        guard let pfxPath = environment["FLORSHOP_CPE_TEST_PFX_PATH"],
-              let pfxPassword = environment["FLORSHOP_CPE_TEST_PFX_PASSWORD"] else {
-            throw DailySummaryIntegrationError.missingSigningCredentials
-        }
-        let date = currentLimaSummaryDate()
-        let sequence = timestampBasedNumber(modulo: 99_999)
-        let base = timestampBasedNumber(modulo: 99_999_990)
-        let boleta = makeSummaryBoleta(
-            number: String(base),
-            issueDate: date,
-            emitterRUC: "10708255195"
-        )
-        let creditNote = makeSummaryCreditNote(
-            number: String(base + 1),
-            affectedBoleta: boleta
-        )
-        let summary = try ResumenDiarioBoletas(
-            sequence: sequence,
-            issueDate: date,
-            entries: [
-                .boleta(boleta),
-                .creditNote(creditNote)
-            ]
-        )
-        let configuration = SigningConfiguration(
-            credentials: .pkcs12(path: URL(fileURLWithPath: pfxPath), passwordProvider: { pfxPassword })
-        )
-        let signed = try XMLSecCPESigner().sign(summary, configuration: configuration)
-        let directory = try makeSummaryTemporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let document = try CPEDocumentWriter().write(
-            signed,
-            output: CPEOutputConfiguration(rootDirectory: directory)
-        )
-        print("""
-
+/// El servicio beta de SUNAT entrega un ticket para `sendSummary`, pero no
+/// ofrece de manera confiable el procesamiento posterior de resúmenes
+/// diarios mediante `getStatus`. SUNAT limita oficialmente este beta a la
+/// prueba de facturas, boletas y notas UBL 2.1. Por eso esta integración
+/// comprueba el transporte, autenticación y recepción del ticket; el flujo
+/// completo ticket/CDR se cubre con los tests del cliente usando transporte
+/// controlado y debe verificarse contra producción con credenciales SOL.
+@Test func sunatBetaReceivesSignedDailySummaryAndReturnsTicketWhenExplicitlyEnabled() async throws {
+    let environment = ProcessInfo.processInfo.environment
+    guard environment["FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION_RESUMEN_DIARIO"] == "true" else { return }
+    guard let pfxPath = environment["FLORSHOP_CPE_TEST_PFX_PATH"],
+          let pfxPassword = environment["FLORSHOP_CPE_TEST_PFX_PASSWORD"] else {
+        throw DailySummaryIntegrationError.missingSigningCredentials
+    }
+    let date = currentLimaSummaryDate()
+    let sequence = timestampBasedNumber(modulo: 99_999)
+    let base = timestampBasedNumber(modulo: 99_999_990)
+    let boleta = makeSummaryBoleta(
+        number: String(base),
+        issueDate: date,
+        emitterRUC: "10708255195"
+    )
+    let creditNote = makeSummaryCreditNote(
+        number: String(base + 1),
+        affectedBoleta: boleta
+    )
+    let summary = try ResumenDiarioBoletas(
+        sequence: sequence,
+        issueDate: date,
+        entries: [
+            .boleta(boleta),
+            .creditNote(creditNote)
+        ]
+    )
+    let configuration = SigningConfiguration(
+        credentials: .pkcs12(path: URL(fileURLWithPath: pfxPath), passwordProvider: { pfxPassword })
+    )
+    let signed = try XMLSecCPESigner().sign(summary, configuration: configuration)
+    let directory = try makeSummaryTemporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let document = try CPEDocumentWriter().write(
+        signed,
+        output: CPEOutputConfiguration(rootDirectory: directory)
+    )
+    print("""
+        
         ===== SUNAT BETA RESUMEN DIARIO CON NOTA DE CRÉDITO: XML FIRMADO =====
         Archivo XML: \(document.signedXMLURL.lastPathComponent)
         Archivo ZIP: \(document.zipURL.lastPathComponent)
         \(String(decoding: signed.xml, as: UTF8.self))
         ===== FIN SUNAT BETA RESUMEN DIARIO CON NOTA DE CRÉDITO: XML FIRMADO =====
-
+        
         """)
-        let client = SunatSummaryClient(transport: SummaryIntegrationDiagnosticTransport())
-        let submission = try await client.submit(
-            document: document,
-            credentials: .beta(emitterRUC: "10708255195")
-        )
-        print("SUNAT BETA RESUMEN DIARIO: ticket recibido = \(submission.ticket)")
-        #expect(!submission.ticket.isEmpty)
-        print("""
-
+    let client = SunatSummaryClient(transport: SummaryIntegrationDiagnosticTransport())
+    let submission = try await client.submit(
+        document: document,
+        credentials: .beta(emitterRUC: "10708255195")
+    )
+    print("SUNAT BETA RESUMEN DIARIO: ticket recibido = \(submission.ticket)")
+    #expect(!submission.ticket.isEmpty)
+    print("""
+        
         SUNAT BETA RESUMEN DIARIO: envío recibido correctamente.
         No se consulta getStatus porque el beta público no soporta de forma
         confiable el procesamiento completo de resúmenes diarios.
-
+        
         """)
-    }
 }
+
 
 private struct SummaryIntegrationDiagnosticTransport: SunatHTTPTransport {
     func send(_ request: URLRequest) async throws -> SunatHTTPResponse {
         print("""
-
+        
         ===== SUNAT BETA RESUMEN DIARIO: SOLICITUD SOAP =====
         URL: \(request.url?.absoluteString ?? "-")
         SOAPAction: \(request.value(forHTTPHeaderField: "SOAPAction") ?? "-")
         Content-Type: \(request.value(forHTTPHeaderField: "Content-Type") ?? "-")
         ===== FIN SOLICITUD SOAP =====
-
+        
         """)
         return try await URLSessionSunatHTTPTransport().send(request)
     }
@@ -466,9 +464,9 @@ private func makeSummaryCDRArchive(in directory: URL, responseCode: String) thro
 private actor SummaryCapturingTransport: SunatHTTPTransport {
     private(set) var requests: [URLRequest] = []
     private var responses: [SunatHTTPResponse]
-
+    
     init(responses: [SunatHTTPResponse]) { self.responses = responses }
-
+    
     func send(_ request: URLRequest) async throws -> SunatHTTPResponse {
         requests.append(request)
         return responses.removeFirst()

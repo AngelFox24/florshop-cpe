@@ -2,30 +2,27 @@ import Foundation
 import Testing
 @testable import FlorShopCPE
 
-@Suite(.serialized)
-struct NotaCreditoIntegrationTests {
-    @Test func notaCreditoLargeLifecycle() async throws {
-        //MARK: Creation
-        let note = try NotaCreditoLargeExample.getNotaCreditoLarge(serie: "FC01", correlative: "1")
-        #expect(note.lines.map(\.id) == ["1"])
-        #expect(note.netAmount == 100.00)
-        #expect(note.taxAmount == 18.00)
-        #expect(note.totalAmount == 118.00)
-        #expect(note.reasonDescription == "DEVOLUCIÓN TOTAL DEL PRODUCTO")
+@Test func notaCreditoLargeLifecycle() async throws {
+    //MARK: Creation
+    let note = try NotaCreditoLargeExample.getNotaCreditoLarge(serie: "FC01", correlative: "1")
+    #expect(note.lines.map(\.id) == ["1"])
+    #expect(note.netAmount == 100.00)
+    #expect(note.taxAmount == 18.00)
+    #expect(note.totalAmount == 118.00)
+    #expect(note.reasonDescription == "DEVOLUCIÓN TOTAL DEL PRODUCTO")
+    
+    try await verifyNotaCreditoLifecycle(note, prefix: "FlorShopCPE-NotaCreditoLargeIntegration")
+}
 
-        try await verifyNotaCreditoLifecycle(note, prefix: "FlorShopCPE-NotaCreditoLargeIntegration")
-    }
-
-    @Test func notaCreditoSmallLifecycle() async throws {
-        //MARK: Creation
-        let note = try NotaCreditoSmallExample.getNotaCreditoSmall(serie: "FC01", correlative: "2")
-        #expect(note.netAmount == 10.00)
-        #expect(note.taxAmount == 1.80)
-        #expect(note.totalAmount == 11.80)
-        #expect(note.reasonDescription == CreditNoteReasonCode.devolucionTotal.defaultDescription)
-
-        try await verifyNotaCreditoLifecycle(note, prefix: "FlorShopCPE-NotaCreditoSmallIntegration")
-    }
+@Test func notaCreditoSmallLifecycle() async throws {
+    //MARK: Creation
+    let note = try NotaCreditoSmallExample.getNotaCreditoSmall(serie: "FC01", correlative: "2")
+    #expect(note.netAmount == 10.00)
+    #expect(note.taxAmount == 1.80)
+    #expect(note.totalAmount == 11.80)
+    #expect(note.reasonDescription == CreditNoteReasonCode.devolucionTotal.defaultDescription)
+    
+    try await verifyNotaCreditoLifecycle(note, prefix: "FlorShopCPE-NotaCreditoSmallIntegration")
 }
 
 private func verifyNotaCreditoLifecycle(_ note: NotaCredito, prefix: String) async throws {

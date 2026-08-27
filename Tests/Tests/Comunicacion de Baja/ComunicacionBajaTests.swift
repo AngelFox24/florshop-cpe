@@ -211,130 +211,124 @@ import Testing
     #expect(cdrResult.cdrArtifacts?.xmlURL.lastPathComponent == "R-20123456789-RA-20260802-00001.xml")
 }
 
-@Suite(.serialized)
-struct SunatBetaVoidedDocumentsIntegrationTests {
-    /// Crea y envía primero la factura afectada; después envía la Comunicación
-    /// de Baja y comprueba que el beta devuelva un ticket. La consulta final
-    /// del ticket queda cubierta por los tests con transporte controlado porque
-    /// el beta público no procesa resúmenes de forma confiable.
-    @Test func sunatBetaReceivesSignedCommunicationAndReturnsTicketWhenExplicitlyEnabled() async throws {
-        let environment = ProcessInfo.processInfo.environment
-        guard environment["FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION_COMUNICACION_BAJA"] == "true" else {
-            return
-        }
-        guard let pfxPath = environment["FLORSHOP_CPE_TEST_PFX_PATH"],
-              let pfxPassword = environment["FLORSHOP_CPE_TEST_PFX_PASSWORD"] else {
-            throw VoidedDocumentsIntegrationError.missingSigningCredentials
-        }
-
-        let issueDate = currentLimaVoidedDate()
-        let base = timestampBasedNumber(modulo: 99_999_990)
-        let invoice = makeVoidedPrerequisiteInvoice(number: String(base), issueDate: issueDate)
-        let invoiceResult = try await signWriteAndSubmitVoidedPrerequisite(
-            invoice,
+/// Crea y envía primero la factura afectada; después envía la Comunicación
+/// de Baja y comprueba que el beta devuelva un ticket. La consulta final
+/// del ticket queda cubierta por los tests con transporte controlado porque
+/// el beta público no procesa resúmenes de forma confiable.
+@Test func sunatBetaReceivesSignedCommunicationAndReturnsTicketWhenExplicitlyEnabled() async throws {
+    let environment = ProcessInfo.processInfo.environment
+    guard environment["FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION_COMUNICACION_BAJA"] == "true" else {
+        return
+    }
+    guard let pfxPath = environment["FLORSHOP_CPE_TEST_PFX_PATH"],
+          let pfxPassword = environment["FLORSHOP_CPE_TEST_PFX_PASSWORD"] else {
+        throw VoidedDocumentsIntegrationError.missingSigningCredentials
+    }
+    
+    let issueDate = currentLimaVoidedDate()
+    let base = timestampBasedNumber(modulo: 99_999_990)
+    let invoice = makeVoidedPrerequisiteInvoice(number: String(base), issueDate: issueDate)
+    let invoiceResult = try await signWriteAndSubmitVoidedPrerequisite(
+        invoice,
+        pfxPath: pfxPath,
+        pfxPassword: pfxPassword
+    )
+    #expect(invoiceResult.status == .accepted)
+    guard invoiceResult.status == .accepted else {
+        throw VoidedDocumentsIntegrationError.prerequisiteInvoiceWasNotAccepted
+    }
+    
+    try await Task.sleep(for: .seconds(2))
+    let communication = try makeVoidedDocuments(
+        sequence: timestampBasedNumber(modulo: 99_999),
+        issueDate: issueDate,
+        referenceDate: issueDate,
+        supplier: invoice.supplier,
+        lines: [VoidedDocumentLine(
+            lineID: 1,
+            documentType: .factura,
+            documentIdentifier: invoice.identifier,
+            reason: "DOCUMENTO NO OTORGADO"
+        )]
+    )
+    let signed = try XMLSecCPESigner().sign(
+        communication,
+        configuration: voidedSigningConfiguration(
             pfxPath: pfxPath,
             pfxPassword: pfxPassword
         )
-        #expect(invoiceResult.status == .accepted)
-        guard invoiceResult.status == .accepted else {
-            throw VoidedDocumentsIntegrationError.prerequisiteInvoiceWasNotAccepted
-        }
-
-        try await Task.sleep(for: .seconds(2))
-        let communication = try makeVoidedDocuments(
-            sequence: timestampBasedNumber(modulo: 99_999),
-            issueDate: issueDate,
-            referenceDate: issueDate,
-            supplier: invoice.supplier,
-            lines: [VoidedDocumentLine(
-                lineID: 1,
-                documentType: .factura,
-                documentIdentifier: invoice.identifier,
-                reason: "DOCUMENTO NO OTORGADO"
-            )]
-        )
-        let signed = try XMLSecCPESigner().sign(
-            communication,
-            configuration: voidedSigningConfiguration(
-                pfxPath: pfxPath,
-                pfxPassword: pfxPassword
-            )
-        )
-        let directory = try makeVoidedTemporaryDirectory()
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let document = try CPEDocumentWriter().write(
-            signed,
-            output: CPEOutputConfiguration(rootDirectory: directory)
-        )
-        printVoidedXML(signed, document: document, label: "COMUNICACIÓN DE BAJA")
-        let submission = try await submitVoidedDocumentsToSunatBeta(
-            document: document,
-            emitterRUC: invoice.supplier.taxIdentifier.value
-        )
-
-        print("SUNAT BETA COMUNICACIÓN DE BAJA: ticket recibido = \(submission.ticket)")
-        #expect(!submission.ticket.isEmpty)
-    }
+    )
+    let directory = try makeVoidedTemporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let document = try CPEDocumentWriter().write(
+        signed,
+        output: CPEOutputConfiguration(rootDirectory: directory)
+    )
+    printVoidedXML(signed, document: document, label: "COMUNICACIÓN DE BAJA")
+    let submission = try await submitVoidedDocumentsToSunatBeta(
+        document: document,
+        emitterRUC: invoice.supplier.taxIdentifier.value
+    )
+    
+    print("SUNAT BETA COMUNICACIÓN DE BAJA: ticket recibido = \(submission.ticket)")
+    #expect(!submission.ticket.isEmpty)
 }
 
-@Suite(.serialized)
-struct OSEVoidedDocumentsManualValidationTests {
-    /// Firma e imprime una factura y su Comunicación de Baja para enviarlas
-    /// manualmente al OSE, en ese orden. No realiza red ni escribe XML/ZIP.
-    @Test func printsSignedInvoiceAndCommunicationXMLForOSE() throws {
-        let environment = ProcessInfo.processInfo.environment
-        guard let pfxPath = environment["FLORSHOP_CPE_TEST_PFX_PATH"],
-              let pfxPassword = environment["FLORSHOP_CPE_TEST_PFX_PASSWORD"] else { return }
-
-        let issueDate = currentLimaVoidedDate()
-        let base = timestampBasedNumber(modulo: 99_999_990)
-        let invoice = makeVoidedPrerequisiteInvoice(number: String(base), issueDate: issueDate)
-        let communication = try makeVoidedDocuments(
-            sequence: timestampBasedNumber(modulo: 99_999),
-            issueDate: issueDate,
-            referenceDate: issueDate,
-            supplier: invoice.supplier,
-            lines: [VoidedDocumentLine(
-                lineID: 1,
-                documentType: .factura,
-                documentIdentifier: invoice.identifier,
-                reason: "DOCUMENTO NO OTORGADO"
-            )]
+/// Firma e imprime una factura y su Comunicación de Baja para enviarlas
+/// manualmente al OSE, en ese orden. No realiza red ni escribe XML/ZIP.
+@Test func printsSignedInvoiceAndCommunicationXMLForOSE() throws {
+    let environment = ProcessInfo.processInfo.environment
+    guard let pfxPath = environment["FLORSHOP_CPE_TEST_PFX_PATH"],
+          let pfxPassword = environment["FLORSHOP_CPE_TEST_PFX_PASSWORD"] else { return }
+    
+    let issueDate = currentLimaVoidedDate()
+    let base = timestampBasedNumber(modulo: 99_999_990)
+    let invoice = makeVoidedPrerequisiteInvoice(number: String(base), issueDate: issueDate)
+    let communication = try makeVoidedDocuments(
+        sequence: timestampBasedNumber(modulo: 99_999),
+        issueDate: issueDate,
+        referenceDate: issueDate,
+        supplier: invoice.supplier,
+        lines: [VoidedDocumentLine(
+            lineID: 1,
+            documentType: .factura,
+            documentIdentifier: invoice.identifier,
+            reason: "DOCUMENTO NO OTORGADO"
+        )]
+    )
+    let signer = XMLSecCPESigner()
+    let signedInvoice = try signer.sign(
+        invoice,
+        configuration: voidedSigningConfiguration(
+            pfxPath: pfxPath,
+            pfxPassword: pfxPassword
         )
-        let signer = XMLSecCPESigner()
-        let signedInvoice = try signer.sign(
-            invoice,
-            configuration: voidedSigningConfiguration(
-                pfxPath: pfxPath,
-                pfxPassword: pfxPassword
-            )
+    )
+    let signedCommunication = try signer.sign(
+        communication,
+        configuration: voidedSigningConfiguration(
+            pfxPath: pfxPath,
+            pfxPassword: pfxPassword
         )
-        let signedCommunication = try signer.sign(
-            communication,
-            configuration: voidedSigningConfiguration(
-                pfxPath: pfxPath,
-                pfxPassword: pfxPassword
-            )
-        )
-
-        print("""
-
+    )
+    
+    print("""
+        
         ===== XML FIRMADOS PARA VALIDACIÓN MANUAL EN OSE =====
-
+        
         PASO 1 — Enviar y obtener aceptación de la factura:
         \(String(decoding: signedInvoice.xml, as: UTF8.self))
-
+        
         PASO 2 — Solo después, enviar la Comunicación de Baja:
         Documento: \(invoice.identifier.value)
         \(String(decoding: signedCommunication.xml, as: UTF8.self))
         ===== FIN XML FIRMADOS PARA VALIDACIÓN MANUAL EN OSE =====
-
+        
         """)
-
-        #expect(signedCommunication.identity.documentTypeCode == "RA")
-        #expect(try XMLSecSignatureVerifier().verify(signedInvoice.xml))
-        #expect(try XMLSecSignatureVerifier().verify(signedCommunication.xml))
-    }
+    
+    #expect(signedCommunication.identity.documentTypeCode == "RA")
+    #expect(try XMLSecSignatureVerifier().verify(signedInvoice.xml))
+    #expect(try XMLSecSignatureVerifier().verify(signedCommunication.xml))
 }
 
 private func makeVoidedDocuments(

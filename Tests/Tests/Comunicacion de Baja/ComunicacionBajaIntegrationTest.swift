@@ -2,32 +2,29 @@ import Foundation
 import Testing
 @testable import FlorShopCPE
 
-@Suite(.serialized)
-struct ComunicacionBajaIntegrationTests {
-    @Test func comunicacionBajaLargeLifecycle() async throws {
-        //MARK: Creation
-        let communication = try ComunicacionBajaLargeExample.getComunicacionBajaLarge(sequence: 1)
-        #expect(communication.lines.count == 3)
-        #expect(communication.lines.map(\.lineID) == [1, 2, 3])
-        #expect(communication.lines.map(\.documentType) == [.factura, .notaDeCredito, .notaDeDebito])
+@Test func comunicacionBajaLargeLifecycle() async throws {
+    //MARK: Creation
+    let communication = try ComunicacionBajaLargeExample.getComunicacionBajaLarge(sequence: 1)
+    #expect(communication.lines.count == 3)
+    #expect(communication.lines.map(\.lineID) == [1, 2, 3])
+    #expect(communication.lines.map(\.documentType) == [.factura, .notaDeCredito, .notaDeDebito])
+    
+    try await verifyComunicacionBajaLifecycle(
+        communication,
+        prefix: "FlorShopCPE-ComunicacionBajaLargeIntegration"
+    )
+}
 
-        try await verifyComunicacionBajaLifecycle(
-            communication,
-            prefix: "FlorShopCPE-ComunicacionBajaLargeIntegration"
-        )
-    }
-
-    @Test func comunicacionBajaSmallLifecycle() async throws {
-        //MARK: Creation
-        let communication = try ComunicacionBajaSmallExample.getComunicacionBajaSmall(sequence: 2)
-        #expect(communication.lines.count == 1)
-        #expect(communication.lines[0].documentType == .factura)
-
-        try await verifyComunicacionBajaLifecycle(
-            communication,
-            prefix: "FlorShopCPE-ComunicacionBajaSmallIntegration"
-        )
-    }
+@Test func comunicacionBajaSmallLifecycle() async throws {
+    //MARK: Creation
+    let communication = try ComunicacionBajaSmallExample.getComunicacionBajaSmall(sequence: 2)
+    #expect(communication.lines.count == 1)
+    #expect(communication.lines[0].documentType == .factura)
+    
+    try await verifyComunicacionBajaLifecycle(
+        communication,
+        prefix: "FlorShopCPE-ComunicacionBajaSmallIntegration"
+    )
 }
 
 private func verifyComunicacionBajaLifecycle(_ communication: ComunicacionBaja, prefix: String) async throws {

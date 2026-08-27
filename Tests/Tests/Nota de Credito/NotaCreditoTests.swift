@@ -163,111 +163,105 @@ import ZIPFoundation
     #expect(try XMLSecSignatureVerifier().verify(signed.xml))
 }
 
-@Suite(.serialized)
-struct SunatBetaCreditNoteIntegrationTests {
-    /// Crea primero la factura afectada y luego envía su Nota de Crédito.
-    /// Solo se ejecuta con `FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION_NOTA_CREDITO=true`.
-    @Test func sunatBetaAcceptsSignedInvoiceCreditNoteWhenExplicitlyEnabled() async throws {
-        let environment = ProcessInfo.processInfo.environment
-        guard environment["FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION_NOTA_CREDITO"] == "true" else { return }
-        guard let pfxPath = environment["FLORSHOP_CPE_TEST_PFX_PATH"],
-              let pfxPassword = environment["FLORSHOP_CPE_TEST_PFX_PASSWORD"] else {
-            throw CreditNoteIntegrationError.missingSigningCredentials
-        }
-
-        let issueDate = currentLimaCreditNoteDate()
-        let base = timestampBasedNumber(modulo: 99_999_990)
-        let invoice = makeCreditNotePrerequisiteInvoice(number: String(base), issueDate: issueDate)
-        let invoiceResult = try await signWriteAndSubmit(
-            invoice,
-            pfxPath: pfxPath,
-            pfxPassword: pfxPassword,
-            label: "FACTURA AFECTADA"
-        )
-        #expect(invoiceResult.status == .accepted)
-        guard invoiceResult.status == .accepted else {
-            throw CreditNoteIntegrationError.prerequisiteInvoiceWasNotAccepted
-        }
-
-        // El beta público puede tardar brevemente en registrar la factura y
-        // rechazar una segunda autenticación MODDATOS demasiado próxima.
-        try await Task.sleep(for: .seconds(2))
-
-        let note = makeCreditNote(
-            identifier: DocumentIdentifier(series: "FC01", number: String(base + 1)),
-            affectedDocument: AffectedDocumentIdentifier(factura: invoice),
-            issueDate: issueDate
-        )
-        let noteResult = try await signWriteAndSubmit(
-            note,
-            pfxPath: pfxPath,
-            pfxPassword: pfxPassword,
-            label: "NOTA DE CRÉDITO"
-        )
-
-        #expect(noteResult.status == .accepted)
-        #expect(noteResult.responseCode == "0")
-        #expect(noteResult.observations.isEmpty)
-        #expect(noteResult.cdrArtifacts != nil)
+/// Crea primero la factura afectada y luego envía su Nota de Crédito.
+/// Solo se ejecuta con `FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION_NOTA_CREDITO=true`.
+@Test func sunatBetaAcceptsSignedInvoiceCreditNoteWhenExplicitlyEnabled() async throws {
+    let environment = ProcessInfo.processInfo.environment
+    guard environment["FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION_NOTA_CREDITO"] == "true" else { return }
+    guard let pfxPath = environment["FLORSHOP_CPE_TEST_PFX_PATH"],
+          let pfxPassword = environment["FLORSHOP_CPE_TEST_PFX_PASSWORD"] else {
+        throw CreditNoteIntegrationError.missingSigningCredentials
     }
+    
+    let issueDate = currentLimaCreditNoteDate()
+    let base = timestampBasedNumber(modulo: 99_999_990)
+    let invoice = makeCreditNotePrerequisiteInvoice(number: String(base), issueDate: issueDate)
+    let invoiceResult = try await signWriteAndSubmit(
+        invoice,
+        pfxPath: pfxPath,
+        pfxPassword: pfxPassword,
+        label: "FACTURA AFECTADA"
+    )
+    #expect(invoiceResult.status == .accepted)
+    guard invoiceResult.status == .accepted else {
+        throw CreditNoteIntegrationError.prerequisiteInvoiceWasNotAccepted
+    }
+    
+    // El beta público puede tardar brevemente en registrar la factura y
+    // rechazar una segunda autenticación MODDATOS demasiado próxima.
+    try await Task.sleep(for: .seconds(2))
+    
+    let note = makeCreditNote(
+        identifier: DocumentIdentifier(series: "FC01", number: String(base + 1)),
+        affectedDocument: AffectedDocumentIdentifier(factura: invoice),
+        issueDate: issueDate
+    )
+    let noteResult = try await signWriteAndSubmit(
+        note,
+        pfxPath: pfxPath,
+        pfxPassword: pfxPassword,
+        label: "NOTA DE CRÉDITO"
+    )
+    
+    #expect(noteResult.status == .accepted)
+    #expect(noteResult.responseCode == "0")
+    #expect(noteResult.observations.isEmpty)
+    #expect(noteResult.cdrArtifacts != nil)
 }
 
-@Suite(.serialized)
-struct OSECreditNoteManualValidationTests {
-    /// Firma e imprime una factura y su Nota de Crédito para copiarlas
-    /// manualmente al OSE, en ese orden. No realiza llamadas de red ni escribe
-    /// archivos XML o ZIP.
-    @Test func printsSignedInvoiceAndCreditNoteXMLForOSE() throws {
-        let environment = ProcessInfo.processInfo.environment
-        guard let pfxPath = environment["FLORSHOP_CPE_TEST_PFX_PATH"],
-              let pfxPassword = environment["FLORSHOP_CPE_TEST_PFX_PASSWORD"] else { return }
-
-        let issueDate = currentLimaCreditNoteDate()
-        let base = timestampBasedNumber(modulo: 99_999_990)
-        let invoice = makeCreditNotePrerequisiteInvoice(number: String(base), issueDate: issueDate)
-        let note = makeCreditNote(
-            identifier: DocumentIdentifier(series: "FC01", number: String(base + 1)),
-            affectedDocument: AffectedDocumentIdentifier(factura: invoice),
-            issueDate: issueDate
+/// Firma e imprime una factura y su Nota de Crédito para copiarlas
+/// manualmente al OSE, en ese orden. No realiza llamadas de red ni escribe
+/// archivos XML o ZIP.
+@Test func printsSignedInvoiceAndCreditNoteXMLForOSE() throws {
+    let environment = ProcessInfo.processInfo.environment
+    guard let pfxPath = environment["FLORSHOP_CPE_TEST_PFX_PATH"],
+          let pfxPassword = environment["FLORSHOP_CPE_TEST_PFX_PASSWORD"] else { return }
+    
+    let issueDate = currentLimaCreditNoteDate()
+    let base = timestampBasedNumber(modulo: 99_999_990)
+    let invoice = makeCreditNotePrerequisiteInvoice(number: String(base), issueDate: issueDate)
+    let note = makeCreditNote(
+        identifier: DocumentIdentifier(series: "FC01", number: String(base + 1)),
+        affectedDocument: AffectedDocumentIdentifier(factura: invoice),
+        issueDate: issueDate
+    )
+    let signer = XMLSecCPESigner()
+    
+    let signedInvoice = try signer.sign(
+        invoice,
+        configuration: creditNoteSigningConfiguration(
+            pfxPath: pfxPath,
+            pfxPassword: pfxPassword
         )
-        let signer = XMLSecCPESigner()
-
-        let signedInvoice = try signer.sign(
-            invoice,
-            configuration: creditNoteSigningConfiguration(
-                pfxPath: pfxPath,
-                pfxPassword: pfxPassword
-            )
+    )
+    
+    let signedNote = try signer.sign(
+        note,
+        configuration: creditNoteSigningConfiguration(
+            pfxPath: pfxPath,
+            pfxPassword: pfxPassword
         )
-
-        let signedNote = try signer.sign(
-            note,
-            configuration: creditNoteSigningConfiguration(
-                pfxPath: pfxPath,
-                pfxPassword: pfxPassword
-            )
-        )
-
-        print("""
-
+    )
+    
+    print("""
+        
         ===== XML FIRMADOS PARA VALIDACIÓN MANUAL EN OSE =====
-
+        
         PASO 1 — Enviar y obtener aceptación de la factura:
         \(String(decoding: signedInvoice.xml, as: UTF8.self))
-
+        
         PASO 2 — Solo después, enviar la Nota de Crédito:
         Documento afectado: \(note.affectedDocument.value)
         \(String(decoding: signedNote.xml, as: UTF8.self))
         ===== FIN XML FIRMADOS PARA VALIDACIÓN MANUAL EN OSE =====
-
+        
         """)
-
-        #expect(note.affectedDocument.identifier == invoice.identifier)
-        #expect(signedInvoice.identity.fileBaseName == "10708255195-01-\(invoice.identifier.value)")
-        #expect(signedNote.identity.fileBaseName == "10708255195-07-\(note.identifier.value)")
-        #expect(try XMLSecSignatureVerifier().verify(signedInvoice.xml))
-        #expect(try XMLSecSignatureVerifier().verify(signedNote.xml))
-    }
+    
+    #expect(note.affectedDocument.identifier == invoice.identifier)
+    #expect(signedInvoice.identity.fileBaseName == "10708255195-01-\(invoice.identifier.value)")
+    #expect(signedNote.identity.fileBaseName == "10708255195-07-\(note.identifier.value)")
+    #expect(try XMLSecSignatureVerifier().verify(signedInvoice.xml))
+    #expect(try XMLSecSignatureVerifier().verify(signedNote.xml))
 }
 
 private func makeCreditNote(

@@ -2,46 +2,43 @@ import Foundation
 import Testing
 @testable import FlorShopCPE
 
-@Suite(.serialized)
-struct ResumenDiarioIntegrationTests {
-    @Test func resumenDiarioLargeLifecycle() async throws {
-        //MARK: Creation
-        let summary = try ResumenDiarioLargeExample.getResumenDiarioLarge(sequence: 1)
-        #expect(summary.lines.count == 4)
-        #expect(summary.lines.map(\.lineID) == [1, 2, 3, 4])
-        #expect(summary.lines.map(\.documentType) == [.boleta, .boleta, .notaDeCredito, .notaDeDebito])
-        #expect(summary.lines.allSatisfy { $0.condition == .add })
+@Test func resumenDiarioLargeLifecycle() async throws {
+    //MARK: Creation
+    let summary = try ResumenDiarioLargeExample.getResumenDiarioLarge(sequence: 1)
+    #expect(summary.lines.count == 4)
+    #expect(summary.lines.map(\.lineID) == [1, 2, 3, 4])
+    #expect(summary.lines.map(\.documentType) == [.boleta, .boleta, .notaDeCredito, .notaDeDebito])
+    #expect(summary.lines.allSatisfy { $0.condition == .add })
+    
+    try await verifyResumenDiarioLifecycle(summary, prefix: "FlorShopCPE-ResumenDiarioLargeIntegration")
+}
 
-        try await verifyResumenDiarioLifecycle(summary, prefix: "FlorShopCPE-ResumenDiarioLargeIntegration")
-    }
+@Test func resumenDiarioSmallLifecycle() async throws {
+    //MARK: Creation
+    let summary = try ResumenDiarioSmallExample.getResumenDiarioSmall(sequence: 2)
+    #expect(summary.lines.count == 1)
+    #expect(summary.lines[0].lineID == 1)
+    #expect(summary.lines[0].condition == .add)
+    
+    try await verifyResumenDiarioLifecycle(summary, prefix: "FlorShopCPE-ResumenDiarioSmallIntegration")
+}
 
-    @Test func resumenDiarioSmallLifecycle() async throws {
-        //MARK: Creation
-        let summary = try ResumenDiarioSmallExample.getResumenDiarioSmall(sequence: 2)
-        #expect(summary.lines.count == 1)
-        #expect(summary.lines[0].lineID == 1)
-        #expect(summary.lines[0].condition == .add)
+@Test func resumenDiarioModifyLifecycle() async throws {
+    //MARK: Creation
+    let summary = try ResumenDiarioModifyExample.getResumenDiarioModify(sequence: 3)
+    #expect(summary.lines.count == 1)
+    #expect(summary.lines[0].condition == .modify)
+    
+    try await verifyResumenDiarioLifecycle(summary, prefix: "FlorShopCPE-ResumenDiarioModifyIntegration")
+}
 
-        try await verifyResumenDiarioLifecycle(summary, prefix: "FlorShopCPE-ResumenDiarioSmallIntegration")
-    }
-
-    @Test func resumenDiarioModifyLifecycle() async throws {
-        //MARK: Creation
-        let summary = try ResumenDiarioModifyExample.getResumenDiarioModify(sequence: 3)
-        #expect(summary.lines.count == 1)
-        #expect(summary.lines[0].condition == .modify)
-
-        try await verifyResumenDiarioLifecycle(summary, prefix: "FlorShopCPE-ResumenDiarioModifyIntegration")
-    }
-
-    @Test func resumenDiarioVoidLifecycle() async throws {
-        //MARK: Creation
-        let summary = try ResumenDiarioVoidExample.getResumenDiarioVoid(sequence: 4)
-        #expect(summary.lines.count == 1)
-        #expect(summary.lines[0].condition == .void)
-
-        try await verifyResumenDiarioLifecycle(summary, prefix: "FlorShopCPE-ResumenDiarioVoidIntegration")
-    }
+@Test func resumenDiarioVoidLifecycle() async throws {
+    //MARK: Creation
+    let summary = try ResumenDiarioVoidExample.getResumenDiarioVoid(sequence: 4)
+    #expect(summary.lines.count == 1)
+    #expect(summary.lines[0].condition == .void)
+    
+    try await verifyResumenDiarioLifecycle(summary, prefix: "FlorShopCPE-ResumenDiarioVoidIntegration")
 }
 
 private func verifyResumenDiarioLifecycle(_ summary: ResumenDiarioBoletas, prefix: String) async throws {

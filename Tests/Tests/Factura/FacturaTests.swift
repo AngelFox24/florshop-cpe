@@ -203,51 +203,48 @@ import ZIPFoundation
 /// Firma, escribe, comprime, envía mediante `sendBill` y valida el CDR. No
 /// realiza ninguna llamada de red salvo que se configure explícitamente:
 /// `FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION_FACTURA=true`.
-@Suite(.serialized)
-struct SunatBetaFacturaIntegrationTests {
-    @Test func sunatBetaIntegrationAcceptsSignedFacturaWhenExplicitlyEnabled() async throws {
-        guard let credentials = try facturaBetaCredentialsWhenEnabled() else {
-            return
-        }
-
-        // Se usa la factura mínima para aislar la integración de los bloques
-        // opcionales de factoring, retención y referencias comerciales.
-        let factura = makeFacturaForSunatBeta()
-        let result = try await signAndSubmitFacturaToSunatBeta(
-            factura,
-            scenario: "CONTADO MÍNIMO",
-            credentials: credentials
-        )
-
-        #expect(result.status == .accepted)
-        #expect(result.responseCode == "0")
-        #expect(result.observations.isEmpty)
-        #expect(!result.cdrArchive.isEmpty)
-        #expect(!result.cdrXML.isEmpty)
-        #expect(result.cdrArtifacts != nil)
+@Test func sunatBetaIntegrationAcceptsSignedFacturaWhenExplicitlyEnabled() async throws {
+    guard let credentials = try facturaBetaCredentialsWhenEnabled() else {
+        return
     }
+    
+    // Se usa la factura mínima para aislar la integración de los bloques
+    // opcionales de factoring, retención y referencias comerciales.
+    let factura = makeFacturaForSunatBeta()
+    let result = try await signAndSubmitFacturaToSunatBeta(
+        factura,
+        scenario: "CONTADO MÍNIMO",
+        credentials: credentials
+    )
+    
+    #expect(result.status == .accepted)
+    #expect(result.responseCode == "0")
+    #expect(result.observations.isEmpty)
+    #expect(!result.cdrArchive.isEmpty)
+    #expect(!result.cdrXML.isEmpty)
+    #expect(result.cdrArtifacts != nil)
+}
 
-    /// Caso cercano al XML de referencia: orden de compra, guía, dirección
-    /// para factoring, crédito y cuota. No incluye retención porque el RUC del
-    /// certificado de pruebas figura como agente de retención.
-    @Test func sunatBetaIntegrationAcceptsSignedReferenceFacturaWhenExplicitlyEnabled() async throws {
-        guard let credentials = try facturaBetaCredentialsWhenEnabled() else {
-            return
-        }
-
-        let factura = makeReferenceFacturaForSunatBeta()
-        let result = try await signAndSubmitFacturaToSunatBeta(
-            factura,
-            scenario: "CRÉDITO COMPLETO COMO XML DE REFERENCIA",
-            credentials: credentials
-        )
-
-        #expect(result.status == .accepted)
-        #expect(result.responseCode == "0")
-        #expect(!result.cdrArchive.isEmpty)
-        #expect(!result.cdrXML.isEmpty)
-        #expect(result.cdrArtifacts != nil)
+/// Caso cercano al XML de referencia: orden de compra, guía, dirección
+/// para factoring, crédito y cuota. No incluye retención porque el RUC del
+/// certificado de pruebas figura como agente de retención.
+@Test func sunatBetaIntegrationAcceptsSignedReferenceFacturaWhenExplicitlyEnabled() async throws {
+    guard let credentials = try facturaBetaCredentialsWhenEnabled() else {
+        return
     }
+    
+    let factura = makeReferenceFacturaForSunatBeta()
+    let result = try await signAndSubmitFacturaToSunatBeta(
+        factura,
+        scenario: "CRÉDITO COMPLETO COMO XML DE REFERENCIA",
+        credentials: credentials
+    )
+    
+    #expect(result.status == .accepted)
+    #expect(result.responseCode == "0")
+    #expect(!result.cdrArchive.isEmpty)
+    #expect(!result.cdrXML.isEmpty)
+    #expect(result.cdrArtifacts != nil)
 }
 
 private func makeFactura(

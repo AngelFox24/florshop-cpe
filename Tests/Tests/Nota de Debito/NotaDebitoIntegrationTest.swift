@@ -2,31 +2,28 @@ import Foundation
 import Testing
 @testable import FlorShopCPE
 
-@Suite(.serialized)
-struct NotaDebitoIntegrationTests {
-    @Test func notaDebitoLargeLifecycle() async throws {
-        //MARK: Creation
-        let note = try NotaDebitoLargeExample.getNotaDebitoLarge(serie: "FD01", correlative: "1")
-        #expect(note.lines.map(\.id) == ["1", "2"])
-        #expect(note.netAmount == 15.00)
-        #expect(note.taxAmount == 2.70)
-        #expect(note.totalAmount == 17.70)
-        #expect(note.lines[1].quantity == nil)
-        #expect(note.lines[1].price == nil)
+@Test func notaDebitoLargeLifecycle() async throws {
+    //MARK: Creation
+    let note = try NotaDebitoLargeExample.getNotaDebitoLarge(serie: "FD01", correlative: "1")
+    #expect(note.lines.map(\.id) == ["1", "2"])
+    #expect(note.netAmount == 15.00)
+    #expect(note.taxAmount == 2.70)
+    #expect(note.totalAmount == 17.70)
+    #expect(note.lines[1].quantity == nil)
+    #expect(note.lines[1].price == nil)
+    
+    try await verifyNotaDebitoLifecycle(note, prefix: "FlorShopCPE-NotaDebitoLargeIntegration")
+}
 
-        try await verifyNotaDebitoLifecycle(note, prefix: "FlorShopCPE-NotaDebitoLargeIntegration")
-    }
-
-    @Test func notaDebitoSmallLifecycle() async throws {
-        //MARK: Creation
-        let note = try NotaDebitoSmallExample.getNotaDebitoSmall(serie: "FD01", correlative: "2")
-        #expect(note.netAmount == 10.00)
-        #expect(note.taxAmount == 1.80)
-        #expect(note.totalAmount == 11.80)
-        #expect(note.reasonDescription == DebitNoteReasonCode.aumentoEnElValor.defaultDescription)
-
-        try await verifyNotaDebitoLifecycle(note, prefix: "FlorShopCPE-NotaDebitoSmallIntegration")
-    }
+@Test func notaDebitoSmallLifecycle() async throws {
+    //MARK: Creation
+    let note = try NotaDebitoSmallExample.getNotaDebitoSmall(serie: "FD01", correlative: "2")
+    #expect(note.netAmount == 10.00)
+    #expect(note.taxAmount == 1.80)
+    #expect(note.totalAmount == 11.80)
+    #expect(note.reasonDescription == DebitNoteReasonCode.aumentoEnElValor.defaultDescription)
+    
+    try await verifyNotaDebitoLifecycle(note, prefix: "FlorShopCPE-NotaDebitoSmallIntegration")
 }
 
 private func verifyNotaDebitoLifecycle(_ note: NotaDebito, prefix: String) async throws {

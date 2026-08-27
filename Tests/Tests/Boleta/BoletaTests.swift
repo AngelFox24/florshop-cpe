@@ -570,145 +570,141 @@ import ZIPFoundation
 /// Las pruebas que impactan SUNAT BETA comparten las credenciales MODDATOS.
 /// SUNAT puede rechazar solicitudes concurrentes con HTTP 401, por lo que esta
 /// suite se ejecuta en serie aunque el resto de pruebas continúe en paralelo.
-@Suite(.serialized)
-struct SunatBetaIntegrationTests {
-    
-    /// Prueba de integración manual contra SUNAT BETA.
-    ///
-    /// No realiza ninguna llamada de red salvo que se configure explícitamente:
-    /// - `FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION=true`
-    @Test func sunatBetaIntegrationAcceptsSignedBoletaWhenExplicitlyEnabled() async throws {
-        let environment = ProcessInfo.processInfo.environment
-        guard environment["FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION"] == "true" else {
-            return
-        }
-        
-        let fileManager = FileManager.default
-        let directoryURL = try makeTemporaryDirectory(fileManager: fileManager)
-        defer { try? fileManager.removeItem(at: directoryURL) }
-        
-        let boleta = makeBoletaForSunatBeta()
-        guard let signingConfiguration = integrationSigningConfiguration() else {
-            throw IntegrationConfigurationError.missingSigningCredentials
-        }
-        let signedCPE = try XMLSecCPESigner().sign(boleta, configuration: signingConfiguration)
-        let emitterRUC = boleta.supplier.taxIdentifier.value
-        let output = outputConfiguration(in: directoryURL)
-        let document = try CPEDocumentWriter().write(
-            signedCPE,
-            output: output
-        )
 
-        printSignedBoletaBetaXML(
-            scenario: "BOLETA MÍNIMA",
-            boleta: boleta,
-            signedCPE: signedCPE,
-            document: document
-        )
-        
-        let result = try await submitToSunatBeta(
-            document: document,
-            emitterRUC: emitterRUC
-        )
-        
-        #expect(result.status == .accepted)
-        #expect(result.responseCode == "0")
-        #expect(result.observations.isEmpty)
-        #expect(!result.cdrArchive.isEmpty)
-        #expect(!result.cdrXML.isEmpty)
-        #expect(result.cdrArtifacts != nil)
+/// Prueba de integración manual contra SUNAT BETA.
+///
+/// No realiza ninguna llamada de red salvo que se configure explícitamente:
+/// - `FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION=true`
+@Test func sunatBetaIntegrationAcceptsSignedBoletaWhenExplicitlyEnabled() async throws {
+    let environment = ProcessInfo.processInfo.environment
+    guard environment["FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION"] == "true" else {
+        return
     }
     
-    /// Prueba de integración manual BETA para una boleta con más de un producto.
-    /// Solo realiza la llamada si `FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION=true`.
-    @Test func sunatBetaIntegrationAcceptsSignedMultiProductBoletaWhenExplicitlyEnabled() async throws {
-        let environment = ProcessInfo.processInfo.environment
-        guard environment["FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION"] == "true" else {
-            return
-        }
-        
-        let fileManager = FileManager.default
-        let directoryURL = try makeTemporaryDirectory(fileManager: fileManager)
-        defer { try? fileManager.removeItem(at: directoryURL) }
-        
-        let boleta = makeMultiProductBoletaForSunatBeta()
-        guard let signingConfiguration = integrationSigningConfiguration() else {
-            throw IntegrationConfigurationError.missingSigningCredentials
-        }
-        let signedCPE = try XMLSecCPESigner().sign(boleta, configuration: signingConfiguration)
-        let emitterRUC = boleta.supplier.taxIdentifier.value
-        let output = outputConfiguration(in: directoryURL)
-        let document = try CPEDocumentWriter().write(
-            signedCPE,
-            output: output
-        )
-
-        printSignedBoletaBetaXML(
-            scenario: "BOLETA MULTIPRODUCTO",
-            boleta: boleta,
-            signedCPE: signedCPE,
-            document: document
-        )
-        
-        let result = try await submitToSunatBeta(
-            document: document,
-            emitterRUC: emitterRUC
-        )
-        
-        #expect(result.status == .accepted)
-        #expect(result.responseCode == "0")
-        #expect(result.observations.isEmpty)
-        #expect(!result.cdrArchive.isEmpty)
-        #expect(!result.cdrXML.isEmpty)
-        #expect(result.cdrArtifacts != nil)
+    let fileManager = FileManager.default
+    let directoryURL = try makeTemporaryDirectory(fileManager: fileManager)
+    defer { try? fileManager.removeItem(at: directoryURL) }
+    
+    let boleta = makeBoletaForSunatBeta()
+    guard let signingConfiguration = integrationSigningConfiguration() else {
+        throw IntegrationConfigurationError.missingSigningCredentials
     }
+    let signedCPE = try XMLSecCPESigner().sign(boleta, configuration: signingConfiguration)
+    let emitterRUC = boleta.supplier.taxIdentifier.value
+    let output = outputConfiguration(in: directoryURL)
+    let document = try CPEDocumentWriter().write(
+        signedCPE,
+        output: output
+    )
+    
+    printSignedBoletaBetaXML(
+        scenario: "BOLETA MÍNIMA",
+        boleta: boleta,
+        signedCPE: signedCPE,
+        document: document
+    )
+    
+    let result = try await submitToSunatBeta(
+        document: document,
+        emitterRUC: emitterRUC
+    )
+    
+    #expect(result.status == .accepted)
+    #expect(result.responseCode == "0")
+    #expect(result.observations.isEmpty)
+    #expect(!result.cdrArchive.isEmpty)
+    #expect(!result.cdrXML.isEmpty)
+    #expect(result.cdrArtifacts != nil)
+}
 
-    /// Caso de tres líneas basado en el XML de referencia BC01-3652:
-    /// dos productos gravados y una bonificación gratuita.
-    @Test func sunatBetaIntegrationAcceptsSignedReferenceBoletaWhenExplicitlyEnabled() async throws {
-        let environment = ProcessInfo.processInfo.environment
-        guard environment["FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION"] == "true" else {
-            return
-        }
-
-        let fileManager = FileManager.default
-        let directoryURL = try makeTemporaryDirectory(fileManager: fileManager)
-        defer { try? fileManager.removeItem(at: directoryURL) }
-
-        let boleta = makeReferenceBoletaForSunatBeta()
-        guard let signingConfiguration = integrationSigningConfiguration() else {
-            throw IntegrationConfigurationError.missingSigningCredentials
-        }
-        let signedCPE = try XMLSecCPESigner().sign(
-            boleta,
-            configuration: signingConfiguration
-        )
-        let emitterRUC = boleta.supplier.taxIdentifier.value
-        let document = try CPEDocumentWriter().write(
-            signedCPE,
-            output: outputConfiguration(in: directoryURL)
-        )
-
-        printSignedBoletaBetaXML(
-            scenario: "BOLETA COMO XML DE REFERENCIA",
-            boleta: boleta,
-            signedCPE: signedCPE,
-            document: document
-        )
-
-        let result = try await submitToSunatBeta(
-            document: document,
-            emitterRUC: emitterRUC
-        )
-
-        #expect(result.status == .accepted)
-        #expect(result.responseCode == "0")
-        #expect(result.observations.isEmpty)
-        #expect(!result.cdrArchive.isEmpty)
-        #expect(!result.cdrXML.isEmpty)
-        #expect(result.cdrArtifacts != nil)
+/// Prueba de integración manual BETA para una boleta con más de un producto.
+/// Solo realiza la llamada si `FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION=true`.
+@Test func sunatBetaIntegrationAcceptsSignedMultiProductBoletaWhenExplicitlyEnabled() async throws {
+    let environment = ProcessInfo.processInfo.environment
+    guard environment["FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION"] == "true" else {
+        return
     }
     
+    let fileManager = FileManager.default
+    let directoryURL = try makeTemporaryDirectory(fileManager: fileManager)
+    defer { try? fileManager.removeItem(at: directoryURL) }
+    
+    let boleta = makeMultiProductBoletaForSunatBeta()
+    guard let signingConfiguration = integrationSigningConfiguration() else {
+        throw IntegrationConfigurationError.missingSigningCredentials
+    }
+    let signedCPE = try XMLSecCPESigner().sign(boleta, configuration: signingConfiguration)
+    let emitterRUC = boleta.supplier.taxIdentifier.value
+    let output = outputConfiguration(in: directoryURL)
+    let document = try CPEDocumentWriter().write(
+        signedCPE,
+        output: output
+    )
+    
+    printSignedBoletaBetaXML(
+        scenario: "BOLETA MULTIPRODUCTO",
+        boleta: boleta,
+        signedCPE: signedCPE,
+        document: document
+    )
+    
+    let result = try await submitToSunatBeta(
+        document: document,
+        emitterRUC: emitterRUC
+    )
+    
+    #expect(result.status == .accepted)
+    #expect(result.responseCode == "0")
+    #expect(result.observations.isEmpty)
+    #expect(!result.cdrArchive.isEmpty)
+    #expect(!result.cdrXML.isEmpty)
+    #expect(result.cdrArtifacts != nil)
+}
+
+/// Caso de tres líneas basado en el XML de referencia BC01-3652:
+/// dos productos gravados y una bonificación gratuita.
+@Test func sunatBetaIntegrationAcceptsSignedReferenceBoletaWhenExplicitlyEnabled() async throws {
+    let environment = ProcessInfo.processInfo.environment
+    guard environment["FLORSHOP_CPE_RUN_SUNAT_BETA_INTEGRATION"] == "true" else {
+        return
+    }
+    
+    let fileManager = FileManager.default
+    let directoryURL = try makeTemporaryDirectory(fileManager: fileManager)
+    defer { try? fileManager.removeItem(at: directoryURL) }
+    
+    let boleta = makeReferenceBoletaForSunatBeta()
+    guard let signingConfiguration = integrationSigningConfiguration() else {
+        throw IntegrationConfigurationError.missingSigningCredentials
+    }
+    let signedCPE = try XMLSecCPESigner().sign(
+        boleta,
+        configuration: signingConfiguration
+    )
+    let emitterRUC = boleta.supplier.taxIdentifier.value
+    let document = try CPEDocumentWriter().write(
+        signedCPE,
+        output: outputConfiguration(in: directoryURL)
+    )
+    
+    printSignedBoletaBetaXML(
+        scenario: "BOLETA COMO XML DE REFERENCIA",
+        boleta: boleta,
+        signedCPE: signedCPE,
+        document: document
+    )
+    
+    let result = try await submitToSunatBeta(
+        document: document,
+        emitterRUC: emitterRUC
+    )
+    
+    #expect(result.status == .accepted)
+    #expect(result.responseCode == "0")
+    #expect(result.observations.isEmpty)
+    #expect(!result.cdrArchive.isEmpty)
+    #expect(!result.cdrXML.isEmpty)
+    #expect(result.cdrArtifacts != nil)
 }
 
 private func makeTemporaryDirectory(fileManager: FileManager) throws -> URL {

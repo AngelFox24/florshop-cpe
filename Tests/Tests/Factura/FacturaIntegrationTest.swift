@@ -2,36 +2,33 @@ import Foundation
 import Testing
 @testable import FlorShopCPE
 
-@Suite(.serialized)
-struct FacturaIntegrationTests {
-    @Test func facturaLargeLifecycle() async throws {
-        //MARK: Creation
-        let factura = try FacturaLargeExample.getFacturaLarge(serie: "F001", correlative: "1")
-        #expect(factura.netAmount == 1329.06)
-        #expect(factura.taxAmount == 231.72)
-        #expect(factura.totalAmount == 1560.78)
-        #expect(factura.lines.count == 6)
-        #expect(factura.lines[4].isFreeOfCharge == true)
+@Test func facturaLargeLifecycle() async throws {
+    //MARK: Creation
+    let factura = try FacturaLargeExample.getFacturaLarge(serie: "F001", correlative: "1")
+    #expect(factura.netAmount == 1329.06)
+    #expect(factura.taxAmount == 231.72)
+    #expect(factura.totalAmount == 1560.78)
+    #expect(factura.lines.count == 6)
+    #expect(factura.lines[4].isFreeOfCharge == true)
+    
+    try await verifyFacturaLifecycle(
+        factura,
+        temporaryDirectoryPrefix: "FlorShopCPE-FacturaLargeIntegration"
+    )
+}
 
-        try await verifyFacturaLifecycle(
-            factura,
-            temporaryDirectoryPrefix: "FlorShopCPE-FacturaLargeIntegration"
-        )
-    }
-
-    @Test func facturaSmallLifecycle() async throws {
-        //MARK: Creation
-        let factura = try FacturaSmallExample.getFacturaSmall(serie: "F001", correlative: "2")
-        #expect(factura.netAmount == 10.00)
-        #expect(factura.taxAmount == 1.80)
-        #expect(factura.totalAmount == 11.80)
-        #expect(factura.paymentCondition == .cash)
-
-        try await verifyFacturaLifecycle(
-            factura,
-            temporaryDirectoryPrefix: "FlorShopCPE-FacturaSmallIntegration"
-        )
-    }
+@Test func facturaSmallLifecycle() async throws {
+    //MARK: Creation
+    let factura = try FacturaSmallExample.getFacturaSmall(serie: "F001", correlative: "2")
+    #expect(factura.netAmount == 10.00)
+    #expect(factura.taxAmount == 1.80)
+    #expect(factura.totalAmount == 11.80)
+    #expect(factura.paymentCondition == .cash)
+    
+    try await verifyFacturaLifecycle(
+        factura,
+        temporaryDirectoryPrefix: "FlorShopCPE-FacturaSmallIntegration"
+    )
 }
 
 private func verifyFacturaLifecycle(_ factura: Factura, temporaryDirectoryPrefix: String) async throws {
