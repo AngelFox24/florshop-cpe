@@ -345,7 +345,7 @@ import ZIPFoundation
     )
     let boleta = makeBoleta()
     let document = try CPEDocumentWriter().write(
-        SignedCPE(xml: Data("<Invoice />".utf8), identity: CPEIdentity(document: boleta)),
+        SignedBillCPE(xml: Data("<Invoice />".utf8), identity: CPEIdentity(document: boleta)),
         output: output
     )
     
@@ -451,7 +451,7 @@ import ZIPFoundation
     let output = outputConfiguration(in: directoryURL)
     let boleta = makeBoleta(emitterRUC: "10708255195")
     let document = try CPEDocumentWriter().write(
-        SignedCPE(xml: Data("<Invoice />".utf8), identity: CPEIdentity(document: boleta)),
+        SignedBillCPE(xml: Data("<Invoice />".utf8), identity: CPEIdentity(document: boleta)),
         output: output
     )
     let transport = CapturingSunatHTTPTransport(response: try makeCDRResponse(
@@ -542,7 +542,7 @@ import ZIPFoundation
     
     let boleta = makeBoleta()
     let document = try CPEDocumentWriter().write(
-        SignedCPE(xml: Data("<Invoice />".utf8), identity: CPEIdentity(document: boleta)),
+        SignedBillCPE(xml: Data("<Invoice />".utf8), identity: CPEIdentity(document: boleta)),
         output: outputConfiguration(in: directoryURL)
     )
     let fault = """
@@ -724,7 +724,7 @@ private func outputConfiguration(in directoryURL: URL) -> CPEOutputConfiguration
 /// poca separación. Solo esta prueba de integración reintenta ese caso; la
 /// librería conserva la respuesta HTTP original para sus consumidores.
 private func submitToSunatBeta(
-    document: CPEDocument,
+    document: SunatBillDocument,
     emitterRUC: String
 ) async throws -> SunatBillSubmissionResult {
     let maximumAttempts = 3
@@ -811,8 +811,8 @@ private actor CapturingSunatHTTPTransport: SunatHTTPTransport {
 private func printSignedBoletaBetaXML(
     scenario: String,
     boleta: Boleta,
-    signedCPE: SignedCPE,
-    document: CPEDocument
+    signedCPE: SignedBillCPE,
+    document: SunatBillDocument
 ) {
     print("""
 

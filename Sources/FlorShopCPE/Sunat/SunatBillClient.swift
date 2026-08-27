@@ -108,15 +108,15 @@ public struct URLSessionSunatHTTPTransport: SunatHTTPTransport {
 
 /// Cliente SUNAT para enviar una factura, boleta o nota individual mediante la
 /// operación SOAP `sendBill`.
-public struct SunatBillClient {
-    public static let betaEndpoint = URL(string: "https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService")!
-    public static let productionEndpoint = URL(string: "https://e-factura.sunat.gob.pe/ol-ti-itcpfegem/billService")!
+struct SunatBillClient {
+    static let betaEndpoint = URL(string: "https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService")!
+    static let productionEndpoint = URL(string: "https://e-factura.sunat.gob.pe/ol-ti-itcpfegem/billService")!
 
     private let transport: any SunatHTTPTransport
     private let packageValidator: SunatBillPackageValidator
     private let documentWriter: CPEDocumentWriter
 
-    public init(
+    init(
         transport: any SunatHTTPTransport = URLSessionSunatHTTPTransport(),
         packageValidator: SunatBillPackageValidator = SunatBillPackageValidator(),
         documentWriter: CPEDocumentWriter = CPEDocumentWriter()
@@ -129,8 +129,8 @@ public struct SunatBillClient {
     /// Envía un comprobante previamente preparado. El ZIP y la carpeta CDR
     /// permanecen encapsulados en `CPEDocument`.
     ///
-    public func submit(
-        document: CPEDocument,
+    func submit(
+        document: SunatBillDocument,
         credentials: SunatCredentials
     ) async throws -> SunatBillSubmissionResult {
         let configuration = try configuration(for: credentials)

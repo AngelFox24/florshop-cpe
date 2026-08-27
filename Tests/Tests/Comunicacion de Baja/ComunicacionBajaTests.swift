@@ -133,7 +133,7 @@ import Testing
     defer { try? FileManager.default.removeItem(at: directory) }
     let communication = try makeVoidedDocuments()
     let document = try CPEDocumentWriter().write(
-        SignedCPE(xml: Data("<VoidedDocuments />".utf8), identity: CPEIdentity(communication: communication)),
+        SignedSummaryCPE(xml: Data("<VoidedDocuments />".utf8), identity: CPEIdentity(communication: communication)),
         output: CPEOutputConfiguration(rootDirectory: directory)
     )
 
@@ -326,6 +326,7 @@ import Testing
         
         """)
     
+    #expect(signedCommunication.identity.documentType == .comunicacionBaja)
     #expect(signedCommunication.identity.documentTypeCode == "RA")
     #expect(try XMLSecSignatureVerifier().verify(signedInvoice.xml))
     #expect(try XMLSecSignatureVerifier().verify(signedCommunication.xml))
@@ -423,7 +424,7 @@ private func signWriteAndSubmitVoidedPrerequisite(
 /// consecutivas. Estos reintentos pertenecen solo al test de integración; la
 /// librería entrega el error original para que el POS decida su política.
 private func submitVoidedPrerequisiteToSunatBeta(
-    document: CPEDocument,
+    document: SunatBillDocument,
     emitterRUC: String
 ) async throws -> SunatBillSubmissionResult {
     let maximumAttempts = 3
@@ -448,7 +449,7 @@ private func submitVoidedPrerequisiteToSunatBeta(
 }
 
 private func submitVoidedDocumentsToSunatBeta(
-    document: CPEDocument,
+    document: SunatSummaryDocument,
     emitterRUC: String
 ) async throws -> SunatSummarySubmission {
     let maximumAttempts = 3
@@ -472,7 +473,7 @@ private func submitVoidedDocumentsToSunatBeta(
     preconditionFailure("El bucle de reintentos debe devolver o lanzar un error.")
 }
 
-private func printVoidedXML(_ signed: SignedCPE, document: CPEDocument, label: String) {
+private func printVoidedXML(_ signed: any SignedCPE, document: any CPEDocument, label: String) {
     print("""
 
     ===== SUNAT BETA \(label): XML FIRMADO =====
@@ -484,11 +485,11 @@ private func printVoidedXML(_ signed: SignedCPE, document: CPEDocument, label: S
     """)
 }
 
-private func makePreparedVoidedDocument() throws -> (CPEDocument, URL) {
+private func makePreparedVoidedDocument() throws -> (SunatSummaryDocument, URL) {
     let directory = try makeVoidedTemporaryDirectory()
     let communication = try makeVoidedDocuments()
     let document = try CPEDocumentWriter().write(
-        SignedCPE(
+        SignedSummaryCPE(
             xml: Data("<VoidedDocuments />".utf8),
             identity: CPEIdentity(communication: communication)
         ),

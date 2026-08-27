@@ -5,14 +5,14 @@ import XMLSecBridge
 #endif
 
 /// Firma los CPE UBL soportados mediante XMLDSIG usando libxmlsec.
-public struct XMLSecCPESigner: CPESigning, CreditNoteSigning, DebitNoteSigning, VoidedDocumentsSigning {
+struct XMLSecCPESigner: CPESigning, CreditNoteSigning, DebitNoteSigning, VoidedDocumentsSigning {
     private let transformer: any UBLInvoiceXMLTransforming
     private let dailySummaryTransformer: any DailySummaryXMLTransforming
     private let creditNoteTransformer: any CreditNoteXMLTransforming
     private let debitNoteTransformer: any DebitNoteXMLTransforming
     private let voidedDocumentsTransformer: any VoidedDocumentsXMLTransforming
 
-    public init(
+    init(
         transformer: any UBLInvoiceXMLTransforming = UBLInvoiceXMLTransformer(),
         dailySummaryTransformer: any DailySummaryXMLTransforming = DailySummaryXMLTransformer(),
         creditNoteTransformer: any CreditNoteXMLTransforming = CreditNoteXMLTransformer(),
@@ -26,87 +26,97 @@ public struct XMLSecCPESigner: CPESigning, CreditNoteSigning, DebitNoteSigning, 
         self.voidedDocumentsTransformer = voidedDocumentsTransformer
     }
 
-    public func sign(_ summary: ResumenDiarioBoletas, configuration: SigningConfiguration) throws -> SignedCPE {
+    func sign(_ summary: ResumenDiarioBoletas, configuration: SigningConfiguration) throws -> SignedSummaryCPE {
         let unsignedXML = try dailySummaryTransformer.transform(summary)
         switch configuration.credentials {
         case let .pkcs12(path, passwordProvider):
-            return try signPKCS12(
-                xml: Data(unsignedXML.utf8),
-                path: path,
-                password: passwordProvider(),
-                signatureID: SignatureInformation.xmlSignatureID,
+            return SignedSummaryCPE(
+                xml: try signPKCS12(
+                    xml: Data(unsignedXML.utf8),
+                    path: path,
+                    password: passwordProvider(),
+                    signatureID: SignatureInformation.xmlSignatureID
+                ),
                 identity: CPEIdentity(summary: summary)
             )
         }
     }
 
-    public func sign(
+    func sign(
         _ document: any UBLInvoiceDocument,
         configuration: SigningConfiguration
-    ) throws -> SignedCPE {
+    ) throws -> SignedBillCPE {
         let unsignedXML = try transformer.transform(document)
 
         switch configuration.credentials {
         case let .pkcs12(path, passwordProvider):
-            return try signPKCS12(
-                xml: Data(unsignedXML.utf8),
-                path: path,
-                password: passwordProvider(),
-                signatureID: SignatureInformation.xmlSignatureID,
+            return SignedBillCPE(
+                xml: try signPKCS12(
+                    xml: Data(unsignedXML.utf8),
+                    path: path,
+                    password: passwordProvider(),
+                    signatureID: SignatureInformation.xmlSignatureID
+                ),
                 identity: CPEIdentity(document: document)
             )
         }
     }
 
-    public func sign(
+    func sign(
         _ note: NotaCredito,
         configuration: SigningConfiguration
-    ) throws -> SignedCPE {
+    ) throws -> SignedBillCPE {
         let unsignedXML = try creditNoteTransformer.transform(note)
 
         switch configuration.credentials {
         case let .pkcs12(path, passwordProvider):
-            return try signPKCS12(
-                xml: Data(unsignedXML.utf8),
-                path: path,
-                password: passwordProvider(),
-                signatureID: SignatureInformation.xmlSignatureID,
+            return SignedBillCPE(
+                xml: try signPKCS12(
+                    xml: Data(unsignedXML.utf8),
+                    path: path,
+                    password: passwordProvider(),
+                    signatureID: SignatureInformation.xmlSignatureID
+                ),
                 identity: CPEIdentity(note: note)
             )
         }
     }
 
-    public func sign(
+    func sign(
         _ note: NotaDebito,
         configuration: SigningConfiguration
-    ) throws -> SignedCPE {
+    ) throws -> SignedBillCPE {
         let unsignedXML = try debitNoteTransformer.transform(note)
 
         switch configuration.credentials {
         case let .pkcs12(path, passwordProvider):
-            return try signPKCS12(
-                xml: Data(unsignedXML.utf8),
-                path: path,
-                password: passwordProvider(),
-                signatureID: SignatureInformation.xmlSignatureID,
+            return SignedBillCPE(
+                xml: try signPKCS12(
+                    xml: Data(unsignedXML.utf8),
+                    path: path,
+                    password: passwordProvider(),
+                    signatureID: SignatureInformation.xmlSignatureID
+                ),
                 identity: CPEIdentity(debitNote: note)
             )
         }
     }
 
-    public func sign(
+    func sign(
         _ communication: ComunicacionBaja,
         configuration: SigningConfiguration
-    ) throws -> SignedCPE {
+    ) throws -> SignedSummaryCPE {
         let unsignedXML = try voidedDocumentsTransformer.transform(communication)
 
         switch configuration.credentials {
         case let .pkcs12(path, passwordProvider):
-            return try signPKCS12(
-                xml: Data(unsignedXML.utf8),
-                path: path,
-                password: passwordProvider(),
-                signatureID: SignatureInformation.xmlSignatureID,
+            return SignedSummaryCPE(
+                xml: try signPKCS12(
+                    xml: Data(unsignedXML.utf8),
+                    path: path,
+                    password: passwordProvider(),
+                    signatureID: SignatureInformation.xmlSignatureID
+                ),
                 identity: CPEIdentity(communication: communication)
             )
         }
@@ -116,9 +126,8 @@ public struct XMLSecCPESigner: CPESigning, CreditNoteSigning, DebitNoteSigning, 
         xml: Data,
         path: URL,
         password: String,
-        signatureID: String,
-        identity: CPEIdentity
-    ) throws -> SignedCPE {
+        signatureID: String
+    ) throws -> Data {
         #if os(Linux) || os(macOS)
         var signedXML: UnsafeMutablePointer<UInt8>?
         var signedXMLSize = 0
@@ -152,10 +161,7 @@ public struct XMLSecCPESigner: CPESigning, CreditNoteSigning, DebitNoteSigning, 
             let message = errorMessage.map { String(cString: $0) } ?? "Error desconocido de libxmlsec."
             throw CPESigningError.signingFailed(message)
         }
-        return SignedCPE(
-            xml: Data(bytes: signedXML, count: signedXMLSize),
-            identity: identity
-        )
+        return Data(bytes: signedXML, count: signedXMLSize)
         #else
         throw CPESigningError.unsupportedPlatform
         #endif

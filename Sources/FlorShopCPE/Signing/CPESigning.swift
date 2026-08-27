@@ -1,60 +1,70 @@
 import Foundation
 
-public protocol CPESigning {
+protocol CPESigning {
     func sign(
         _ document: any UBLInvoiceDocument,
         configuration: SigningConfiguration
-    ) throws -> SignedCPE
+    ) throws -> SignedBillCPE
 }
 
-/// Capacidad de firma específica para notas de crédito.
-///
-/// Se mantiene separada de `CPESigning` para que agregar este tipo de CPE no
-/// rompa implementaciones existentes que ya conforman al protocolo original.
-public protocol CreditNoteSigning {
+/// Capacidad interna de firma específica para notas de crédito.
+protocol CreditNoteSigning {
     func sign(
         _ note: NotaCredito,
         configuration: SigningConfiguration
-    ) throws -> SignedCPE
+    ) throws -> SignedBillCPE
 }
 
-/// Capacidad de firma específica para notas de débito.
-///
-/// Se mantiene separada de `CPESigning` para preservar compatibilidad con
-/// firmadores externos que ya implementan el protocolo original.
-public protocol DebitNoteSigning {
+/// Capacidad interna de firma específica para notas de débito.
+protocol DebitNoteSigning {
     func sign(
         _ note: NotaDebito,
         configuration: SigningConfiguration
-    ) throws -> SignedCPE
+    ) throws -> SignedBillCPE
 }
 
-/// Capacidad de firma específica para comunicaciones de baja.
-///
-/// Se mantiene separada de los protocolos existentes para no romper
-/// firmadores externos que ya los implementan.
-public protocol VoidedDocumentsSigning {
+/// Capacidad interna de firma específica para comunicaciones de baja.
+protocol VoidedDocumentsSigning {
     func sign(
         _ communication: ComunicacionBaja,
         configuration: SigningConfiguration
-    ) throws -> SignedCPE
+    ) throws -> SignedSummaryCPE
 }
 
 /// Comprobante electrónico firmado, aún sin escribir en disco.
 ///
 /// Además del XML, conserva la identidad necesaria para crear sus archivos
 /// SUNAT sin volver a pedir el modelo de dominio original.
-public struct SignedCPE: Sendable {
+public protocol SignedCPE: Sendable {
+    var xml: Data { get }
+    var identity: CPEIdentity { get }
+}
+
+public extension SignedCPE {
+    var xmlString: String? {
+        String(data: xml, encoding: .utf8)
+    }
+}
+
+/// CPE firmado que se envía mediante la operación SUNAT `sendBill`.
+public struct SignedBillCPE: SignedCPE {
     public let xml: Data
     public let identity: CPEIdentity
 
-    public init(xml: Data, identity: CPEIdentity) {
+    init(xml: Data, identity: CPEIdentity) {
         self.xml = xml
         self.identity = identity
     }
+}
 
-    public var xmlString: String? {
-        String(data: xml, encoding: .utf8)
+/// CPE firmado que se envía mediante la operación SUNAT `sendSummary`.
+public struct SignedSummaryCPE: SignedCPE {
+    public let xml: Data
+    public let identity: CPEIdentity
+
+    init(xml: Data, identity: CPEIdentity) {
+        self.xml = xml
+        self.identity = identity
     }
 }
 

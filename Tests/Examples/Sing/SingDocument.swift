@@ -2,10 +2,9 @@ import Foundation
 import FlorShopCPE
 
 struct SingDocumentExample {
-    // Boleta y Factura conforman UBLInvoiceDocument.
-    static func sing(document: UBLInvoiceDocument) throws -> SignedCPE {
+    static func sing(document: Factura) throws -> SignedBillCPE {
         // MARK: Example of Sing
-        let signedDocument: SignedCPE = try XMLSecCPESigner().sign(
+        let signedDocument: SignedBillCPE = try FlorShopCPE.sign(
             document,
             configuration: configuration
         )
@@ -13,20 +12,24 @@ struct SingDocumentExample {
         return signedDocument
     }
 
-    static func sing(document: NotaCredito) throws -> SignedCPE {
-        try XMLSecCPESigner().sign(document, configuration: configuration)
+    static func sing(document: Boleta) throws -> SignedBillCPE {
+        try FlorShopCPE.sign(document, configuration: configuration)
     }
 
-    static func sing(document: NotaDebito) throws -> SignedCPE {
-        try XMLSecCPESigner().sign(document, configuration: configuration)
+    static func sing(document: NotaCredito) throws -> SignedBillCPE {
+        try FlorShopCPE.sign(document, configuration: configuration)
     }
 
-    static func sing(document: ResumenDiarioBoletas) throws -> SignedCPE {
-        try XMLSecCPESigner().sign(document, configuration: configuration)
+    static func sing(document: NotaDebito) throws -> SignedBillCPE {
+        try FlorShopCPE.sign(document, configuration: configuration)
     }
 
-    static func sing(document: ComunicacionBaja) throws -> SignedCPE {
-        try XMLSecCPESigner().sign(document, configuration: configuration)
+    static func sing(document: ResumenDiarioBoletas) throws -> SignedSummaryCPE {
+        try FlorShopCPE.sign(document, configuration: configuration)
+    }
+
+    static func sing(document: ComunicacionBaja) throws -> SignedSummaryCPE {
+        try FlorShopCPE.sign(document, configuration: configuration)
     }
 
     private static var configuration: SigningConfiguration {

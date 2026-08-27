@@ -28,7 +28,7 @@ import Testing
 private func verifyNotaCreditoLifecycle(_ note: NotaCredito, prefix: String) async throws {
     //MARK: Sing
     let signedNote = try SingDocumentExample.sing(document: note)
-    #expect(try XMLSecSignatureVerifier().verify(signedNote.xml))
+    #expect(try FlorShopCPE.verify(signedNote.xml))
 
     try await withTemporaryDirectory(prefix: prefix) { directory in
         //MARK: Zip

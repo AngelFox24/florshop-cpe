@@ -129,10 +129,11 @@ import ZIPFoundation
     let note = makeCreditNote()
     let identity = CPEIdentity(note: note)
     let document = try CPEDocumentWriter().write(
-        SignedCPE(xml: Data("<CreditNote />".utf8), identity: identity),
+        SignedBillCPE(xml: Data("<CreditNote />".utf8), identity: identity),
         output: CPEOutputConfiguration(rootDirectory: directory)
     )
 
+    #expect(identity.documentType == .notaDeCredito)
     #expect(identity.fileBaseName == "10708255195-07-FC01-200")
     #expect(document.signedXMLURL.lastPathComponent == "10708255195-07-FC01-200.xml")
     #expect(document.zipURL.lastPathComponent == "10708255195-07-FC01-200.zip")
@@ -406,7 +407,7 @@ private func creditNoteSigningConfiguration(
 }
 
 private func writePrintAndSubmit(
-    _ signed: SignedCPE,
+    _ signed: SignedBillCPE,
     emitterRUC: String,
     label: String
 ) async throws -> SunatBillSubmissionResult {
@@ -449,7 +450,7 @@ private func writePrintAndSubmit(
 /// MODDATOS consecutivas. Este reintento pertenece únicamente al test de
 /// integración; la librería continúa entregando el error original al POS.
 private func submitCreditNoteScenarioToSunatBeta(
-    document: CPEDocument,
+    document: SunatBillDocument,
     emitterRUC: String,
     label: String
 ) async throws -> SunatBillSubmissionResult {

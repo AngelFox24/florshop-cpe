@@ -3,17 +3,20 @@ import FlorShopCPE
 
 struct ZipDocumentExample {
     // Example of SignedCPE in: Examples/Sing/SingDocument.swift
-    static func zip(signedDocument: SignedCPE, url: URL) throws -> CPEDocument {
+    static func zip(signedDocument: SignedBillCPE, url: URL) throws -> SunatBillDocument {
         // MARK: Example of Zip
-        let document: CPEDocument = try CPEDocumentWriter().write(
+        let document: SunatBillDocument = try FlorShopCPE.write(
             signedDocument,
             output: CPEOutputConfiguration(rootDirectory: url) //La URL de rootDirectory es la ruta donde se guardara los archivos
         )
-        // CPEDocument tiene los atributos .signedXMLURL que hace referencia a una URL donde esta (completar)
-        let signedXML: URL = document.signedXMLURL
-        // CPEDocument tiene los atributos .zipURL que hace referencia a una URL donde esta (completar)
-        let zip: URL = document.zipURL
         // MARK: End of Example of SING
         return document
+    }
+
+    static func zip(signedDocument: SignedSummaryCPE, url: URL) throws -> SunatSummaryDocument {
+        try FlorShopCPE.write(
+            signedDocument,
+            output: CPEOutputConfiguration(rootDirectory: url)
+        )
     }
 }

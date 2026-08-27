@@ -34,15 +34,15 @@ public enum SunatSummaryProcessingResult: Sendable {
 }
 
 /// Cliente del flujo asíncrono `sendSummary` / `getStatus` de SUNAT.
-public struct SunatSummaryClient {
-    public static let betaEndpoint = SunatBillClient.betaEndpoint
-    public static let productionEndpoint = SunatBillClient.productionEndpoint
+struct SunatSummaryClient {
+    static let betaEndpoint = SunatBillClient.betaEndpoint
+    static let productionEndpoint = SunatBillClient.productionEndpoint
 
     private let transport: any SunatHTTPTransport
     private let packageValidator: SunatSummaryPackageValidator
     private let documentWriter: CPEDocumentWriter
 
-    public init(
+    init(
         transport: any SunatHTTPTransport = URLSessionSunatHTTPTransport(),
         packageValidator: SunatSummaryPackageValidator = SunatSummaryPackageValidator(),
         documentWriter: CPEDocumentWriter = CPEDocumentWriter()
@@ -52,8 +52,8 @@ public struct SunatSummaryClient {
         self.documentWriter = documentWriter
     }
 
-    public func submit(
-        document: CPEDocument,
+    func submit(
+        document: SunatSummaryDocument,
         credentials: SunatCredentials
     ) async throws -> SunatSummarySubmission {
         let configuration = try configuration(for: credentials)
@@ -74,9 +74,9 @@ public struct SunatSummaryClient {
 
     /// Consulta una vez el ticket. El consumidor decide cuándo volver a
     /// consultar si SUNAT devuelve el código 98 (en proceso).
-    public func status(
+    func status(
         ticket: String,
-        document: CPEDocument,
+        document: SunatSummaryDocument,
         credentials: SunatCredentials
     ) async throws -> SunatSummaryProcessingResult {
         guard !ticket.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {

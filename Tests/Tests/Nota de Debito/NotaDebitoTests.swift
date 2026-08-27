@@ -153,10 +153,11 @@ import Testing
     let note = makeDebitNote()
     let identity = CPEIdentity(debitNote: note)
     let document = try CPEDocumentWriter().write(
-        SignedCPE(xml: Data("<DebitNote />".utf8), identity: identity),
+        SignedBillCPE(xml: Data("<DebitNote />".utf8), identity: identity),
         output: CPEOutputConfiguration(rootDirectory: directory)
     )
 
+    #expect(identity.documentType == .notaDeDebito)
     #expect(identity.fileBaseName == "10708255195-08-FD01-200")
     #expect(document.signedXMLURL.lastPathComponent == "10708255195-08-FD01-200.xml")
     #expect(document.zipURL.lastPathComponent == "10708255195-08-FD01-200.zip")
@@ -445,7 +446,7 @@ private func debitNoteSigningConfiguration(
 }
 
 private func writePrintAndSubmitDebitScenario(
-    _ signed: SignedCPE,
+    _ signed: SignedBillCPE,
     emitterRUC: String,
     label: String
 ) async throws -> SunatBillSubmissionResult {
@@ -488,7 +489,7 @@ private func writePrintAndSubmitDebitScenario(
 /// MODDATOS consecutivas. Este reintento pertenece únicamente al test de
 /// integración; la librería continúa entregando el error original al POS.
 private func submitDebitNoteScenarioToSunatBeta(
-    document: CPEDocument,
+    document: SunatBillDocument,
     emitterRUC: String,
     label: String
 ) async throws -> SunatBillSubmissionResult {

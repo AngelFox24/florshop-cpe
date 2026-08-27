@@ -30,7 +30,7 @@ import Testing
 private func verifyComunicacionBajaLifecycle(_ communication: ComunicacionBaja, prefix: String) async throws {
     //MARK: Sing
     let signedCommunication = try SingDocumentExample.sing(document: communication)
-    #expect(try XMLSecSignatureVerifier().verify(signedCommunication.xml))
+    #expect(try FlorShopCPE.verify(signedCommunication.xml))
 
     try await withTemporaryDirectory(prefix: prefix) { directory in
         //MARK: Zip

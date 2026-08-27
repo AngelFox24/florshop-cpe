@@ -116,6 +116,7 @@ import ZIPFoundation
 @Test func facturaUsesTheSUNATInvoiceFileIdentity() {
     let identity = CPEIdentity(document: makeFactura())
 
+    #expect(identity.documentType == .factura)
     #expect(identity.fileBaseName == "20566331030-01-F001-1137")
 }
 
@@ -128,7 +129,7 @@ import ZIPFoundation
 
     let factura = makeFactura()
     let document = try CPEDocumentWriter().write(
-        SignedCPE(
+        SignedBillCPE(
             xml: Data("<Invoice />".utf8),
             identity: CPEIdentity(document: factura)
         ),
@@ -465,7 +466,7 @@ private func signAndSubmitFacturaToSunatBeta(
 /// SUNAT BETA puede responder 401 cuando MODDATOS recibe autenticaciones muy
 /// próximas. Se reintenta solamente ese caso, igual que en la suite de Boleta.
 private func submitFacturaToSunatBeta(
-    document: CPEDocument,
+    document: SunatBillDocument,
     emitterRUC: String
 ) async throws -> SunatBillSubmissionResult {
     let maximumAttempts = 3

@@ -44,7 +44,7 @@ import Testing
 private func verifyResumenDiarioLifecycle(_ summary: ResumenDiarioBoletas, prefix: String) async throws {
     //MARK: Sing
     let signedSummary = try SingDocumentExample.sing(document: summary)
-    #expect(try XMLSecSignatureVerifier().verify(signedSummary.xml))
+    #expect(try FlorShopCPE.verify(signedSummary.xml))
     try await withTemporaryDirectory(prefix: prefix) { directory in
         //MARK: Zip
         let document = try ZipDocumentExample.zip(signedDocument: signedSummary, url: directory)

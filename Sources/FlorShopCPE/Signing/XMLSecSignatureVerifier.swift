@@ -5,7 +5,7 @@ import XMLSecBridge
 #endif
 
 /// Verifica la integridad de una firma XMLDSIG contenida en un documento UBL.
-public protocol XMLSignatureVerifying {
+protocol XMLSignatureVerifying {
     /// - Returns: `true` si la firma coincide con el contenido actual del XML;
     ///   `false` si el XML fue alterado o la firma no es válida.
     ///
@@ -20,10 +20,10 @@ public enum XMLSignatureVerificationError: Error, Equatable {
     case verificationFailed(String)
 }
 
-public struct XMLSecSignatureVerifier: XMLSignatureVerifying {
-    public init() {}
+struct XMLSecSignatureVerifier: XMLSignatureVerifying {
+    init() {}
 
-    public func verify(_ xml: Data) throws -> Bool {
+    func verify(_ xml: Data) throws -> Bool {
         #if os(Linux) || os(macOS)
         var errorMessage: UnsafeMutablePointer<CChar>?
         let result = xml.withUnsafeBytes { xmlBytes in

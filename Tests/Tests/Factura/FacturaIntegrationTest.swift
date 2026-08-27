@@ -34,7 +34,7 @@ import Testing
 private func verifyFacturaLifecycle(_ factura: Factura, temporaryDirectoryPrefix: String) async throws {
     //MARK: Sing
     let signedFactura = try SingDocumentExample.sing(document: factura)
-    #expect(try XMLSecSignatureVerifier().verify(signedFactura.xml))
+    #expect(try FlorShopCPE.verify(signedFactura.xml))
 
     try await withTemporaryDirectory(prefix: temporaryDirectoryPrefix) { directory in
         //MARK: Zip

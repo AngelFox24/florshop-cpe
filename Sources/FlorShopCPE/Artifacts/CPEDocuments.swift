@@ -1,26 +1,44 @@
 import Foundation
 
+/// Tipo de CPE usado para construir sus archivos y seleccionar el flujo SUNAT.
+public enum CPEDocumentType: String, Sendable {
+    case factura = "01"
+    case boleta = "03"
+    case notaDeCredito = "07"
+    case notaDeDebito = "08"
+    case resumenDiario = "RC"
+    case comunicacionBaja = "RA"
+
+    public init(_ documentType: ElectronicDocumentType) {
+        switch documentType {
+        case .factura: self = .factura
+        case .boleta: self = .boleta
+        case .notaDeCredito: self = .notaDeCredito
+        case .notaDeDebito: self = .notaDeDebito
+        }
+    }
+}
+
 /// Identidad usada para los nombres de archivo exigidos por SUNAT.
 public struct CPEIdentity: Sendable, Equatable {
     public let emitterRUC: String
-    /// Código usado en el nombre SUNAT (`01`, `03`, `07`, `08`, `RC`, `RA`).
-    public let documentTypeCode: String
+    public let documentType: CPEDocumentType
     public let documentIdentifier: String
 
     public init(
         emitterRUC: String,
-        documentType: ElectronicDocumentType,
+        documentType: CPEDocumentType,
         documentIdentifier: String
     ) {
         self.emitterRUC = emitterRUC
-        self.documentTypeCode = documentType.rawValue
+        self.documentType = documentType
         self.documentIdentifier = documentIdentifier
     }
 
     public init(document: any UBLInvoiceDocument) {
         self.init(
             emitterRUC: document.supplier.taxIdentifier.value,
-            documentType: document.documentType,
+            documentType: CPEDocumentType(document.documentType),
             documentIdentifier: document.identifier.value
         )
     }
@@ -28,7 +46,7 @@ public struct CPEIdentity: Sendable, Equatable {
     public init(note: NotaCredito) {
         self.init(
             emitterRUC: note.supplier.taxIdentifier.value,
-            documentType: note.documentType,
+            documentType: CPEDocumentType(note.documentType),
             documentIdentifier: note.identifier.value
         )
     }
@@ -36,7 +54,7 @@ public struct CPEIdentity: Sendable, Equatable {
     public init(debitNote: NotaDebito) {
         self.init(
             emitterRUC: debitNote.supplier.taxIdentifier.value,
-            documentType: debitNote.documentType,
+            documentType: CPEDocumentType(debitNote.documentType),
             documentIdentifier: debitNote.identifier.value
         )
     }
@@ -44,7 +62,7 @@ public struct CPEIdentity: Sendable, Equatable {
     public init(summary: ResumenDiarioBoletas) {
         self.init(
             emitterRUC: summary.supplier.taxIdentifier.value,
-            documentTypeCode: "RC",
+            documentType: .resumenDiario,
             documentIdentifier: String(summary.identifier.value.dropFirst(3))
         )
     }
@@ -52,19 +70,14 @@ public struct CPEIdentity: Sendable, Equatable {
     public init(communication: ComunicacionBaja) {
         self.init(
             emitterRUC: communication.supplier.taxIdentifier.value,
-            documentTypeCode: "RA",
+            documentType: .comunicacionBaja,
             documentIdentifier: String(communication.identifier.value.dropFirst(3))
         )
     }
 
-    private init(
-        emitterRUC: String,
-        documentTypeCode: String,
-        documentIdentifier: String
-    ) {
-        self.emitterRUC = emitterRUC
-        self.documentTypeCode = documentTypeCode
-        self.documentIdentifier = documentIdentifier
+    /// Código usado en el nombre SUNAT (`01`, `03`, `07`, `08`, `RC`, `RA`).
+    public var documentTypeCode: String {
+        documentType.rawValue
     }
 
     public var fileBaseName: String {
@@ -82,15 +95,38 @@ public struct CPEOutputConfiguration: Sendable {
     }
 }
 
-/// Comprobante preparado para envío. Encapsula sus rutas internas para que el
-/// consumidor no tenga que pasar el ZIP ni la carpeta CDR manualmente.
-public struct CPEDocument: Sendable {
+/// Interfaz común de un comprobante preparado para enviar a SUNAT.
+public protocol CPEDocument: Sendable {
+    var identity: CPEIdentity { get }
+    var signedXMLURL: URL { get }
+    var zipURL: URL { get }
+    var cdrDirectory: URL { get }
+}
+
+/// Documento preparado para la operación SUNAT `sendBill`.
+public struct SunatBillDocument: CPEDocument {
     public let identity: CPEIdentity
     public let signedXMLURL: URL
     public let zipURL: URL
     public let cdrDirectory: URL
 
-    public init(identity: CPEIdentity, signedXMLURL: URL, zipURL: URL, cdrDirectory: URL) {
+    init(identity: CPEIdentity, signedXMLURL: URL, zipURL: URL, cdrDirectory: URL) {
+        self.identity = identity
+        self.signedXMLURL = signedXMLURL
+        self.zipURL = zipURL
+        self.cdrDirectory = cdrDirectory
+    }
+}
+
+/// Documento preparado para las operaciones SUNAT `sendSummary` y
+/// `getStatus`.
+public struct SunatSummaryDocument: CPEDocument {
+    public let identity: CPEIdentity
+    public let signedXMLURL: URL
+    public let zipURL: URL
+    public let cdrDirectory: URL
+
+    init(identity: CPEIdentity, signedXMLURL: URL, zipURL: URL, cdrDirectory: URL) {
         self.identity = identity
         self.signedXMLURL = signedXMLURL
         self.zipURL = zipURL
@@ -117,12 +153,12 @@ public enum CPEDocumentWritingError: Error, Equatable {
     case unableToWriteCDRXML
 }
 
-/// Escribe los archivos de un CPE y encapsula sus rutas en `CPEDocument`.
-public struct CPEDocumentWriter {
+/// Escribe los archivos de un CPE y encapsula sus rutas en un documento SUNAT.
+struct CPEDocumentWriter {
     private let fileManager: FileManager
     private let packager: XMLDocumentPackager
 
-    public init(
+    init(
         fileManager: FileManager = .default,
         packager: XMLDocumentPackager = XMLDocumentPackager()
     ) {
@@ -130,10 +166,36 @@ public struct CPEDocumentWriter {
         self.packager = packager
     }
 
-    public func write(
-        _ signedCPE: SignedCPE,
+    func write(
+        _ signedCPE: SignedBillCPE,
         output: CPEOutputConfiguration
-    ) throws -> CPEDocument {
+    ) throws -> SunatBillDocument {
+        let artifacts = try writeArtifacts(signedCPE, output: output)
+        return SunatBillDocument(
+            identity: signedCPE.identity,
+            signedXMLURL: artifacts.signedXMLURL,
+            zipURL: artifacts.zipURL,
+            cdrDirectory: artifacts.cdrDirectory
+        )
+    }
+
+    func write(
+        _ signedCPE: SignedSummaryCPE,
+        output: CPEOutputConfiguration
+    ) throws -> SunatSummaryDocument {
+        let artifacts = try writeArtifacts(signedCPE, output: output)
+        return SunatSummaryDocument(
+            identity: signedCPE.identity,
+            signedXMLURL: artifacts.signedXMLURL,
+            zipURL: artifacts.zipURL,
+            cdrDirectory: artifacts.cdrDirectory
+        )
+    }
+
+    private func writeArtifacts(
+        _ signedCPE: any SignedCPE,
+        output: CPEOutputConfiguration
+    ) throws -> WrittenCPEArtifacts {
         let directories = try outputDirectories(for: output)
         let fileBaseName = signedCPE.identity.fileBaseName
         let xmlURL = directories.xml.appendingPathComponent(fileBaseName).appendingPathExtension("xml")
@@ -152,8 +214,7 @@ public struct CPEDocumentWriter {
 
         do {
             let packaged = try packager.package(xmlAt: xmlURL, destinationDirectory: directories.zip)
-            return CPEDocument(
-                identity: signedCPE.identity,
+            return WrittenCPEArtifacts(
                 signedXMLURL: xmlURL,
                 zipURL: packaged.archiveURL,
                 cdrDirectory: directories.cdr
@@ -166,7 +227,7 @@ public struct CPEDocumentWriter {
 
     func storeCDR(
         _ result: SunatBillSubmissionResult,
-        for document: CPEDocument
+        for document: any CPEDocument
     ) throws -> SunatCDRArtifacts {
         let fileBaseName = "R-\(document.identity.fileBaseName)"
         let archiveURL = document.cdrDirectory.appendingPathComponent(fileBaseName).appendingPathExtension("zip")
@@ -216,4 +277,10 @@ private struct OutputDirectories {
     let xml: URL
     let zip: URL
     let cdr: URL
+}
+
+private struct WrittenCPEArtifacts {
+    let signedXMLURL: URL
+    let zipURL: URL
+    let cdrDirectory: URL
 }

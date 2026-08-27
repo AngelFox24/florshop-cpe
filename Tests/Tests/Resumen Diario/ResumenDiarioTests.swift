@@ -177,10 +177,11 @@ import ZIPFoundation
     defer { try? fileManager.removeItem(at: directory) }
     let summary = try makeDailySummary()
     let document = try CPEDocumentWriter().write(
-        SignedCPE(xml: Data("<SummaryDocuments />".utf8), identity: CPEIdentity(summary: summary)),
+        SignedSummaryCPE(xml: Data("<SummaryDocuments />".utf8), identity: CPEIdentity(summary: summary)),
         output: CPEOutputConfiguration(rootDirectory: directory)
     )
     
+    #expect(document.identity.documentType == .resumenDiario)
     #expect(document.signedXMLURL.lastPathComponent == "20123456789-RC-20260802-00001.xml")
     #expect(document.zipURL.lastPathComponent == "20123456789-RC-20260802-00001.zip")
     let package = try SunatSummaryPackageValidator().validate(zipAt: document.zipURL)
@@ -432,11 +433,11 @@ private func makeSummaryCreditNote(number: String, affectedBoleta: Boleta) -> No
     )
 }
 
-private func makePreparedSummaryDocument() throws -> (CPEDocument, URL) {
+private func makePreparedSummaryDocument() throws -> (SunatSummaryDocument, URL) {
     let directory = try makeSummaryTemporaryDirectory()
     let summary = try makeDailySummary()
     let document = try CPEDocumentWriter().write(
-        SignedCPE(xml: Data("<SummaryDocuments />".utf8), identity: CPEIdentity(summary: summary)),
+        SignedSummaryCPE(xml: Data("<SummaryDocuments />".utf8), identity: CPEIdentity(summary: summary)),
         output: CPEOutputConfiguration(rootDirectory: directory)
     )
     return (document, directory)

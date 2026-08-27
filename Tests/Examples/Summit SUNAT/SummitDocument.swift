@@ -3,40 +3,36 @@ import FlorShopCPE
 
 struct SummitDocumentExample {
     // Example in: Examples/Zip/ZipDocument.swift to optain CPEDocument
-    static func summitBeta(document: CPEDocument, ruc: String) async throws -> SunatBillSubmissionResult {
+    static func summitBeta(document: SunatBillDocument, ruc: String) async throws -> SunatBillSubmissionResult {
         // MARK: Example of Summit Beta
-        let result: SunatBillSubmissionResult = try await SunatBillClient().submit(
+        let result: SunatBillSubmissionResult = try await FlorShopCPE.submit(
             document: document,
             credentials: .beta(emitterRUC: ruc) //Se enviara a SUNAT beta
         )
-        let status = result.status                                  //Enum: accepted, acceptedWithObservations, rejected
-        let resposeCode: String = result.responseCode
-        let descriptions: [String] = result.descriptions
-        let observations: [SunatObservation] = result.observations
         // MARK: End of Example
         return result
     }
     
-    static func summitProd(document: CPEDocument, username: String, password: String) async throws -> SunatBillSubmissionResult {
-        let result: SunatBillSubmissionResult = try await SunatBillClient().submit(
+    static func summitProd(document: SunatBillDocument, username: String, password: String) async throws -> SunatBillSubmissionResult {
+        try await FlorShopCPE.submit(
             document: document,
             credentials: .sol(username: username, password: password) //Se enviara a SUNAT Produccion
         )
-        return result
     }
 
-    static func summitSummaryBeta(document: CPEDocument, ruc: String) async throws -> SunatSummarySubmission {
+    static func summitSummaryBeta(document: SunatSummaryDocument, ruc: String) async throws -> SunatSummarySubmission {
         try await retrySummaryBetaAuthentication {
-            try await SunatSummaryClient().submit(
+            let submission: SunatSummarySubmission = try await FlorShopCPE.submit(
                 document: document,
                 credentials: .beta(emitterRUC: ruc)
             )
+            return submission
         }
     }
 
-    static func summaryStatusBeta(ticket: String, document: CPEDocument, ruc: String) async throws -> SunatSummaryProcessingResult {
+    static func summaryStatusBeta(ticket: String, document: SunatSummaryDocument, ruc: String) async throws -> SunatSummaryProcessingResult {
         try await retrySummaryBetaAuthentication {
-            try await SunatSummaryClient().status(
+            try await FlorShopCPE.status(
                 ticket: ticket,
                 document: document,
                 credentials: .beta(emitterRUC: ruc)

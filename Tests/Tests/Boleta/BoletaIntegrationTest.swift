@@ -14,7 +14,7 @@ import Testing
     
     //MARK: Sing
     let signedBoleta = try SingDocumentExample.sing(document: boleta)
-    #expect(try XMLSecSignatureVerifier().verify(signedBoleta.xml))
+    #expect(try FlorShopCPE.verify(signedBoleta.xml))
     
     try await withTemporaryDirectory(prefix: "FlorShopCPE-BoletaLargeIntegration") { temporaryDirectory in
         //MARK: Zip
@@ -75,7 +75,7 @@ import Testing
     
     //MARK: Sing
     let signedBoleta = try SingDocumentExample.sing(document: boleta)
-    #expect(try XMLSecSignatureVerifier().verify(signedBoleta.xml))
+    #expect(try FlorShopCPE.verify(signedBoleta.xml))
     
     try await withTemporaryDirectory(prefix: "FlorShopCPE-BoletaSmallIntegration") { temporaryDirectory in
         //MARK: Zip
