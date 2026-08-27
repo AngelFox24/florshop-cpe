@@ -14,9 +14,6 @@
 static const xmlChar *EXTENSION_NAMESPACE = BAD_CAST "urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2";
 static pthread_once_t XMLSEC_INITIALIZATION_ONCE = PTHREAD_ONCE_INIT;
 static int XMLSEC_INITIALIZATION_SUCCEEDED = 0;
-// libxmlsec initializes process-wide crypto state. Serializing bridge calls
-// keeps concurrent Swift Testing tasks from mutating that native state at once.
-static pthread_mutex_t XMLSEC_OPERATION_MUTEX = PTHREAD_MUTEX_INITIALIZER;
 
 static void initialize_xmlsec(void) {
     xmlInitParser();
@@ -98,7 +95,6 @@ int flor_shop_xmlsec_sign_pkcs12(
     xmlNsPtr ds_namespace = NULL;
     xmlChar *serialized = NULL;
     int serialized_size = 0;
-    int operation_lock_acquired = 0;
     int result = -1;
 
     if (signed_xml == NULL || signed_xml_size == NULL || error_message == NULL) {
@@ -113,11 +109,6 @@ int flor_shop_xmlsec_sign_pkcs12(
         set_error(error_message, "No se pudo inicializar libxmlsec.");
         goto cleanup;
     }
-    if (pthread_mutex_lock(&XMLSEC_OPERATION_MUTEX) != 0) {
-        set_error(error_message, "No se pudo bloquear la operación de firma XMLDSIG.");
-        goto cleanup;
-    }
-    operation_lock_acquired = 1;
 
     document = xmlReadMemory((const char *)xml, (int)xml_size, NULL, "UTF-8", XML_PARSE_NONET);
     if (document == NULL) {
@@ -217,9 +208,6 @@ cleanup:
     if (document != NULL) {
         xmlFreeDoc(document);
     }
-    if (operation_lock_acquired != 0) {
-        pthread_mutex_unlock(&XMLSEC_OPERATION_MUTEX);
-    }
     return result;
 }
 //MARK: VERIFY
@@ -232,7 +220,6 @@ int flor_shop_xmlsec_verify(
     xmlNodePtr signature = NULL;
     xmlSecKeysMngrPtr keys_manager = NULL;
     xmlSecDSigCtxPtr signature_context = NULL;
-    int operation_lock_acquired = 0;
     int result = -1;
 
     if (error_message == NULL) {
@@ -245,11 +232,6 @@ int flor_shop_xmlsec_verify(
         set_error(error_message, "No se pudo inicializar libxmlsec.");
         goto cleanup;
     }
-    if (pthread_mutex_lock(&XMLSEC_OPERATION_MUTEX) != 0) {
-        set_error(error_message, "No se pudo bloquear la operación de verificación XMLDSIG.");
-        goto cleanup;
-    }
-    operation_lock_acquired = 1;
 
     document = xmlReadMemory((const char *)xml, (int)xml_size, NULL, "UTF-8", XML_PARSE_NONET);
     if (document == NULL) {
@@ -294,9 +276,6 @@ cleanup:
     }
     if (document != NULL) {
         xmlFreeDoc(document);
-    }
-    if (operation_lock_acquired != 0) {
-        pthread_mutex_unlock(&XMLSEC_OPERATION_MUTEX);
     }
     return result;
 }
